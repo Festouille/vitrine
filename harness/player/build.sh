@@ -5,7 +5,7 @@ SRC=${SRC:-$(cd "$(dirname "$0")/../../tweak/Sources" && pwd)}
 OUT=${OUT:-$(dirname "$0")/build}
 rm -rf "$OUT"; mkdir -p "$OUT/gen" "$OUT/PlayerHarness.app"
 
-for f in Redesigned/Player/PlayerLyrics.x Redesigned/Player/PlayerArtwork.x Redesigned/Player/PlayerFooter.x Redesigned/Player/PlayerConnectVolume.x \
+for f in Shared/Gestures/Gestures.x Redesigned/Player/PlayerGestures.x Redesigned/Player/PlayerLyrics.x Redesigned/Player/PlayerArtwork.x Redesigned/Player/PlayerFooter.x Redesigned/Player/PlayerConnectVolume.x \
          Redesigned/Player/PlayerScroll.x Redesigned/Player/PlayerField.x Redesigned/Player/PlayerMotion.x Redesigned/Player/PlayerLandscape.x Redesigned/Player/PlayerControls.x Redesigned/Player/PlayerHeader.x Redesigned/Player/PlayerCoverAccent.x Redesigned/Kit/SGRBridges.x; do
     name=$(basename "$f" .x)
     "$THEOS/bin/logos.pl" -c generator=internal "$SRC/$f" > "$OUT/gen/$name.m"
@@ -13,7 +13,7 @@ done
 
 SDK=$(xcrun --sdk iphonesimulator --show-sdk-path)
 xcrun -sdk iphonesimulator clang -target arm64-apple-ios17.0-simulator -fobjc-arc -g -O0 \
-    -I"$SRC" -I"$SRC/Redesigned/Player" -I"$SRC/Redesigned/Kit" -I"$OUT/gen" -I"$(dirname "$0")" -isysroot "$SDK" \
+    -I"$SRC" -I"$SRC/Shared/Gestures" -I"$SRC/Redesigned/Player" -I"$SRC/Redesigned/Kit" -I"$OUT/gen" -I"$(dirname "$0")" -isysroot "$SDK" \
     -Wno-deprecated-declarations \
     "$(dirname "$0")/main.m" "$(dirname "$0")/../scene.m" "$(dirname "$0")/stubs.m" "$(dirname "$0")/../tabbar/touch.m" \
     "$OUT"/gen/*.m \
@@ -22,6 +22,7 @@ xcrun -sdk iphonesimulator clang -target arm64-apple-ios17.0-simulator -fobjc-ar
     "$SRC"/Redesigned/Kit/SGRTokens.m "$SRC"/Redesigned/Kit/SGRPalette.m "$SRC"/Redesigned/Kit/SGRField.m "$SRC"/Redesigned/Kit/SGRFlow.m "$SRC"/Redesigned/Kit/SGRFluid.m "$SRC"/Shared/AnimatedArtwork/SGMotionCatalog.m "$SRC"/Shared/AnimatedArtwork/SGMotionStore.m \
     "$SRC"/Shared/AnimatedArtwork/SGMotionFollower.m "$SRC"/Shared/AnimatedArtwork/SGMotionClip.m "$SRC"/Shared/AnimatedArtwork/SGMotionColor.m "$SRC"/Shared/Player/SGLastTrack.m "$SRC"/Shared/Player/HoldSpeed.m \
     "$SRC"/Shared/Player/SGPlaybackQuality.m \
+    "$SRC"/Shared/Gestures/GestureZones.m \
     "$SRC"/Redesigned/Kit/SGRGlass.m "$SRC"/Settings/SGMarquee.m "$SRC"/Redesigned/Kit/SGRGlyph.m "$SRC"/Redesigned/Kit/SGRRestyle.m \
     "$SRC"/Redesigned/Kit/SGRedesign.m \
     "$SRC"/Redesigned/Player/PlayerSettings.m "$SRC"/Redesigned/Player/PlayerVisualiser.m "$SRC"/Redesigned/Player/SGRSpectrum.m "$SRC"/Redesigned/Player/PlayerVolume.m "$SRC"/Redesigned/NowPlayingBar/NowPlayingBarSettings.m \

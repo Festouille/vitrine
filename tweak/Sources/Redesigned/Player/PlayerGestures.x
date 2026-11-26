@@ -7,6 +7,15 @@
 #import "Shared/Gestures/Gestures.h"
 #import "Shared/Player/PlayerSettings.h"
 
+@interface SGRCoverTapDelegate : NSObject <UIGestureRecognizerDelegate>
+@end
+
+@implementation SGRCoverTapDelegate
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)tap shouldReceiveTouch:(UITouch *)touch {
+    return SGFlag(SGKeyGestures, NO);
+}
+@end
+
 // A single tap on the cover is Spotify's way into the tilt mode, the artwork alone in 3D. That is
 // the half of a double tap that misses, so while the zones are on it would open on the way to every
 // gesture; the tap goes back to Spotify with the switch. Full screen cover hidden keeps it from Spotify too.
@@ -20,7 +29,12 @@
 %hook _TtC35NowPlaying_ContentLayerPlatformImpl24AccessibleCollectionView
 - (void)layoutSubviews {
     %orig;
-    SGGestureAttach((UIView *)self);
+    UITapGestureRecognizer *tap = SGGestureAttach((UIView *)self);
+    if (!tap || tap.delegate) return;
+    static SGRCoverTapDelegate *delegate;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{ delegate = [SGRCoverTapDelegate new]; });
+    tap.delegate = delegate;
 }
 %end
 

@@ -41,6 +41,7 @@
 #import <MediaPlayer/MediaPlayer.h>
 #import "Core/SGCore.h"
 #import "Settings/SGModPage.h"
+#import "Shared/Gestures/Gestures.h"
 #import "Shared/Lyrics/Lyrics.h"
 #import "Shared/Player/HoldSpeed.h"
 #import "Redesigned/Player/Player.h"
@@ -64,6 +65,7 @@ NSUInteger SGRHarnessConnectWrites(void);
 NSUInteger SGRHarnessConnectPopups(void);
 // ../tabbar/touch.m: a finger's touches, through UIKit's own recognizers.
 extern void SGHarnessHold(UIWindow *window, CGPoint point, NSTimeInterval seconds);
+extern void SGHarnessTap(UIWindow *window, CGPoint point);
 extern void SGHarnessDrag(UIWindow *window, CGPoint from, CGPoint to, NSTimeInterval seconds);
 
 static NSString *scenario(void) {
@@ -430,6 +432,7 @@ static void loadLyrics(void) {
 @implementation SGRHarnessDelegate {
     NSArray<UIViewController *> *_units;
     NSUInteger _headerDowns;
+    NSUInteger _playerSingleTaps;
     UIImageView *_cover, *_barCover;
     UIViewController *_bar;
     UICollectionView *_covers;
@@ -644,6 +647,7 @@ static void loadLyrics(void) {
     else if ([scenario() isEqualToString:@"seek"]) [self runSeekChecks];
     else if ([scenario() isEqualToString:@"visualiser"]) [self runVisualiserChecks];
     else if ([scenario() isEqualToString:@"header"]) [self runHeaderChecks];
+    else if ([scenario() isEqualToString:@"gestures"]) [self runGestureChecks];
     else if (connectScenario) [self runConnectChecks];
     else if ([scenario() isEqualToString:@"quality"]) {
         SGHarnessQualityChecks(@"redesign", header, SGRKeyPlayerQualityBar,
@@ -806,6 +810,39 @@ static void logLandscape(NSString *step, NSString *want) {
     after(23, ^{
         BOOL gone = !landscapeScreen(), key = self.window.isKeyWindow;
         NSLog(@"[harness] landscape after the escape: gone %d, the player key %d -- %@", gone, key, gone && key ? @"ok" : @"WRONG");
+    });
+}
+
+#pragma mark - gestures
+
+- (void)playerSingleTapped {
+    _playerSingleTaps++;
+}
+
+- (void)runGestureChecks {
+    UITapGestureRecognizer *single = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(playerSingleTapped)];
+    [_covers.superview addGestureRecognizer:single];
+    SGSetEnabled(SGKeyGestures, YES);
+    [_covers setNeedsLayout];
+    [_covers layoutIfNeeded];
+    after(1, ^{
+        UITapGestureRecognizer *doubleTap = nil;
+        for (UIGestureRecognizer *recognizer in self->_covers.gestureRecognizers) {
+            if ([recognizer isKindOfClass:UITapGestureRecognizer.class] && ((UITapGestureRecognizer *)recognizer).numberOfTapsRequired == 2)
+                doubleTap = (UITapGestureRecognizer *)recognizer;
+        }
+        NSLog(@"[harness] gestures attached while on -- %@", doubleTap ? @"PASS" : @"FAIL");
+        SGSetEnabled(SGKeyGestures, NO);
+        UIView *tilt = self->_tilt;
+        CGPoint center = [tilt convertPoint:CGPointMake(CGRectGetMidX(tilt.bounds), CGRectGetMidY(tilt.bounds)) toView:self.window];
+        SGHarnessTap(self.window, center);
+        after(0.18, ^{
+            BOOL immediate = self->_playerSingleTaps == 1;
+            NSLog(@"[harness] native single tap answers immediately when gestures are disabled -- %@", immediate ? @"PASS" : @"FAIL");
+        });
+        after(0.8, ^{
+            NSLog(@"[harness] native single tap eventually answered -- %@", self->_playerSingleTaps == 1 ? @"PASS" : @"FAIL");
+        });
     });
 }
 

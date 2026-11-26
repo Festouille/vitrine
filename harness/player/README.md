@@ -64,6 +64,8 @@ come late, out of order, or not at all.
   `immersive checks: n of 15 right -- PASS` or `FAIL`.
 - `badge` shows the hold's 2× badge on the cover by hand, holds again while it fades out and lets go.
   The log ends with `badge checks: n of 3 right -- PASS` or `FAIL`.
+- `gestures` installs the player's double tap, switches it off and sends a real single tap to the
+  artwork. The ancestor's tap should answer without waiting for the disabled double tap.
 
 - `motion` is Animated artwork. The clip, `HARNESS_CANVAS_FILE` (any mp4, `harness/fluid-clip` writes one),
   is served as the track's Canvas before the player's background has laid out; then the background lays
