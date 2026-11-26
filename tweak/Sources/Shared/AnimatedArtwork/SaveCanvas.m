@@ -5,7 +5,7 @@
 #import "Shared/Player/PlayerState.h"
 
 static void shareCanvas(NSURL *url) {
-    SGMotionFile(url, ^(NSURL *file) {
+    SGMotionFileForExport(url, ^(NSURL *file) {
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.35 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
             UIViewController *top = SGTopController();
             if (!top.viewIfLoaded.window) return;

@@ -128,7 +128,8 @@ static SGCanvasMockState *sg_canvasState;
 static NSURL *sg_canvasRequested;
 SPTPlayerState *SGPlayerState(void) { return (id)sg_canvasState; }
 NSString *SGURIString(id uri) { return [uri isKindOfClass:NSString.class] ? uri : nil; }
-void SGMotionFile(NSURL *remote, void (^done)(NSURL *file)) {
+void SGMotionFile(NSURL *remote, void (^done)(NSURL *file)) { done(nil); }
+void SGMotionFileForExport(NSURL *remote, void (^done)(NSURL *file)) {
     sg_canvasRequested = remote;
     NSURL *file = [NSURL fileURLWithPath:[NSTemporaryDirectory() stringByAppendingPathComponent:@"Canvas.mp4"]];
     [NSData.data writeToURL:file atomically:YES];

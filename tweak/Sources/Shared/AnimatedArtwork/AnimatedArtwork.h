@@ -106,6 +106,7 @@ SGModRow *SGMotionSourcesRow(void);
 
 // Any remote video (a Canvas) as a local file, or nil. Main queue.
 void SGMotionFile(NSURL *remote, void (^done)(NSURL *file));
+void SGMotionFileForExport(NSURL *remote, void (^done)(NSURL *file));
 // Where a video the mod makes itself is kept under `key`, among the downloads, which are kept to the
 // newest few. Whether it is there yet is the caller's to check. Any thread.
 NSURL *SGMotionMadeFile(NSString *key);
