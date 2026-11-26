@@ -18,7 +18,8 @@
 // that search by name are asked at once.
 NSString *const SGSpicyLyricsKey = @"spicylyrics";
 NSString *const SGImportedLRCKey = @"importedLRC";
-NSString *SGTrackLyricsLinkedTo(NSString *track) { return nil; }
+static NSString *sg_linkedTrack;
+NSString *SGTrackLyricsLinkedTo(NSString *track) { return [track isEqualToString:sg_linkedTrack] ? @"linked.ttml" : nil; }
 SGLyricsResult *SGTrackLyricsOverride(NSString *track) { return nil; }
 NSString *SGSpicyLyricsStatus(void) { return nil; }
 BOOL SGLocalFileIs(NSString *uri) { return NO; }
@@ -81,6 +82,40 @@ static SGAnswer lines(BOOL timed) {
         SGLyricsResult *result = [SGLyricsResult new];
         result.karaokeLines = timed ? SGKaraokeEstimatedLines(@[@1000, @2000], @[@"a", @"b"]) : SGKaraokeStaticLines(@[@"a", @"b"]);
         result.synced = timed;
+        NSArray<NSNumber *> *starts;
+        NSArray<NSString *> *texts;
+        SGLyricsPageLines(result.karaokeLines, &starts, &texts);
+        result.starts = starts;
+        result.texts = texts;
+        return result;
+    };
+}
+
+// Word-timed lines with optional translation and (line- or word-timed) pronunciation metadata.
+static SGAnswer wordLines(BOOL translation, BOOL pronunciation, BOOL wordPronunciation) {
+    return ^SGLyricsResult *{
+        SGKaraokeWord *w1 = [SGKaraokeWord new];
+        w1.text = @"hello"; w1.start = 1000; w1.end = 1500;
+        SGKaraokeWord *w2 = [SGKaraokeWord new];
+        w2.text = @"world"; w2.start = 1500; w2.end = 2000;
+        SGKaraokeLine *line = [SGKaraokeLine new];
+        line.words = @[w1, w2];
+        line.start = 1000; line.end = 2000;
+        line.timing = SGKaraokeTimingWords;
+        if (translation) line.translation = @"bonjour le monde";
+        if (pronunciation) {
+            SGKaraokeWord *pw = [SGKaraokeWord new];
+            pw.text = @"helo"; pw.start = 1000; pw.end = 2000;
+            SGKaraokeLine *pron = [SGKaraokeLine new];
+            pron.words = @[pw];
+            pron.start = 1000; pron.end = 2000;
+            pron.timing = wordPronunciation ? SGKaraokeTimingWords : SGKaraokeTimingLine;
+            line.pronunciation = pron;
+        }
+        SGLyricsResult *result = [SGLyricsResult new];
+        result.karaokeLines = @[line];
+        result.synced = YES;
+        result.wordTimed = YES;
         NSArray<NSNumber *> *starts;
         NSArray<NSString *> *texts;
         SGLyricsPageLines(result.karaokeLines, &starts, &texts);
@@ -254,6 +289,178 @@ int main(int argc, char **argv) {
         CHECK([SGLyricsForgetImportedAnswers() containsObject:@"t4"]);
         [sg_asked removeAllObjects];
         CHECK(!fetch(@"t4") && !sg_asked.count);
+
+        // --- Automatic best lyrics source selection (SGKeyLyricsAutoSelect) ---
+        NSMutableArray<NSString *> *chosenNotes = [NSMutableArray array];
+        id observer = [NSNotificationCenter.defaultCenter addObserverForName:SGLyricsSourceChosenNotification object:nil queue:nil usingBlock:^(NSNotification *note) {
+            if ([note.object isKindOfClass:NSString.class]) [chosenNotes addObject:note.object];
+        }];
+
+        // 1. Default-off: line-timed first source stops immediately even when a word-timed source follows.
+        SGLyricsSetAutoSelectWindow(0.2);
+        [sg_answers removeAllObjects];
+        sg_answers[@"lrclib"] = lines(YES);
+        sg_answers[@"netease"] = wordLines(NO, NO, NO);
+        [NSUserDefaults.standardUserDefaults setVolatileDomain:@{SGKeyLyricsProviders: @[@"lrclib", @"netease"]}
+                                                       forName:NSArgumentDomain];
+        SGPrefsChanged();
+        [sg_asked removeAllObjects];
+        got = fetch(@"auto_off");
+        CHECK([got.provider isEqualToString:@"LRCLIB"] && !got.wordTimed);
+        CHECK([sg_asked isEqualToArray:@[@"lrclib:auto_off"]]);
+
+        // 2. Auto-select on: delivers first timed answer immediately without holding first render,
+        //    then upgrades live when a word-timed source answers within the bounded window.
+        [NSUserDefaults.standardUserDefaults setVolatileDomain:@{SGKeyLyricsProviders: @[@"lrclib", @"netease"],
+                                                                 SGKeyLyricsAutoSelect: @YES}
+                                                       forName:NSArgumentDomain];
+        SGPrefsChanged();
+        [sg_asked removeAllObjects];
+        [chosenNotes removeAllObjects];
+        sg_held = @"netease";
+        got = fetch(@"auto_upgrade");
+        // First render returned immediately while netease is still in flight!
+        CHECK([got.provider isEqualToString:@"LRCLIB"] && !got.wordTimed && !got.picked);
+        CHECK(sg_release != nil);
+        // Release netease within the window -> upgrades live!
+        sg_held = nil;
+        void (^releaseUpgrade)(void) = sg_release;
+        sg_release = nil;
+        releaseUpgrade();
+        pump(^BOOL { return [chosenNotes containsObject:@"auto_upgrade"]; });
+        SGLyricsResult *upgraded = fetch(@"auto_upgrade");
+        CHECK([upgraded.provider isEqualToString:@"NetEase"] && upgraded.wordTimed && !upgraded.picked);
+        CHECK(sg_shown[@"auto_upgrade"] == upgraded.karaokeLines && [SGLyricsCreditFor(@"auto_upgrade") isEqualToString:@"NetEase"]);
+
+        // 3. Plain text never terminates search: skips past plain to line-timed, then upgrades to word-timed.
+        [sg_answers removeAllObjects];
+        sg_answers[@"genius"] = lines(NO);
+        sg_answers[@"lrclib"] = lines(YES);
+        sg_answers[@"netease"] = wordLines(NO, NO, NO);
+        [NSUserDefaults.standardUserDefaults setVolatileDomain:@{SGKeyLyricsProviders: @[@"genius", @"lrclib", @"netease"],
+                                                                 SGKeyLyricsAutoSelect: @YES}
+                                                       forName:NSArgumentDomain];
+        SGPrefsChanged();
+        [chosenNotes removeAllObjects];
+        got = fetch(@"auto_plain");
+        CHECK([got.provider isEqualToString:@"LRCLIB"]);
+        pump(^BOOL { return [chosenNotes containsObject:@"auto_plain"]; });
+        CHECK([fetch(@"auto_plain").provider isEqualToString:@"NetEase"]);
+
+        // 4. Same-tier facet tie-breaking: requested translation + word-timed pronunciation wins over plain word-timed;
+        //    equal score keeps earlier source; optimal score closes window early.
+        [sg_answers removeAllObjects];
+        sg_answers[@"musixmatch"] = wordLines(NO, NO, NO);
+        sg_answers[@"netease"] = wordLines(NO, NO, NO);         // equal score -> should NOT replace musixmatch
+        sg_answers[@"qqmusic"] = wordLines(YES, NO, NO);        // +1 translation -> upgrades
+        sg_answers[@"binilyrics"] = wordLines(YES, YES, YES);   // +3 (translation + word-timed pronunciation) -> optimal!
+        sg_answers[@"kugou"] = wordLines(YES, YES, YES);        // should NOT be asked once optimal reached
+        [NSUserDefaults.standardUserDefaults setVolatileDomain:@{SGKeyLyricsProviders: @[@"musixmatch", @"netease", @"qqmusic", @"binilyrics", @"kugou"],
+                                                                 SGKeyLyricsAutoSelect: @YES,
+                                                                 SGKeyLyricsTranslationLanguage: @7,
+                                                                 SGKeyLyricsRomanised: @YES}
+                                                       forName:NSArgumentDomain];
+        SGPrefsChanged();
+        [sg_asked removeAllObjects];
+        [chosenNotes removeAllObjects];
+        got = fetch(@"auto_facets");
+        CHECK([got.provider isEqualToString:@"Musixmatch"]);
+        pump(^BOOL { return [fetch(@"auto_facets").provider isEqualToString:@"BiniLyrics"]; });
+        CHECK(![sg_asked containsObject:@"kugou:auto_facets"]);
+
+        // 5. Slow / stale response after bounded window expires is ignored.
+        SGLyricsSetAutoSelectWindow(0.08);
+        [sg_answers removeAllObjects];
+        sg_answers[@"lrclib"] = lines(YES);
+        sg_answers[@"netease"] = wordLines(NO, NO, NO);
+        [NSUserDefaults.standardUserDefaults setVolatileDomain:@{SGKeyLyricsProviders: @[@"lrclib", @"netease"],
+                                                                 SGKeyLyricsAutoSelect: @YES}
+                                                       forName:NSArgumentDomain];
+        SGPrefsChanged();
+        [chosenNotes removeAllObjects];
+        sg_held = @"netease";
+        got = fetch(@"auto_stale");
+        CHECK([got.provider isEqualToString:@"LRCLIB"]);
+        CHECK(sg_release != nil);
+        // Wait past the 0.08s window before releasing netease.
+        [NSRunLoop.mainRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.15]];
+        sg_held = nil;
+        void (^releaseStale)(void) = sg_release;
+        sg_release = nil;
+        releaseStale();
+        [NSRunLoop.mainRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.05]];
+        CHECK([fetch(@"auto_stale").provider isEqualToString:@"LRCLIB"]);
+        CHECK(![chosenNotes containsObject:@"auto_stale"]);
+
+        // 6. Provider errors during upgrade window do not break the initial answer or block later sources.
+        SGLyricsSetAutoSelectWindow(0.2);
+        [sg_answers removeAllObjects];
+        sg_answers[@"lrclib"] = lines(YES);
+        sg_answers[@"musixmatch"] = failing();
+        sg_answers[@"qqmusic"] = nil;
+        sg_answers[@"netease"] = wordLines(NO, NO, NO);
+        [NSUserDefaults.standardUserDefaults setVolatileDomain:@{SGKeyLyricsProviders: @[@"lrclib", @"musixmatch", @"qqmusic", @"netease"],
+                                                                 SGKeyLyricsAutoSelect: @YES}
+                                                       forName:NSArgumentDomain];
+        SGPrefsChanged();
+        [chosenNotes removeAllObjects];
+        got = fetch(@"auto_err");
+        CHECK([got.provider isEqualToString:@"LRCLIB"]);
+        pump(^BOOL { return [chosenNotes containsObject:@"auto_err"]; });
+        CHECK([fetch(@"auto_err").provider isEqualToString:@"NetEase"]);
+
+        // 7. Manual pick during upgrade window is NEVER replaced by a late auto-select upgrade.
+        [sg_answers removeAllObjects];
+        sg_answers[@"lrclib"] = lines(YES);
+        sg_answers[@"musixmatch"] = lines(YES);
+        sg_answers[@"netease"] = wordLines(NO, NO, NO);
+        [NSUserDefaults.standardUserDefaults setVolatileDomain:@{SGKeyLyricsProviders: @[@"lrclib", @"musixmatch", @"netease"],
+                                                                 SGKeyLyricsAutoSelect: @YES}
+                                                       forName:NSArgumentDomain];
+        SGPrefsChanged();
+        offers(@"auto_pick");
+        [chosenNotes removeAllObjects];
+        sg_held = @"netease";
+        got = fetch(@"auto_pick");
+        CHECK([got.provider isEqualToString:@"LRCLIB"]);
+        CHECK(sg_release != nil);
+        // User manually picks musixmatch while netease is still in flight.
+        SGLyricsChooseSource(@"auto_pick", @"musixmatch");
+        sg_held = nil;
+        void (^releasePick)(void) = sg_release;
+        sg_release = nil;
+        releasePick();
+        [NSRunLoop.mainRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.05]];
+        CHECK([fetch(@"auto_pick").provider isEqualToString:@"Musixmatch"] && fetch(@"auto_pick").picked);
+        CHECK([SGLyricsChosenSource(@"auto_pick") isEqualToString:@"musixmatch"]);
+
+        // 8. Imported LRC and linked track lyrics are NEVER replaced by auto-select.
+        [sg_answers removeAllObjects];
+        sg_answers[@"importedLRC"] = lines(YES);
+        sg_answers[@"netease"] = wordLines(NO, NO, NO);
+        [NSUserDefaults.standardUserDefaults setVolatileDomain:@{SGKeyLyricsProviders: @[@"importedLRC", @"netease"],
+                                                                 SGKeyLyricsAutoSelect: @YES}
+                                                       forName:NSArgumentDomain];
+        SGPrefsChanged();
+        [sg_asked removeAllObjects];
+        got = fetch(@"auto_imported");
+        CHECK([got.provider isEqualToString:@"Imported LRC"] && [sg_asked isEqualToArray:@[@"importedLRC:auto_imported"]]);
+
+        sg_linkedTrack = @"auto_linked";
+        [sg_answers removeAllObjects];
+        sg_answers[@"lrclib"] = lines(YES);
+        sg_answers[@"netease"] = wordLines(NO, NO, NO);
+        [NSUserDefaults.standardUserDefaults setVolatileDomain:@{SGKeyLyricsProviders: @[@"lrclib", @"netease"],
+                                                                 SGKeyLyricsAutoSelect: @YES}
+                                                       forName:NSArgumentDomain];
+        SGPrefsChanged();
+        [sg_asked removeAllObjects];
+        got = fetch(@"auto_linked");
+        CHECK([got.provider isEqualToString:@"LRCLIB"] && [sg_asked isEqualToArray:@[@"lrclib:auto_linked"]]);
+        sg_linkedTrack = nil;
+
+        [NSNotificationCenter.defaultCenter removeObserver:observer];
+        SGLyricsSetAutoSelectWindow(2.5);
 
         printf("lyrics-walk: all checks passed\n");
     }

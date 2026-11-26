@@ -15,6 +15,12 @@
 #define SGKeyLyricsAllTracks @"spotifyglass.lyricsAllTracks"
 // The walk goes on past a line-timed answer to the first source with words timed; read by every walk.
 #define SGKeyLyricsPreferWordTiming @"spotifyglass.lyricsPreferWordTiming"
+// Delivers the first timed answer without holding first render, then briefly keeps asking remaining
+// sources and upgrades live if a later source has finer timing or richer metadata (translation / pronunciation).
+#define SGKeyLyricsAutoSelect @"spotifyglass.lyricsAutoSelect"
+// Bounded improvement window duration for automatic best source selection (seconds); adjustable for tests.
+NSTimeInterval SGLyricsAutoSelectWindow(void);
+void SGLyricsSetAutoSelectWindow(NSTimeInterval seconds);
 // Names the source the shown lines came from, on the full screen page.
 #define SGKeyLyricsCredit @"spotifyglass.lyricsCredit"
 // The language a line's translation is asked for in, as an index into SGLyricsTranslationLanguages;
