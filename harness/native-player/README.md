@@ -24,5 +24,10 @@ It checks, a line each with `ok` or `WRONG`:
 The log ends with `native player checks: n of 11 right -- PASS` or `FAIL`. On main before the fixes it
 reads 7 of 11.
 
+Set `SIMCTL_CHILD_HARNESS_MOTION_POLISH=1` (or `0` for the poster backdrop) and
+`SIMCTL_CHILD_HARNESS_CANVAS_FILE` to a local red-then-blue MP4 with the color change at five seconds.
+The mock player reports positions at two and seven seconds. Capture the frames at the `COVER READY`
+markers; the enabled case also checks that a track with no clip restores the backdrop.
+
 What it does not cover: Spotify's real Auto Layout in the cover cell, its open and close transition, and
 a real touch on the slider.

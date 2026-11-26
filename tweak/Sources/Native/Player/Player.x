@@ -24,6 +24,9 @@
 #import "Native/Appearance/Repaint.h"
 #import "NowPlaying.h"
 #import "Native/Appearance/Appearance.h"
+#import "Shared/AnimatedArtwork/AnimatedArtwork.h"
+#import "Shared/AnimatedArtwork/SGMotionColor.h"
+#import "Shared/Player/PlayerState.h"
 
 static const CGFloat kButtonMin = 36, kButtonMax = 48;
 static const CGFloat kArtRadius = 12;
@@ -69,6 +72,96 @@ static void glassBehindRoundButtons(UIViewController *unit) {
 #pragma mark - the cover behind the player
 
 static char kBackdropKey;
+static char kMotionTintKey;
+
+@interface SGPlayerMotionTint : UIView
+@end
+
+@implementation SGPlayerMotionTint {
+    SGMotionFollower *_follower;
+    SGMotionColorSampler *_sampler;
+    NSTimer *_clock;
+}
+
+- (instancetype)initWithFrame:(CGRect)frame {
+    if (!(self = [super initWithFrame:frame])) return nil;
+    self.userInteractionEnabled = NO;
+    self.accessibilityElementsHidden = YES;
+    self.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    NSNotificationCenter *center = NSNotificationCenter.defaultCenter;
+    for (NSNotificationName name in @[UIApplicationDidBecomeActiveNotification, UIApplicationWillResignActiveNotification,
+                                      NSUserDefaultsDidChangeNotification, NSProcessInfoPowerStateDidChangeNotification,
+                                      UIAccessibilityReduceMotionStatusDidChangeNotification]) {
+        [center addObserver:self selector:@selector(updateSoon) name:name object:nil];
+    }
+    return self;
+}
+
+- (void)dealloc {
+    [NSNotificationCenter.defaultCenter removeObserver:self];
+    [_clock invalidate];
+}
+
+- (BOOL)wantsMotion {
+    return self.window && UIApplication.sharedApplication.applicationState == UIApplicationStateActive &&
+        SGFlag(SGKeyPlayerAMPolish, NO) && !UIAccessibilityIsReduceMotionEnabled() &&
+        !NSProcessInfo.processInfo.lowPowerModeEnabled;
+}
+
+- (void)sample {
+    if (![self wantsMotion] || SGPlayerState().isPaused) return;
+    __weak SGPlayerMotionTint *weakSelf = self;
+    __weak SGMotionColorSampler *sampler = _sampler;
+    double time = SGPlayerState().position;
+    if (!isfinite(time) || time < 0) return;
+    [_sampler sampleAt:CMTimeMakeWithSeconds(time, 600) looping:YES completion:^(UIColor *color) {
+        SGPlayerMotionTint *view = weakSelf;
+        if (!view || sampler != view->_sampler || ![view wantsMotion] || SGPlayerState().isPaused) return;
+        CGFloat r, g, b;
+        UIColor *tint = [color getRed:&r green:&g blue:&b alpha:NULL]
+            ? [UIColor colorWithRed:r * 0.3 green:g * 0.3 blue:b * 0.3 alpha:0.65]
+            : UIColor.clearColor;
+        SGMotionBlendColor(view.layer, tint, 0.35);
+    }];
+}
+
+- (void)updateMotion {
+    if (![self wantsMotion]) {
+        [_clock invalidate];
+        _clock = nil;
+        _follower = nil;
+        _sampler = nil;
+        SGMotionBlendColor(self.layer, UIColor.clearColor, 0);
+        return;
+    }
+    if (_follower) return;
+    __weak SGPlayerMotionTint *weakSelf = self;
+    _follower = [[SGMotionFollower alloc] initWithBegin:^BOOL(NSString *uri, SPTPlayerState *state) {
+        SGPlayerMotionTint *view = weakSelf;
+        if (!view) return NO;
+        view->_sampler = nil;
+        SGMotionBlendColor(view.layer, UIColor.clearColor, 0.35);
+        return [view wantsMotion];
+    } found:^(NSString *uri, NSURL *file) {
+        SGPlayerMotionTint *view = weakSelf;
+        if (!view || ![view wantsMotion] || !file) return;
+        view->_sampler = [[SGMotionColorSampler alloc] initWithFile:file bottomFraction:1];
+        [view sample];
+    }];
+    [_follower restart];
+    _clock = [NSTimer scheduledTimerWithTimeInterval:0.65 repeats:YES block:^(NSTimer *timer) { [weakSelf sample]; }];
+}
+
+- (void)updateSoon {
+    dispatch_async(dispatch_get_main_queue(), ^{ [self updateMotion]; });
+}
+
+- (void)didMoveToWindow {
+    [super didMoveToWindow];
+    [self updateSoon];
+}
+
+@end
 
 static UIImage *sg_cover;       // the cover the backdrop stands on, compared by pointer
 static UIImage *sg_coverSmall;
@@ -120,16 +213,23 @@ static UIView *backdropIn(UIView *plane) {
 %hook _TtC21NowPlaying_ScrollImpl27NPVBackgroundViewController
 - (void)viewDidLayoutSubviews {
     %orig;
-    if (!backdropOn()) return;
     UIView *plane = ((UIViewController *)self).viewIfLoaded;
     if (!plane || plane.bounds.size.height < 200) return;
-    sg_npvBackdropRoot = plane;
-    UIView *backdrop = backdropIn(plane);
-    for (UIView *sub in plane.subviews) {
-        if (sub != backdrop) SGStripBackgrounds(sub);
+    SGPlayerMotionTint *tint = objc_getAssociatedObject(plane, &kMotionTintKey);
+    if (backdropOn()) {
+        sg_npvBackdropRoot = plane;
+        UIView *backdrop = backdropIn(plane);
+        for (UIView *sub in plane.subviews) {
+            if (sub != backdrop && sub != tint) SGStripBackgrounds(sub);
+        }
+        plane.layer.backgroundColor = NULL;
+        if (backdrop.superview != plane) [plane insertSubview:backdrop atIndex:0];
     }
-    plane.layer.backgroundColor = NULL;
-    if (backdrop.superview != plane) [plane insertSubview:backdrop atIndex:0];
+    if (!tint) {
+        tint = [[SGPlayerMotionTint alloc] initWithFrame:plane.bounds];
+        objc_setAssociatedObject(plane, &kMotionTintKey, tint, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    }
+    if (plane.subviews.lastObject != tint) [plane addSubview:tint];
 }
 %end
 

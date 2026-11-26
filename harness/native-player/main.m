@@ -9,7 +9,11 @@
 //             untouched with Lyrics preview shown, the cover a centered square of its room with it hidden,
 //             and a small cover and a tilt view outside the cover cell untouched
 #import <UIKit/UIKit.h>
+#import "Core/SGPrefs.h"
 #import "Native/Player/NowPlaying.h"
+#import "Shared/AnimatedArtwork/AnimatedArtwork.h"
+#import "Shared/Player/PlayerState.h"
+#import "Shared/SponsorBlock/SGSponsorBlockOverlay.h"
 
 #pragma mark - Spotify's classes, mocked
 
@@ -22,6 +26,14 @@
 @implementation _TtC20NowPlaying_ModesImpl18FooterElementsUnit @end
 @interface _TtC20NowPlaying_ModesImpl23InformationElementsUnit : UIViewController @end
 @implementation _TtC20NowPlaying_ModesImpl23InformationElementsUnit @end
+@interface _TtC20NowPlaying_ModesImpl18HeaderElementsUnit : UIViewController @end
+@implementation _TtC20NowPlaying_ModesImpl18HeaderElementsUnit @end
+@interface _TtC21NowPlaying_ScrollImpl27NPVBackgroundViewController : UIViewController @end
+@implementation _TtC21NowPlaying_ScrollImpl27NPVBackgroundViewController @end
+@interface _TtC20NowPlaying_ModesImpl19DurationElementUnit : UIViewController @end
+@implementation _TtC20NowPlaying_ModesImpl19DurationElementUnit @end
+@interface _TtC35NowPlaying_ContentLayerPlatformImpl24AccessibleCollectionView : UIScrollView @end
+@implementation _TtC35NowPlaying_ContentLayerPlatformImpl24AccessibleCollectionView @end
 
 @interface _TtC28NowPlaying_ContentLayersImpl16CoverArtCellImpl : UIView @end
 @implementation _TtC28NowPlaying_ContentLayersImpl16CoverArtCellImpl @end
@@ -162,6 +174,105 @@ static void runCoverChecks(UIWindow *window) {
 
 #pragma mark - app
 
+__weak UIView *sg_npvBackdropRoot;
+@implementation SGSponsorBlockOverlay
++ (void)attachToSlider:(UIView *)slider {}
++ (void)refreshAll {}
+@end
+@implementation SPTPlayerState @end
+@implementation SPTPlayerTrack @end
+
+static SPTPlayerState *sg_state;
+static NSHashTable *sg_observers;
+
+SPTPlayerState *SGPlayerState(void) { return sg_state; }
+NSString *SGURIString(id uri) { return uri; }
+void SGAddPlayerStateObserver(id<SGPlayerStateObserver> observer) {
+    if (!sg_observers) sg_observers = [NSHashTable weakObjectsHashTable];
+    [sg_observers addObject:observer];
+}
+CGFloat SGMotionPixels(void) { return 240; }
+NSArray<NSString *> *SGMotionSourceOrder(void) { return @[@"canvas"]; }
+NSURL *SGMotionCanvasIn(NSDictionary *metadata) { return nil; }
+BOOL SGMotionCanvasOutranks(NSArray<NSString *> *order, NSString *source) { return !source; }
+void SGMotionClipFor(NSString *uri, NSURL *canvas, NSString *artist, NSString *album, SGMotionShape shape, CGFloat pixels,
+                     void (^done)(NSURL *, NSString *)) {
+    NSString *path = NSProcessInfo.processInfo.environment[@"HARNESS_CANVAS_FILE"];
+    NSURL *file = path.length && ![uri isEqualToString:@"no-clip"] ? [NSURL fileURLWithPath:path] : nil;
+    dispatch_async(dispatch_get_main_queue(), ^{ done(file, file ? @"canvas" : nil); });
+}
+
+static void reportTrack(NSString *uri, double position) {
+    SPTPlayerTrack *track = [SPTPlayerTrack new];
+    [track setValue:uri forKey:@"URI"];
+    sg_state = [SPTPlayerState new];
+    [sg_state setValue:track forKey:@"track"];
+    [sg_state setValue:@(position) forKey:@"position"];
+    for (id<SGPlayerStateObserver> observer in sg_observers.allObjects) [observer playerStateDidChange:sg_state];
+}
+
+static UILabel *motionLabel(UIView *host, NSString *text, CGFloat y, CGFloat size) {
+    UILabel *label = [[UILabel alloc] initWithFrame:CGRectMake(24, y, host.bounds.size.width - 48, size + 18)];
+    label.text = text;
+    label.textColor = UIColor.whiteColor;
+    label.font = [UIFont systemFontOfSize:size weight:UIFontWeightSemibold];
+    label.textAlignment = NSTextAlignmentCenter;
+    [host addSubview:label];
+    return label;
+}
+
+static void runMotionChecks(UIViewController *host, BOOL on) {
+    CGRect bounds = host.view.bounds;
+    UIViewController *background = [_TtC21NowPlaying_ScrollImpl27NPVBackgroundViewController new];
+    [host addChildViewController:background];
+    background.view.frame = bounds;
+    [host.view addSubview:background.view];
+    [background didMoveToParentViewController:host];
+    UIScrollView *coverList = [_TtC35NowPlaying_ContentLayerPlatformImpl24AccessibleCollectionView new];
+    CGFloat side = bounds.size.width - 64;
+    coverList.frame = CGRectMake(32, 134, side, side);
+    UIView *cell = [[UIView alloc] initWithFrame:coverList.bounds];
+    [coverList addSubview:cell];
+    UIImageView *poster = [[UIImageView alloc] initWithFrame:cell.bounds];
+    poster.image = [[[UIGraphicsImageRenderer alloc] initWithSize:CGSizeMake(8, 8)]
+        imageWithActions:^(UIGraphicsImageRendererContext *context) {
+        [[UIColor colorWithRed:0.75 green:0.63 blue:0.16 alpha:1] setFill];
+        [context fillRect:CGRectMake(0, 0, 8, 8)];
+    }];
+    [cell addSubview:poster];
+    [host.view addSubview:coverList];
+    [coverList setNeedsLayout];
+    [coverList layoutIfNeeded];
+    motionLabel(host.view, @"ON REPEAT", 64, 12);
+    motionLabel(host.view, @"Sample Song", 494, 26);
+    motionLabel(host.view, @"Sample Artist", 534, 17);
+    motionLabel(host.view, @"◀◀       ▶       ▶▶", 653, 32);
+    reportTrack(@"test-clip", 2);
+    void (^check)(NSString *, NSInteger) = ^(NSString *frame, NSInteger channel) {
+        UIView *tint = background.view.subviews.lastObject;
+        CGColorRef drawn = (tint.layer.presentationLayer ?: tint.layer).backgroundColor;
+        CGFloat r = 0, g = 0, b = 0, a = 0;
+        BOOL ok = drawn && [[UIColor colorWithCGColor:drawn] getRed:&r green:&g blue:&b alpha:&a]
+            && (channel == 0 ? a < 0.01 : a > 0.6 && (channel == 1 ? r > 0.25 && b < 0.1 : b > 0.25 && r < 0.1));
+        NSLog(@"COVER READY: native %@ -- %@ (%.2f %.2f %.2f %.2f)", frame, ok ? @"PASS" : @"FAIL", r, g, b, a);
+    };
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 2 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+        check(on ? @"on-a" : @"off", on ? 1 : 0);
+        if (on) reportTrack(@"test-clip", 7);
+    });
+    if (on) {
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 4 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+            check(@"on-b", 2);
+        });
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 6 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+            reportTrack(@"no-clip", 0);
+        });
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 7 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+            check(@"no-clip", 0);
+        });
+    }
+}
+
 @interface Delegate : UIResponder <UIApplicationDelegate>
 @property (nonatomic, strong) UIWindow *window;
 @end
@@ -172,6 +283,13 @@ static void runCoverChecks(UIWindow *window) {
     self.window.rootViewController = [UIViewController new];
     self.window.backgroundColor = UIColor.blackColor;
     [self.window makeKeyAndVisible];
+    const char *polish = getenv("HARNESS_MOTION_POLISH");
+    if (polish) {
+        SGSetEnabled(SGKeyPlayerAMPolish, atoi(polish) != 0);
+        SGSetEnabled(SGKeyPlayerBackdrop, YES);
+        dispatch_async(dispatch_get_main_queue(), ^{ runMotionChecks(self.window.rootViewController, atoi(polish) != 0); });
+        return YES;
+    }
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         runScrubChecks(self.window);
         runCoverChecks(self.window);

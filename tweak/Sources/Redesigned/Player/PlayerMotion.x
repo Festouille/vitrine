@@ -40,6 +40,7 @@
 #import "Core/SGCore.h"
 #import "Redesigned/Kit/SGRKit.h"
 #import "Shared/AnimatedArtwork/AnimatedArtwork.h"
+#import "Shared/AnimatedArtwork/SGMotionColor.h"
 #import "Shared/Player/PlayerState.h"
 #import "Shared/Player/SGLastTrack.h"
 #import "Shared/Player/SpeedPitch.h"
@@ -121,27 +122,6 @@ static CGFloat brightEnd(NSData *luminances) {
     return ((const float *)sorted.bytes)[(count - 1) * 3 / 4];
 }
 
-// The mean color of the poster's last rows (kFootRows): drawn 16 pixels wide and averaged. A row's own colors
-// stretched on down read as vertical streaks (issue #40).
-static UIColor *footColor(CGImageRef poster) {
-    enum { kWide = 16 };
-    size_t height = CGImageGetHeight(poster), rows = MAX(1, (size_t)(height * kFootRows));
-    CGImageRef strip = CGImageCreateWithImageInRect(poster, CGRectMake(0, height - rows, CGImageGetWidth(poster), rows));
-    uint8_t pixels[kWide * 4] = {0};
-    CGColorSpaceRef space = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
-    CGContextRef context = CGBitmapContextCreate(pixels, kWide, 1, 8, kWide * 4, space, (CGBitmapInfo)kCGImageAlphaNoneSkipLast);
-    CGColorSpaceRelease(space);
-    CGContextSetInterpolationQuality(context, kCGInterpolationHigh);
-    CGContextDrawImage(context, CGRectMake(0, 0, kWide, 1), strip);
-    CGContextRelease(context);
-    CGImageRelease(strip);
-    CGFloat sum[3] = {0};
-    for (int i = 0; i < kWide; i++) {
-        for (int c = 0; c < 3; c++) sum[c] += pixels[i * 4 + c];
-    }
-    return [UIColor colorWithRed:sum[0] / (kWide * 255.0) green:sum[1] / (kWide * 255.0) blue:sum[2] / (kWide * 255.0) alpha:1];
-}
-
 static CGFloat posterAspect(UIImage *poster) {
     CGSize size = poster.size;
     if (!poster.CGImage || !isfinite(size.width) || !isfinite(size.height) || size.width <= 0 || size.height <= 0) return 0;
@@ -169,6 +149,9 @@ static CGFloat posterAspect(UIImage *poster) {
     CALayer *_foot;   // the color of the poster's last rows, from the seam down
     CAGradientLayer *_dim;   // black over the clip's top and from above the title down, as dark as the clip is bright
     AVAssetImageGenerator *_generator;
+    SGMotionColorSampler *_footSampler;
+    UIColor *_posterFootColor;
+    id _footClock;
     NSMutableData *_luminances;   // of the frames measured so far
     BOOL _lyricsUp;
     NSUInteger _blurTurn;   // counts the lyrics' turns, so a fade cut short leaves the filter to the turn after it
@@ -228,7 +211,8 @@ static UIBlurEffect *blurEffect(void) {
 
     NSNotificationCenter *center = NSNotificationCenter.defaultCenter;
     for (NSNotificationName name in @[UIApplicationDidBecomeActiveNotification, UIApplicationWillResignActiveNotification,
-                                      NSProcessInfoPowerStateDidChangeNotification, UIAccessibilityReduceMotionStatusDidChangeNotification]) {
+                                      NSProcessInfoPowerStateDidChangeNotification, UIAccessibilityReduceMotionStatusDidChangeNotification,
+                                      NSUserDefaultsDidChangeNotification]) {
         [center addObserver:self selector:@selector(updateMotionSoon) name:name object:nil];
     }
     [center addObserver:self selector:@selector(updateDim) name:UIAccessibilityDarkerSystemColorsStatusDidChangeNotification object:nil];
@@ -245,6 +229,7 @@ static UIBlurEffect *blurEffect(void) {
 - (void)dealloc {
     [NSNotificationCenter.defaultCenter removeObserver:self];
     [_generator cancelAllCGImageGeneration];
+    if (_footClock) [_player removeTimeObserver:_footClock];
     [_looper disableLooping];
     [_player pause];
     _clip.player = nil;
@@ -291,10 +276,14 @@ static UIBlurEffect *blurEffect(void) {
         return;
     }
     _file = [file copy];
+    if (_footClock) [_player removeTimeObserver:_footClock];
+    _footClock = nil;
+    _footSampler = nil;
     [_looper disableLooping];
     [_player pause];
     _aspect = aspect;
-    _foot.backgroundColor = footColor(poster.CGImage).CGColor;
+    _posterFootColor = SGMotionFrameColor(poster.CGImage, kFootRows);
+    SGMotionBlendColor(_foot, _posterFootColor, 0);
     _still.contents = (__bridge id)poster.CGImage;
     _player = [AVQueuePlayer new];
     _player.muted = YES;
@@ -304,6 +293,33 @@ static UIBlurEffect *blurEffect(void) {
     [self setNeedsLayout];
     [self updateMotion];
     [self measure:file poster:poster];
+}
+
+- (void)sampleFootAt:(CMTime)time {
+    if (!_clip.readyForDisplay || _player.rate <= 0) return;
+    __weak SGRPlayerMotionView *weakSelf = self;
+    __weak SGMotionColorSampler *sampler = _footSampler;
+    [_footSampler sampleAt:time looping:NO completion:^(UIColor *color) {
+        SGRPlayerMotionView *view = weakSelf;
+        if (!view || sampler != view->_footSampler || !view.window || view->_player.rate <= 0 ||
+            !SGFlag(SGRKeyPlayerAMPolish, NO)) return;
+        SGMotionBlendColor(view->_foot, color ?: view->_posterFootColor, 0.35);
+    }];
+}
+
+- (void)updateFootSampling {
+    if (!_player || !self.window || !SGFlag(SGRKeyPlayerAMPolish, NO)) {
+        if (_footClock) [_player removeTimeObserver:_footClock];
+        _footClock = nil;
+        _footSampler = nil;
+        SGMotionBlendColor(_foot, _posterFootColor, 0);
+        return;
+    }
+    if (_footClock) return;
+    _footSampler = [[SGMotionColorSampler alloc] initWithFile:_file bottomFraction:kFootRows];
+    __weak SGRPlayerMotionView *weakSelf = self;
+    _footClock = [_player addPeriodicTimeObserverForInterval:CMTimeMake(2, 3) queue:dispatch_get_main_queue()
+                                                 usingBlock:^(CMTime time) { [weakSelf sampleFootAt:time]; }];
 }
 
 // The poster now, so the clip comes in already dimmed, and two later frames as they are read.
@@ -431,6 +447,7 @@ static UIBlurEffect *blurEffect(void) {
         && !SGPlayerState().isPaused;
     if (may) [_player play];
     else [_player pause];
+    [self updateFootSampling];
     // A paused player still draws the clip's first frame, so the count runs whenever it is on screen in front.
     if (_player && self.window && front && !_timing && !_clip.readyForDisplay) {
         _timing = YES;
