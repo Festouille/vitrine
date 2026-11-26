@@ -126,9 +126,10 @@ static NSArray<NSString *> *backgroundNotes(void) {
 }
 
 - (void)artworkChanged {
+    if (!SGShownTrackNow().current) return;
     NSString *identity = nil;
     UIImage *image = SGRNowPlayingArtwork(NULL, &identity);
-    if (image) [self showArtwork:image identity:identity];
+    [self showArtwork:image identity:identity];
 }
 
 // The cover and the field from `image`, or from the placeholder for nil.

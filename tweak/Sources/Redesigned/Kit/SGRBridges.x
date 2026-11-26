@@ -75,12 +75,13 @@ static void publish(UIImage *image, NSString *key, SGRArtworkQuality quality) {
     sg_artworkKey = key;
     sg_artworkQuality = quality;
     sg_artworkSerial++;
-    [sg_published setObject:key forKey:image];
-    [NSNotificationCenter.defaultCenter postNotificationName:SGRNowPlayingArtworkDidChangeNotification object:nil userInfo:@{
-        @"image": image,
+    if (image) [sg_published setObject:key forKey:image];
+    NSMutableDictionary *info = [@{
         @"trackURI": sg_wantedURI ?: @"",
         @"quality": @(quality),
-    }];
+    } mutableCopy];
+    if (image) info[@"image"] = image;
+    [NSNotificationCenter.defaultCenter postNotificationName:SGRNowPlayingArtworkDidChangeNotification object:nil userInfo:info];
 }
 
 static NSURLSession *artworkSession(void) {
@@ -170,11 +171,14 @@ static void followPlayer(void) {
     NSURL *url = nil;
     // A track whose metadata names no picture is its own key: only the screens can show it then.
     NSString *key = pictureOf(track, &url) ?: [@"track:" stringByAppendingString:uri];
-    if ([key isEqualToString:sg_wantedKey]) return;
+    if ([key isEqualToString:sg_wantedKey]) {
+        if (sg_artwork) sg_artworkURI = uri;
+        return;
+    }
     sg_wantedKey = key;
     [sg_fetch cancel];
     sg_fetch = nil;
-    if ([key isEqualToString:sg_artworkKey] && sg_artworkQuality == SGRArtworkQualityExact) return;
+    if (sg_artwork) publish(nil, nil, SGRArtworkQualityLow);
     if (url) fetchPicture(key, url, 0);
     else publishLocalCover();
 }

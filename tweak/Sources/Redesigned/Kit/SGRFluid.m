@@ -211,9 +211,14 @@ static UIImage *blurred(UIImage *image, BOOL contrast, CGFloat radius, CGFloat s
 }
 
 - (void)setArtwork:(UIImage *)image animated:(BOOL)animated {
-    if (!image || image == _source) return;
+    if (image == _source) return;
     _source = image;
     NSUInteger generation = ++_generation;
+    if (!image) {
+        for (int i = 0; i < kCopies; i++) [_copies[i] removeAnimationForKey:@"contents"];
+        [self show:nil animated:NO];
+        return;
+    }
     BOOL contrast = SGRIncreaseContrast();
     CGFloat radius = kBlurPerStep * SGRFluidValue(SGRFluidBlur), saturation = SGRFluidValue(SGRFluidSaturation) / 100.0;
     CGFloat gain = SGRFluidValue(SGRFluidBrightness) / 100.0;

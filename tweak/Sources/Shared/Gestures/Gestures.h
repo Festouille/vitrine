@@ -44,4 +44,4 @@ void SGGestureSetObserver(void (^observer)(SGGestureAction action));
 
 // Puts the double tap on `host`, the view the player's grid covers, while the switch is on; again on
 // every layout pass of the host, so taps Spotify adds later still wait for it. Main thread.
-void SGGestureAttach(UIView *host);
+UITapGestureRecognizer *SGGestureAttach(UIView *host);
