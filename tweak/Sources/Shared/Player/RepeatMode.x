@@ -83,8 +83,7 @@ static void rememberRequest(id player, NSNumber *context, NSNumber *track) {
 
 - (void)playerStateDidReport:(SPTPlayerState *)state {
     id<SPTPlayer> player = SGPlayer();
-    SGRepeatBits bits;
-    if (!player || !readRepeatBits(state, &bits)) return;
+    if (!player) return;
 
     BOOL enabled = SGFlag(SGKeyRememberRepeatMode, NO);
     if (!enabled) {
@@ -92,7 +91,14 @@ static void rememberRequest(id player, NSNumber *context, NSNumber *track) {
         sg_captureCurrent = NO;
     }
     NSString *track = SGURIString(state.track.URI), *context = SGURIString(state.contextURI);
-    if (!readyTrack(state, track)) return;
+    if ([state respondsToSelector:@selector(isLoading)] && state.isLoading) return;
+    if (!track.length) {
+        sg_track = sg_context = nil;
+        if (sg_requestHasPlayback) clearRequest();
+        return;
+    }
+    SGRepeatBits bits;
+    if (!readRepeatBits(state, &bits)) return;
     if (sg_captureCurrent) {
         sg_captureCurrent = NO;
         SGSetInt(kLastRepeatMode, bits);
