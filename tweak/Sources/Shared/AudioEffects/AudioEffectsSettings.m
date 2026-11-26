@@ -194,16 +194,20 @@ void SGDSPSetGains(NSString *key, NSArray<NSNumber *> *gains) {
     SGDSPSetString(key, formatGains(key, gains));
 }
 
+void SGDSPKeepEqualizerAsDefault(void) {
+    NSDictionary *snapshot = outputEQSnapshot();
+    if (!snapshot) return;
+    [store() setObject:snapshot[SGKeyDSPEqualizerGains] forKey:SGKeyDSPEqualizerGains];
+    SGSetEnabled(SGKeyDSPEqualizer, [snapshot[SGKeyDSPEqualizer] boolValue]);
+}
+
 void SGDSPResetAll(void) {
-    BOOL routed = outputEQSnapshot() != nil;
-    if (routed) setOutputEQSnapshot(@{SGKeyDSPEqualizer: @NO, SGKeyDSPEqualizerGains: stringDefaults()[SGKeyDSPEqualizerGains]});
+    if (outputEQSnapshot()) {
+        setOutputEQSnapshot(@{SGKeyDSPEqualizer: @NO, SGKeyDSPEqualizerGains: stringDefaults()[SGKeyDSPEqualizerGains]});
+    }
     for (size_t i = 0; i < sizeof kNumbers / sizeof *kNumbers; i++) [store() removeObjectForKey:kNumbers[i].key];
-    for (NSString *key in stringDefaults()) {
-        if (!routed || ![key isEqualToString:SGKeyDSPEqualizerGains]) [store() removeObjectForKey:key];
-    }
-    for (NSString *effect in effectSwitches()) {
-        if (!routed || ![effect isEqualToString:SGKeyDSPEqualizer]) [store() removeObjectForKey:effect];
-    }
+    for (NSString *key in stringDefaults()) [store() removeObjectForKey:key];
+    for (NSString *effect in effectSwitches()) [store() removeObjectForKey:effect];
     SGDSPApply(SGKeyDSP);
     for (NSString *effect in effectSwitches()) SGDSPApply(effect);
 }

@@ -98,6 +98,7 @@ void SGDSPLoadBuiltInPreset(NSInteger index) {
     SGDSPResetAll();
     for (NSString *key in kept) setValue(key, kept[key]);
     for (NSString *key in values) setValue(key, values[key]);
+    SGDSPKeepEqualizerAsDefault();
     turnOn();
 }
 
@@ -124,6 +125,7 @@ BOOL SGDSPLoadUserPreset(NSString *name) {
     if (![values isKindOfClass:NSDictionary.class]) return NO;
     SGDSPResetAll();
     for (NSString *key in values) setValue(key, values[key]);
+    SGDSPKeepEqualizerAsDefault();
     turnOn();
     return YES;
 }

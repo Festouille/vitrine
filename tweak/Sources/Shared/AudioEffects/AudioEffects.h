@@ -91,6 +91,8 @@ void SGDSPSetString(NSString *key, NSString *value);
 NSArray<NSNumber *> *SGDSPGains(NSString *key);
 // Reads the 15-band gains and switch from the same snapshot when a route preset is in use.
 NSArray<NSNumber *> *SGDSPEqualizerState(BOOL *on);
+// A full Audio effects preset also updates the default EQ used on unassigned outputs.
+void SGDSPKeepEqualizerAsDefault(void);
 void SGDSPSetGains(NSString *key, NSArray<NSNumber *> *gains);
 
 // Every key above back to its value until set; the master switch stays as it is.

@@ -95,12 +95,27 @@ static void checkEqualizerRoutes(void) {
     SGDSPResetAll();
     check(equalizer(NO) && equalizer(NO).firstObject.doubleValue == 0, @"reset clears the active Equalizer without deleting an assignment");
     SGDSPAudioOutputChanged(nil, nil);
-    check([equalizer(NO) isEqual:defaultGains] && !SGDSPOutputEQUID(), @"no route returns to the default");
+    NSArray *flat = SGDSPEqualizerPreset(0);
+    check([equalizer(NO) isEqual:flat] && !SGDSPOutputEQUID(), @"reset also clears the default Equalizer");
 
     SGDSPAudioOutputChanged(kAirPods, @"Bluetooth headphones");
     SGDSPOutputEQForget(kAirPods);
-    check([equalizer(NO) isEqual:defaultGains] && SGDSPOutputEQAssignments().count == 2,
+    check([equalizer(NO) isEqual:flat] && SGDSPOutputEQAssignments().count == 2,
           @"removing the current assignment restores the default");
+
+    SGDSPAudioOutputChanged(kSpeaker, @"Speaker");
+    SGDSPLoadBuiltInPreset(1);
+    NSArray *vocal = SGDSPEqualizerPreset(4);
+    check([equalizer(YES) isEqual:vocal], @"a full effects preset is heard on the current assigned output");
+    SGDSPAudioOutputChanged(kAirPods, @"Bluetooth headphones");
+    check([equalizer(YES) isEqual:vocal], @"a full effects preset survives moving to an unassigned output");
+    SGDSPAudioOutputChanged(kSpeaker, @"Speaker");
+    check([equalizer(YES) isEqual:bassGains], @"a full effects preset does not overwrite the saved output assignment");
+    SGDSPSaveUserPreset(@"Saved speaker curve");
+    SGDSPLoadBuiltInPreset(0);
+    SGDSPLoadUserPreset(@"Saved speaker curve");
+    SGDSPAudioOutputChanged(kAirPods, @"Bluetooth headphones");
+    check([equalizer(YES) isEqual:bassGains], @"a saved full effects preset also updates the default Equalizer");
 }
 
 int main(void) {
