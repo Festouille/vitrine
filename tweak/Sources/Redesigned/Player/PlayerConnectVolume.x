@@ -36,7 +36,7 @@ static __weak NSObject<SGRConnectAggregator> *sg_aggregator;
 static __weak UIControl *sg_visibleRow;
 static NSString *sg_route;
 static NSString *sg_lastSentRoute;
-static BOOL sg_hydrated;
+static BOOL sg_hydrated, sg_settled;
 static NSUInteger sg_revision;
 static double sg_target, sg_lastSent;
 static CFTimeInterval sg_lastSend;
@@ -68,6 +68,7 @@ static NSString *updateRoute(void) {
     if (sg_route != route && ![sg_route isEqualToString:route]) {
         sg_route = [route copy];
         sg_hydrated = NO;
+        sg_settled = NO;
         ++sg_revision;
     }
     return sg_route;
@@ -95,8 +96,12 @@ static void changed(void) {
 @implementation SGRConnectVolumeObserver
 - (void)connectVolumeDidChangeToValue:(double)value {
     dispatch_async(dispatch_get_main_queue(), ^{
-        if (updateRoute() && isfinite(value) && value >= 0 && value <= 1 && [sg_volume connectVolume] == value) {
-            sg_hydrated = YES;
+        NSString *route = updateRoute();
+        if (route && isfinite(value) && value >= 0 && value <= 1) {
+            if ([route isEqualToString:sg_lastSentRoute] && sg_lastSent == sg_target && fabs(value - sg_target) < 0.01) {
+                sg_settled = YES;
+            }
+            if ([sg_volume connectVolume] == value) sg_hydrated = YES;
         }
         changed();
     });
@@ -146,6 +151,7 @@ static void remember(id object, BOOL isVolume) {
             }
             sg_route = nil;
             sg_hydrated = NO;
+            sg_settled = NO;
             ++sg_revision;
             changed();
         });
@@ -154,8 +160,14 @@ static void remember(id object, BOOL isVolume) {
 
 static void send(NSString *route, BOOL retry) {
     double previous;
-    if (![SGRConnectVolumeRoute(&previous) isEqualToString:route] || (retry && fabs(previous - sg_target) < 0.01)) return;
+    if (![SGRConnectVolumeRoute(&previous) isEqualToString:route]) return;
+    if (fabs(previous - sg_target) < 0.01) {
+        sg_settled = YES;
+        return;
+    }
+    if (retry && sg_settled) return;
     NSObject<SGRConnectVolumeAPI> *volume = sg_volume;
+    sg_settled = NO;
     sg_lastSend = CACurrentMediaTime();
     sg_lastSent = sg_target;
     sg_lastSentRoute = route;
@@ -168,7 +180,9 @@ static void send(NSString *route, BOOL retry) {
 
 BOOL SGRConnectSetVolume(NSString *route, double value, BOOL final) {
     if (![SGRConnectVolumeRoute(NULL) isEqualToString:route]) return NO;
-    sg_target = MIN(1, MAX(0, value));
+    double target = MIN(1, MAX(0, value));
+    if (sg_target != target) sg_settled = NO;
+    sg_target = target;
     NSUInteger revision = ++sg_revision;
     // Keep one trailing value even if the user stops moving before the throttle interval ends.
     NSTimeInterval delay = MAX(0, kSendInterval - (CACurrentMediaTime() - sg_lastSend));

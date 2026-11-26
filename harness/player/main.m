@@ -1014,8 +1014,19 @@ static UIView *motionView(void) {
     after(6.1, ^{
         [self expect:SGRHarnessConnectValue() > 0.65 && SGRHarnessConnectValue() < 0.8
                 step:@"remote drag" detail:row().accessibilityValue];
-        after(1, ^{
+        NSUInteger writes = SGRHarnessConnectWrites();
+        double previous = SGRHarnessConnectValue();
+        __block BOOL tookVolume = NO;
+        [row() accessibilityIncrement];
+        after(0.15, ^{
+            tookVolume = SGRHarnessConnectWrites() == writes + 1 && SGRHarnessConnectValue() > previous;
             SGRHarnessConnectReport(0);
+        });
+        after(1, ^{
+            [self expect:tookVolume && SGRHarnessConnectWrites() == writes + 1 && SGRHarnessConnectValue() == 0
+                    step:@"acknowledged write does not undo a newer mute"
+                  detail:[NSString stringWithFormat:@"%lu writes, volume %.2f",
+                          (unsigned long)(SGRHarnessConnectWrites() - writes), SGRHarnessConnectValue()]];
             after(0.25, ^{
                 [self expect:[row().accessibilityValue isEqualToString:@"0%"] step:@"settled mute" detail:row().accessibilityValue];
                 drag();
