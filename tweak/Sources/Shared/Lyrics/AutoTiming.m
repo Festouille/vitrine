@@ -37,7 +37,7 @@ static void captureAudio(AudioUnit output, double rate, UInt32 frames, const Aud
 
 @interface SGLyricTiming : NSObject
 @property (nonatomic, strong) NSArray<SGKaraokeLine *> *plain, *timed;
-@property (nonatomic, strong) NSMutableDictionary<NSNumber *, NSValue *> *anchors;
+@property (nonatomic, copy) NSDictionary<NSNumber *, NSValue *> *anchors;
 @property (nonatomic, strong) SFSpeechRecognizer *recognizer;
 @property (nonatomic) BOOL triedRecognizer;
 @property (nonatomic) NSInteger duration;
@@ -100,24 +100,11 @@ static void recognize(SGLyricTiming *track, AVAudioPCMBuffer *audio, NSInteger s
                 [words addObject:segment.substring];
                 [times addObject:[NSValue valueWithRange:NSMakeRange(at, end - at)]];
             }
-            NSDictionary *found = SGKaraokeRecognizedLines(track.plain, words, times);
-            BOOL changed = NO;
-            for (NSNumber *index in [found.allKeys sortedArrayUsingSelector:@selector(compare:)]) {
-                if (track.anchors[index]) continue;
-                NSRange span = [found[index] rangeValue];
-                BOOL ordered = YES;
-                for (NSNumber *other in track.anchors) {
-                    NSRange prior = track.anchors[other].rangeValue;
-                    if (other.integerValue < index.integerValue ? NSMaxRange(prior) > span.location : prior.location < NSMaxRange(span)) {
-                        ordered = NO;
-                        break;
-                    }
-                }
-                if (!ordered) continue;
-                track.anchors[index] = found[index];
-                changed = YES;
+            NSDictionary *found = SGKaraokeRecognizedLines(track.plain, words, times, track.duration, track.anchors);
+            if (![found isEqualToDictionary:track.anchors]) {
+                track.anchors = found;
+                track.timed = SGKaraokeFollowPlainLines(track.plain, track.duration, track.anchors);
             }
-            if (changed) track.timed = SGKaraokeFollowPlainLines(track.plain, track.duration, track.anchors);
         });
     }];
     [request appendAudioPCMBuffer:audio];
@@ -194,7 +181,7 @@ NSArray<SGKaraokeLine *> *SGLyricsAutoTimedLines(NSString *track, NSArray<SGKara
         entry = [SGLyricTiming new];
         entry.plain = lines;
         entry.duration = duration;
-        entry.anchors = [NSMutableDictionary dictionary];
+        entry.anchors = @{};
         entry.timed = SGKaraokeFollowPlainLines(lines, duration, nil);
         sg_tracks[track] = entry;
     }

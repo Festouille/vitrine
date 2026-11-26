@@ -400,7 +400,19 @@ static NSArray<NSString *> *recognitionTokens(NSString *text) {
     return [parts filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"length > 0"]];
 }
 
-NSDictionary<NSNumber *, NSValue *> *SGKaraokeRecognizedLines(NSArray<SGKaraokeLine *> *lines, NSArray<NSString *> *words, NSArray<NSValue *> *times) {
+@interface SGKaraokeMatch : NSObject
+@property (nonatomic) NSUInteger line;
+@property (nonatomic) NSRange span;
+@property (nonatomic) double score;
+@property (nonatomic, strong) SGKaraokeMatch *prior;
+@end
+
+@implementation SGKaraokeMatch
+@end
+
+NSDictionary<NSNumber *, NSValue *> *SGKaraokeRecognizedLines(NSArray<SGKaraokeLine *> *lines, NSArray<NSString *> *words,
+    NSArray<NSValue *> *times, NSInteger duration, NSDictionary<NSNumber *, NSValue *> *previous) {
+    if (duration <= 0) return previous ?: @{};
     NSMutableArray<NSString *> *heard = [NSMutableArray array];
     NSMutableArray<NSValue *> *spans = [NSMutableArray array];
     for (NSUInteger i = 0; i < MIN(words.count, times.count); i++) {
@@ -409,17 +421,22 @@ NSDictionary<NSNumber *, NSValue *> *SGKaraokeRecognizedLines(NSArray<SGKaraokeL
             [spans addObject:times[i]];
         }
     }
-    NSMutableDictionary<NSArray<NSString *> *, NSNumber *> *byPhrase = [NSMutableDictionary dictionary];
-    for (NSUInteger i = 0; i < lines.count; i++) {
-        NSArray *phrase = recognitionTokens(SGKaraokeLineText(lines[i]));
-        if (phrase.count < 3) continue;
-        byPhrase[phrase] = byPhrase[phrase] ? @(-1) : @(i);
+    NSMutableArray<NSArray<NSString *> *> *phrases = [NSMutableArray arrayWithCapacity:lines.count];
+    NSCountedSet *phraseCounts = [NSCountedSet set];
+    for (SGKaraokeLine *line in lines) {
+        NSArray *phrase = recognitionTokens(SGKaraokeLineText(line));
+        [phraseCounts addObject:phrase];
+        [phrases addObject:phrase];
     }
-    NSMutableDictionary<NSNumber *, NSMutableArray<NSValue *> *> *matches = [NSMutableDictionary dictionary];
-    NSMutableData *coverage = [NSMutableData dataWithLength:(heard.count + 1) * sizeof(NSUInteger)];
-    NSUInteger *ends = coverage.mutableBytes;
-    [byPhrase enumerateKeysAndObjectsUsingBlock:^(NSArray<NSString *> *phrase, NSNumber *index, BOOL *stop) {
-        if (phrase.count > heard.count) return;
+    NSArray<SGKaraokeLine *> *estimated = SGKaraokeFollowPlainLines(lines, duration, nil);
+    NSMutableArray<SGKaraokeMatch *> *matches = [NSMutableArray array];
+    SGKaraokeMatch *best = nil;
+    for (NSUInteger line = 0; line < lines.count; line++) {
+        NSArray<NSString *> *phrase = phrases[line];
+        if (phrase.count < 3 || [phraseCounts countForObject:phrase] > 1) continue;
+        NSMutableArray<NSValue *> *candidates = [NSMutableArray array];
+        NSValue *cached = previous[@(line)];
+        if (cached) [candidates addObject:cached];
         for (NSUInteger i = 0; i + phrase.count <= heard.count; i++) {
             if (![heard[i] isEqual:phrase.firstObject]) continue;
             NSUInteger j = 1;
@@ -427,27 +444,29 @@ NSDictionary<NSNumber *, NSValue *> *SGKaraokeRecognizedLines(NSArray<SGKaraokeL
                 if (spans[i + j].rangeValue.location > NSMaxRange(spans[i + j - 1].rangeValue) + 1800) break;
             }
             if (j != phrase.count) continue;
-            ends[i + 1] = MAX(ends[i + 1], i + j);
-            if (index.integerValue < 0) continue;
-            if (!matches[index]) matches[index] = [NSMutableArray array];
-            [matches[index] addObject:[NSValue valueWithRange:NSMakeRange(i, j)]];
+            NSUInteger start = spans[i].rangeValue.location, end = NSMaxRange(spans[i + j - 1].rangeValue);
+            if (end > start) [candidates addObject:[NSValue valueWithRange:NSMakeRange(start, end - start)]];
         }
-    }];
-    for (NSUInteger i = 1; i <= heard.count; i++) ends[i] = MAX(ends[i], ends[i - 1]);
-    NSMutableDictionary<NSNumber *, NSValue *> *found = [NSMutableDictionary dictionary];
-    [matches enumerateKeysAndObjectsUsingBlock:^(NSNumber *index, NSArray<NSValue *> *ranges, BOOL *stop) {
-        for (NSValue *value in ranges) {
-            NSRange range = value.rangeValue;
-            NSUInteger endToken = NSMaxRange(range);
-            if (ends[range.location] >= endToken || ends[range.location + 1] > endToken) continue;
-            if (found[index]) {
-                [found removeObjectForKey:index];
-                break;
+        for (NSValue *value in candidates) {
+            NSRange span = value.rangeValue;
+            if (!span.length || NSMaxRange(span) > (NSUInteger)duration) continue;
+            SGKaraokeMatch *prior = nil;
+            for (SGKaraokeMatch *match in matches) {
+                if (match.line == line) break;
+                if (NSMaxRange(match.span) <= span.location && match.score > prior.score) prior = match;
             }
-            NSUInteger start = spans[range.location].rangeValue.location, end = NSMaxRange(spans[endToken - 1].rangeValue);
-            if (end > start) found[index] = [NSValue valueWithRange:NSMakeRange(start, end - start)];
+            double distance = fabs((double)span.location - estimated[line].start) / duration;
+            SGKaraokeMatch *match = [SGKaraokeMatch new];
+            match.line = line;
+            match.span = span;
+            match.prior = prior;
+            match.score = prior.score + 1.0 + 0.3 * phrase.count - distance;
+            [matches addObject:match];
+            if (match.score > best.score) best = match;
         }
-    }];
+    }
+    NSMutableDictionary<NSNumber *, NSValue *> *found = [NSMutableDictionary dictionary];
+    for (SGKaraokeMatch *match = best; match; match = match.prior) found[@(match.line)] = [NSValue valueWithRange:match.span];
     return found;
 }
 

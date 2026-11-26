@@ -222,7 +222,7 @@ static void checkTiming(void) {
     NSArray *spans = @[[NSValue valueWithRange:NSMakeRange(2000, 100)], [NSValue valueWithRange:NSMakeRange(2200, 100)],
         [NSValue valueWithRange:NSMakeRange(2400, 200)], [NSValue valueWithRange:NSMakeRange(9000, 1400)],
         [NSValue valueWithRange:NSMakeRange(11000, 1600)], [NSValue valueWithRange:NSMakeRange(13000, 1800)]];
-    NSDictionary *anchors = SGKaraokeRecognizedLines(plain, words, spans);
+    NSDictionary *anchors = SGKaraokeRecognizedLines(plain, words, spans, 20000, nil);
     NSArray<SGKaraokeLine *> *aligned = SGKaraokeFollowPlainLines(plain, 20000, anchors);
     CHECK(anchors.count == 2);
     CHECK(aligned[0].start == 2000 && aligned[0].end == 2600);
@@ -236,15 +236,37 @@ static void checkTiming(void) {
     CHECK(touching[1].end - touching[1].start >= 250);
     CHECK(touching[1].end == touching[2].start && touching[2].end == 20000);
     CHECK([SGKaraokeLineText(aligned[1]) isEqualToString:@"Slowly fades away"]);
-    CHECK(SGKaraokeRecognizedLines(SGKaraokeStaticLines(@[@"Here comes rain", @"Here comes rain"]), words, spans).count == 0);
-    CHECK(SGKaraokeRecognizedLines(plain, @[@"here", @"comes", @"rain"], @[spans[0], spans[3], spans[4]]).count == 0);
+    CHECK(SGKaraokeRecognizedLines(SGKaraokeStaticLines(@[@"Here comes rain", @"Here comes rain"]), words, spans, 20000, nil).count == 0);
+    CHECK(SGKaraokeRecognizedLines(plain, @[@"here", @"comes", @"rain"], @[spans[0], spans[3], spans[4]], 20000, nil).count == 0);
     NSArray *embedded = SGKaraokeStaticLines(@[@"Here comes rain", @"I know here comes rain"]);
     NSDictionary *inside = SGKaraokeRecognizedLines(embedded, @[@"I", @"know", @"here", @"comes", @"rain"],
         @[[NSValue valueWithRange:NSMakeRange(1600, 100)], [NSValue valueWithRange:NSMakeRange(1800, 100)],
-            spans[0], spans[1], spans[2]]);
+            spans[0], spans[1], spans[2]], 20000, nil);
     CHECK(inside.count == 1 && !inside[@0] && inside[@1]);
-    NSDictionary *alone = SGKaraokeRecognizedLines(embedded, @[@"here", @"comes", @"rain"], @[spans[3], spans[4], spans[5]]);
+    NSDictionary *alone = SGKaraokeRecognizedLines(embedded, @[@"here", @"comes", @"rain"], @[spans[3], spans[4], spans[5]], 20000, nil);
     CHECK(alone.count == 1 && [alone[@0] rangeValue].location == 9000);
+
+    NSArray *clipped = SGKaraokeStaticLines(@[@"I know here comes rain", @"Here comes rain"]);
+    NSArray *shortPhrase = @[@"here", @"comes", @"rain"];
+    NSDictionary *first = SGKaraokeRecognizedLines(clipped, shortPhrase, @[spans[0], spans[1], spans[2]], 20000, nil);
+    CHECK([first[@1] rangeValue].location == 2000);
+    NSDictionary *corrected = SGKaraokeRecognizedLines(clipped, shortPhrase, @[spans[3], spans[4], spans[5]], 20000, first);
+    CHECK([corrected[@1] rangeValue].location == 9000);
+
+    NSArray *combined = SGKaraokeStaticLines(@[@"Here comes rain", @"Slowly fades away", @"Here comes rain slowly fades away"]);
+    NSArray *early = @[spans[0], spans[1], spans[2], [NSValue valueWithRange:NSMakeRange(2800, 100)],
+        [NSValue valueWithRange:NSMakeRange(3000, 100)], [NSValue valueWithRange:NSMakeRange(3200, 200)]];
+    NSDictionary *separate = SGKaraokeRecognizedLines(combined, words, early, 20000, nil);
+    CHECK(separate.count == 2 && separate[@0] && separate[@1] && !separate[@2]);
+    NSMutableArray *late = [NSMutableArray array];
+    for (NSValue *value in early) {
+        NSRange range = value.rangeValue;
+        [late addObject:[NSValue valueWithRange:NSMakeRange(range.location + 10500, range.length)]];
+    }
+    NSDictionary *allThree = SGKaraokeRecognizedLines(combined, words, late, 20000, separate);
+    CHECK(allThree.count == 3 && [allThree[@0] isEqual:separate[@0]] && [allThree[@1] isEqual:separate[@1]]);
+    CHECK([allThree[@2] rangeValue].location == 12500);
+    puts("speech alignment: ordered lines and replacement of weaker cached matches held");
     puts("plain lyric timing: estimates, vocal gap, slow delivery, and ambiguous lines held");
 }
 

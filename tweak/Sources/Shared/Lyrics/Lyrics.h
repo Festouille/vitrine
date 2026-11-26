@@ -151,7 +151,8 @@ SGKaraokeLine *SGKaraokePieceLine(NSArray<SGKaraokePiece *> *pieces, NSInteger s
 NSArray<SGKaraokeLine *> *SGKaraokeEstimatedLines(NSArray<NSNumber *> *starts, NSArray<NSString *> *texts);
 // Lines with no time at all, for lyrics that come as plain text; a ♪ or empty text is dropped.
 NSArray<SGKaraokeLine *> *SGKaraokeStaticLines(NSArray<NSString *> *texts);
-NSDictionary<NSNumber *, NSValue *> *SGKaraokeRecognizedLines(NSArray<SGKaraokeLine *> *lines, NSArray<NSString *> *words, NSArray<NSValue *> *times);
+NSDictionary<NSNumber *, NSValue *> *SGKaraokeRecognizedLines(NSArray<SGKaraokeLine *> *lines, NSArray<NSString *> *words,
+    NSArray<NSValue *> *times, NSInteger duration, NSDictionary<NSNumber *, NSValue *> *previous);
 NSArray<SGKaraokeLine *> *SGKaraokeFollowPlainLines(NSArray<SGKaraokeLine *> *lines, NSInteger duration, NSDictionary<NSNumber *, NSValue *> *anchors);
 // The finest timing any of the lines has; SGKaraokeTimingNone for none at all.
 SGKaraokeTiming SGKaraokeLinesTiming(NSArray<SGKaraokeLine *> *lines);
