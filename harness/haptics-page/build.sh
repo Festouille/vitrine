@@ -10,6 +10,7 @@ SDK=$(xcrun --sdk iphonesimulator --show-sdk-path)
 xcrun -sdk iphonesimulator clang -target arm64-apple-ios17.0-simulator -fobjc-arc -g -O0 \
     -I"$SRC" -isysroot "$SDK" -Wall -Werror -Wno-deprecated-declarations \
     "$(dirname "$0")/main.m" "$(dirname "$0")/stubs.m" "$(dirname "$0")/../scene.m" \
+    "$(dirname "$0")/../page-bar-stubs.m" "$(dirname "$0")/../haptics/relay-stubs.m" \
     "$SRC"/Shared/Haptics/HapticsSettings.m "$SRC"/Shared/Haptics/SGVibrationsPreview.m "$SRC"/Shared/Haptics/SGFeedback.m \
     "$SRC"/Settings/SGLocalize.m "$SRC"/Settings/SGStrings_fr.m "$SRC"/Settings/SGStrings_es.m "$SRC"/Settings/SGStrings_tr.m \
     "$SRC"/Settings/SGPage.m "$SRC"/Settings/SGPageStyle.m "$SRC"/Settings/SGModPage.m "$SRC"/Settings/SGGlowSwitch.m \
