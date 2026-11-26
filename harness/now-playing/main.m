@@ -34,6 +34,10 @@ __attribute__((constructor)) static void underneath(void) {
 
 BOOL SGFlag(NSString *key, BOOL fallback) { return getenv("LSL") != NULL; }
 void SGPrefsChanged(void) {}
+NSBundle *SGHostBundle(void) { return nil; }
+BOOL SGIsLiveContainer(void) { return NO; }
+BOOL SGLockCoverLyricsPicked(void) { return NO; }
+BOOL SGLockCoverLyricsWanted(void) { return NO; }
 
 @implementation SPTPlayerTrack {
 @public
@@ -142,6 +146,26 @@ static void translation(void) {
     sg_lines = was;
 }
 
+static void pauseOffMain(void) {
+    MPNowPlayingInfoCenter *center = MPNowPlayingInfoCenter.defaultCenter;
+    NSDictionary *paused = spotifyInfo(@"Song", 0.05, 0);
+    center.nowPlayingInfo = paused;
+    check([sg_system[MPMediaItemPropertyArtist] isEqual:@"Hello"], @"a main-thread pause keeps the lyric");
+    center.nowPlayingInfo = spotifyInfo(@"Song", 0, 1);
+    dispatch_semaphore_t sent = dispatch_semaphore_create(0);
+    __block BOOL offMain = NO;
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_DEFAULT, 0), ^{
+        offMain = !NSThread.isMainThread;
+        center.nowPlayingInfo = paused;
+        dispatch_semaphore_signal(sent);
+    });
+    dispatch_semaphore_wait(sent, DISPATCH_TIME_FOREVER);
+    runFor(0.1);
+    check(offMain, @"Spotify's paused info was submitted off main");
+    check([sg_system[MPMediaItemPropertyArtist] isEqual:@"Hello"], @"an off-main pause keeps the lyric");
+    check(fabs(systemElapsed() - 0.05) < 0.01, @"the lyric is sent with Spotify's paused position");
+}
+
 // Two tracks with one title: what the first had must not stay on the second's info once it is cleared.
 static void sameTitle(void) {
     MPNowPlayingInfoCenter *center = MPNowPlayingInfoCenter.defaultCenter;
@@ -192,6 +216,7 @@ int main(void) {
         printf("lock screen lyrics %s\n", lyrics ? "on" : "off");
         if (lyrics) progressBar();
         if (lyrics) translation();
+        if (lyrics) pauseOffMain();
         sameTitle();
         printf(failures ? "%d failed\n" : "all passed\n", failures);
         return failures ? 1 : 0;

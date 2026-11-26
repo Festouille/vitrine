@@ -206,11 +206,15 @@ static void lookNow(void) {
     BOOL playing = playingBy(info) && info[MPNowPlayingInfoPropertyElapsedPlaybackTime] != nil;
     // Karaoke's lyrics are main-thread state; off it the info goes out as it is and a tick at once adds the line.
     if (!NSThread.isMainThread || !info[MPNowPlayingInfoPropertyElapsedPlaybackTime]) {
+        %orig;
         dispatch_async(dispatch_get_main_queue(), ^{
+            @synchronized (sg_lock) {
+                if (sg_spotifyInfoAt != now) return;
+            }
             sg_shownLine = nil;
             lookIn(playing ? 0 : -1, info);
+            if (!playing && info[MPNowPlayingInfoPropertyElapsedPlaybackTime]) tick();
         });
-        %orig;
         return;
     }
     double elapsed = elapsedAt(info, now, now);
