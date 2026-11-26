@@ -92,6 +92,9 @@ static UIViewController *gatedPage(void) {
         SGSetEnabled(SGKeyRedesignUntested, NO);
         SGSetEnabled(SGKeySettingsTranslate, NO);
         SGSetInt(SGKeySettingsLanguage, SGSettingsLanguageDevice);
+        [NSUserDefaults.standardUserDefaults removeObjectForKey:SGKeySettingsThemes];
+        [NSUserDefaults.standardUserDefaults removeObjectForKey:SGKeySettingsTheme];
+        SGPrefsChanged();
     }
     NSMutableArray<NSString *> *actions = [NSMutableArray array];
     for (NSString *arg in [args subarrayWithRange:NSMakeRange(1, args.count - 1)]) {
@@ -149,11 +152,62 @@ static UIViewController *gatedPage(void) {
 }
 
 - (void)run:(NSString *)action {
+    if ([action isEqualToString:@"pause"]) return;
     NSArray<NSString *> *parts = [action componentsSeparatedByString:@"="];
     NSString *verb = parts.firstObject, *value = parts.count > 1 ? parts[1] : @"";
     UITableView *table = self.table;
     if (SGHarnessRepeatAction(verb, value, self.nav.topViewController)) {
         return;
+    } else if ([verb isEqualToString:@"theme"]) {
+        BOOL light = [value isEqualToString:@"light"];
+        UITraitCollection *traits = table.traitCollection;
+        NSAssert(self.nav.topViewController.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark,
+                 @"The experiment must override the table, not the controller");
+        NSAssert(traits.userInterfaceStyle == (light ? UIUserInterfaceStyleLight : UIUserInterfaceStyleDark),
+                 @"Expected %@ on %@, got %ld (scene %ld)", value, self.nav.topViewController.title,
+                 (long)traits.userInterfaceStyle, (long)self.window.windowScene.traitCollection.userInterfaceStyle);
+        UIColor *background = [table.backgroundColor resolvedColorWithTraitCollection:traits];
+        CGFloat white = -1;
+        NSAssert([background getWhite:&white alpha:NULL] && (light ? white > 0.85 : white < 0.10),
+                 @"Wrong table color on %@: %@", self.nav.topViewController.title, background);
+        UITableViewCell *firstCell = table.visibleCells.firstObject;
+        UIListContentConfiguration *content = (UIListContentConfiguration *)firstCell.contentConfiguration;
+        if ([content isKindOfClass:UIListContentConfiguration.class] && ![content.text isEqualToString:@"Warning"]) {
+            UIColor *ink = [content.textProperties.color resolvedColorWithTraitCollection:traits];
+            UIColor *card = [firstCell.backgroundColor resolvedColorWithTraitCollection:traits];
+            CGFloat inkWhite = -1, cardWhite = -1;
+            NSAssert([ink getWhite:&inkWhite alpha:NULL] && [card getWhite:&cardWhite alpha:NULL] &&
+                     (light ? inkWhite < 0.15 && cardWhite > 0.85 : inkWhite > 0.85 && cardWhite < 0.20),
+                     @"Low contrast on '%@', ink %@ against %@", content.text, ink, card);
+        }
+        NSLog(@"[harness] theme passed: %@ %@", self.nav.topViewController.title, value);
+    } else if ([verb isEqualToString:@"restart-pending"]) {
+        SGSetEnabled(SGKeyHideVideoSwitch, !SGHidden(SGKeyHideVideoSwitch));
+    } else if ([verb isEqualToString:@"restart-contrast"]) {
+        NSMutableArray<UIButton *> *buttons = [NSMutableArray array];
+        findViews(table.tableHeaderView, UIButton.class, buttons);
+        UIButton *pill = buttons.firstObject;
+        NSAssert(pill.window && [pill.configuration.title hasPrefix:@"Restart to apply"], @"Missing restart pill");
+        UIColor *ink = [pill.titleLabel.textColor resolvedColorWithTraitCollection:pill.traitCollection];
+        CGFloat white = -1;
+        BOOL light = [value isEqualToString:@"light"];
+        NSAssert([ink getWhite:&white alpha:NULL] && (light ? white < 0.15 : white > 0.85),
+                 @"Unreadable restart label in %@ with a black custom accent: %@", value, ink);
+        NSLog(@"[harness] restart contrast passed: %@", value);
+    } else if ([verb isEqualToString:@"theme-off"]) {
+        UISwitch *toggle = (UISwitch *)[table cellForRowAtIndexPath:[self pathFrom:@"0.0"]].accessoryView;
+        NSAssert([toggle isKindOfClass:UISwitch.class] && !toggle.isOn && [table numberOfRowsInSection:0] == 1,
+                 @"The experiment must be off and hide the theme picker");
+        NSLog(@"[harness] experiment is off");
+    } else if ([verb isEqualToString:@"theme-menu"]) {
+        UIButton *menu = (UIButton *)[table cellForRowAtIndexPath:[self pathFrom:@"0.1"]].accessoryView;
+        NSAssert([menu isKindOfClass:UIButton.class], @"Missing theme menu");
+        UIAction *choice = nil;
+        for (UIAction *item in menu.menu.children) if ([item.title isEqualToString:value]) choice = item;
+        NSAssert(choice, @"Unknown theme choice %@", value);
+        [choice performWithSender:menu target:nil];
+    } else if ([verb isEqualToString:@"back"]) {
+        [self.nav popViewControllerAnimated:YES];
     } else if ([verb isEqualToString:@"remember-repeat"]) {
         UIViewController *page = self.nav.topViewController;
         if (![page.title isEqualToString:SGL(@"Player")]) {

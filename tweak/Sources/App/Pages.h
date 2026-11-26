@@ -14,7 +14,7 @@ NSString *SGRedesignUntestedWarning(void);
 // Redesigned UI as a glowing switch with its ⓘ, offering to restart Spotify when flipped; below iOS 26 it
 // warns first. It leads Mod Settings' main page.
 SGModRow *SGRedesignedUIRow(void);
-UIViewController *SGAppearancePage(void);   // the stored look's accent and AMOLED, the font and the app icon
+UIViewController *SGAppearancePage(void);   // settings theme, the stored look's options, font and app icon
 UIViewController *SGPlayerSettingsPage(void);
 UIViewController *SGLyricsSettingsPage(void);   // with Sing (Shared/Sing) on it
 UIViewController *SGNavbarPage(void);       // the tab editor of whichever look is stored
