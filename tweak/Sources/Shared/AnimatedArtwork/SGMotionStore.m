@@ -50,13 +50,14 @@ NSURL *SGMotionMadeFile(NSString *key) {
 }
 
 static NSMutableDictionary<NSURL *, NSMutableArray *> *sg_waiting;
+static NSMutableSet<NSURL *> *sg_exports;
 
 // A download that failed on the way (the lock screen and the player can share one, and iOS can cancel it with
 // the lock screen's request) or met a busy server is tried `retries` more times before its waiters hear nil;
 // an answer that says the file is not there is final.
-static void download(NSURL *remote, NSURL *local, NSUInteger retries) {
+static void download(NSURL *remote, NSURL *local, BOOL allowsConstrained, NSUInteger retries) {
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:remote];
-    request.allowsConstrainedNetworkAccess = SGFlag(SGKeyMotionLowData, NO);
+    request.allowsConstrainedNetworkAccess = allowsConstrained;
     [[NSURLSession.sharedSession downloadTaskWithRequest:request completionHandler:^(NSURL *temporary, NSURLResponse *response, NSError *error) {
         NSInteger status = [response isKindOfClass:NSHTTPURLResponse.class] ? ((NSHTTPURLResponse *)response).statusCode : 0;
         // The temporary file is gone once this handler returns, so it moves before the hop to main.
@@ -71,18 +72,23 @@ static void download(NSURL *remote, NSURL *local, NSUInteger retries) {
         else SGLog(@"motion: %@ not downloaded (%ld, %@)%@", remote.lastPathComponent, (long)status, error.localizedDescription,
                    again ? @", tried again" : @"");
         dispatch_async(dispatch_get_main_queue(), ^{
+            if (!kept && !allowsConstrained && [sg_exports containsObject:remote]) {
+                download(remote, local, YES, 1);
+                return;
+            }
             if (again) {
-                download(remote, local, retries - 1);
+                download(remote, local, allowsConstrained, retries - 1);
                 return;
             }
             NSArray *waiting = sg_waiting[remote];
             [sg_waiting removeObjectForKey:remote];
+            [sg_exports removeObject:remote];
             for (void (^waiter)(NSURL *) in waiting) waiter(kept ? local : nil);
         });
     }] resume];
 }
 
-void SGMotionFile(NSURL *remote, void (^done)(NSURL *file)) {
+static void motionFile(NSURL *remote, BOOL forExport, void (^done)(NSURL *file)) {
     if (!remote) {
         done(nil);
         return;
@@ -93,12 +99,24 @@ void SGMotionFile(NSURL *remote, void (^done)(NSURL *file)) {
         return;
     }
     if (!sg_waiting) sg_waiting = [NSMutableDictionary dictionary];
+    if (forExport) {
+        if (!sg_exports) sg_exports = [NSMutableSet set];
+        [sg_exports addObject:remote];
+    }
     if (sg_waiting[remote]) {
         [sg_waiting[remote] addObject:[done copy]];
         return;
     }
     sg_waiting[remote] = [NSMutableArray arrayWithObject:[done copy]];
-    download(remote, local, 1);
+    download(remote, local, forExport || SGFlag(SGKeyMotionLowData, NO), 1);
+}
+
+void SGMotionFile(NSURL *remote, void (^done)(NSURL *file)) {
+    motionFile(remote, NO, done);
+}
+
+void SGMotionFileForExport(NSURL *remote, void (^done)(NSURL *file)) {
+    motionFile(remote, YES, done);
 }
 
 void SGMotionPoster(NSURL *file, void (^done)(UIImage *poster)) {

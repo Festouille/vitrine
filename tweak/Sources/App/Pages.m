@@ -1,5 +1,6 @@
 #import "Core/SGCore.h"
 #import "Shared/AppIcon/AppIcon.h"
+#import "Shared/AnimatedArtwork/SaveCanvas.h"
 #import "Shared/Fonts/Fonts.h"
 #import "Shared/LyricsTranslation/LyricsTranslation.h"
 #import "Redesigned/Player/Player.h"
@@ -171,6 +172,9 @@ UIViewController *SGPlayerSettingsPage(void) {
 
     // The redesign's page leads with a card of its player and the background's control, the background's
     // rows and the Mini player section under it.
+    [sections addObject:SGSection(@"Artwork", @[
+        SGOptionRow(@"Save Canvas", @"Share or save a track’s Spotify Canvas video from the Now Playing menu", SGKeySaveCanvas),
+    ])];
     if (!native) return SGRPlayerSettingsPage(sections);
     return [[SGModPage alloc] initWithTitle:@"Player" intro:SGRestartNote sections:sections footer:nil];
 }

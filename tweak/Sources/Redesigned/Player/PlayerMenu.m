@@ -22,6 +22,7 @@
 #import "Shared/Lyrics/Lyrics.h"
 #import "Shared/LyricsSources/LyricsSources.h"
 #import "Settings/SGPageStyle.h"
+#import "Shared/AnimatedArtwork/SaveCanvas.h"
 #import "Player.h"
 
 static __weak UIView *sg_moreButton;   // the ⋯ the panels come from
@@ -295,6 +296,8 @@ static NSArray<UIMenuElement *> *playerItems(BOOL dj) {
     }
     UIAction *lyrics = lyricsSourceItem();
     if (lyrics) [items addObject:lyrics];
+    UIMenuElement *canvas = dj ? nil : SGSaveCanvasMenuElement();
+    if (canvas) [items addObject:canvas];
     UIMenuElement *sleep = sleepTimerMenu([sheetKind() isEqualToString:@"episode"], dj);
     if (sleep) [items addObject:sleep];
     return items;
