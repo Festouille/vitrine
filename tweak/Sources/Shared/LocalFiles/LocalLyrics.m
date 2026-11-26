@@ -4,6 +4,7 @@
 // on whatever thread Spotify reads a track on, so the links are swapped whole under a lock and the read
 // files are kept under one; the files are written on the main thread.
 #import <os/lock.h>
+#include <limits.h>
 #import "Core/SGCore.h"
 #import "Shared/Lyrics/Lyrics.h"
 #import "Headers/SPTPlayer.h"
@@ -81,6 +82,30 @@ NSString *SGImportedLRCLinkedTo(NSString *uri) {
     return [name isKindOfClass:NSString.class] ? name : nil;
 }
 
+NSInteger SGImportedLRCOffset(NSString *name) {
+    if (!name.length) return 0;
+    id value = [NSUserDefaults.standardUserDefaults dictionaryForKey:SGKeyImportedLRCOffsets][name];
+    NSInteger offset = [value isKindOfClass:NSNumber.class] ? [value integerValue] : 0;
+    return MAX(-SGImportedLRCOffsetLimit, MIN(offset, SGImportedLRCOffsetLimit));
+}
+
+static void storeOffset(NSString *name, NSInteger offset) {
+    NSUserDefaults *prefs = NSUserDefaults.standardUserDefaults;
+    NSMutableDictionary *offsets = [[prefs dictionaryForKey:SGKeyImportedLRCOffsets] mutableCopy] ?: [NSMutableDictionary dictionary];
+    if (offset) offsets[name] = @(offset);
+    else [offsets removeObjectForKey:name];
+    if (offsets.count) [prefs setObject:offsets forKey:SGKeyImportedLRCOffsets];
+    else [prefs removeObjectForKey:SGKeyImportedLRCOffsets];
+}
+
+void SGSetImportedLRCOffset(NSString *name, NSInteger offset) {
+    if (![SGImportedLRCFiles() containsObject:name]) return;
+    offset = MAX(-SGImportedLRCOffsetLimit, MIN(offset, SGImportedLRCOffsetLimit));
+    if (SGImportedLRCOffset(name) == offset) return;
+    storeOffset(name, offset);
+    [NSNotificationCenter.defaultCenter postNotificationName:SGImportedLRCDidChangeNotification object:name];
+}
+
 #pragma mark - reading LRC
 
 @interface SGLRCSheet : NSObject
@@ -88,6 +113,8 @@ NSString *SGImportedLRCLinkedTo(NSString *uri) {
 @property (nonatomic, copy) NSArray<SGKaraokeLine *> *lines;
 @property (nonatomic, copy) NSArray<NSNumber *> *starts;   // as Spotify's own page takes them
 @property (nonatomic, copy) NSArray<NSString *> *texts;
+@property (nonatomic, copy) NSArray<NSArray *> *stamped;
+@property (nonatomic) NSInteger fileOffset;
 @property (nonatomic) BOOL synced;
 @end
 
@@ -96,6 +123,16 @@ NSString *SGImportedLRCLinkedTo(NSString *uri) {
 
 static NSString *trimmed(NSString *text) {
     return [text stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceCharacterSet];
+}
+
+static NSArray<SGKaraokeLine *> *timedLines(SGLRCSheet *sheet, NSInteger correction) {
+    NSMutableArray<NSNumber *> *starts = [NSMutableArray array];
+    NSMutableArray<NSString *> *texts = [NSMutableArray array];
+    for (NSArray *line in sheet.stamped) {
+        [starts addObject:@(MAX([line[0] integerValue] - sheet.fileOffset + correction, 0))];
+        [texts addObject:line[1]];
+    }
+    return SGKaraokeEstimatedLines(starts, texts);
 }
 
 // [01:02], [01:02.3], [01:02.34], [01:02.345], [101:02:34]: minutes of one to three digits, and a ":"
@@ -119,7 +156,7 @@ static SGLRCSheet *sheetFrom(NSString *lrc) {
             NSString *value = trimmed([row substringWithRange:[named rangeAtIndex:2]]);
             if ([which isEqualToString:@"ti"] && value.length) sheet.title = value;
             else if ([which isEqualToString:@"ar"] && value.length) sheet.artist = value;
-            else if ([which isEqualToString:@"offset"]) offset = value.integerValue;   // "+250" and "-250" both read
+            else if ([which isEqualToString:@"offset"]) offset = MAX(-INT_MAX, MIN(value.integerValue, INT_MAX));
             continue;
         }
         NSArray<NSTextCheckingResult *> *found = [stamp matchesInString:row options:0 range:NSMakeRange(0, row.length)];
@@ -145,14 +182,10 @@ static SGLRCSheet *sheetFrom(NSString *lrc) {
         [stamped sortWithOptions:NSSortStable usingComparator:^NSComparisonResult(NSArray *a, NSArray *b) {
             return [a[0] compare:b[0]];
         }];
-        NSMutableArray<NSNumber *> *starts = [NSMutableArray array];
-        NSMutableArray<NSString *> *texts = [NSMutableArray array];
         // A positive offset brings the lyrics in sooner.
-        for (NSArray *line in stamped) {
-            [starts addObject:@(MAX([line[0] integerValue] - offset, 0))];
-            [texts addObject:line[1]];
-        }
-        sheet.lines = SGKaraokeEstimatedLines(starts, texts);
+        sheet.fileOffset = offset;
+        sheet.stamped = stamped;
+        sheet.lines = timedLines(sheet, 0);
         sheet.synced = YES;
         NSArray<NSNumber *> *pageStarts;
         NSArray<NSString *> *pageTexts;
@@ -261,7 +294,7 @@ static void localNames(NSString *trackID, NSString **title, NSMutableArray<NSStr
     if (!artists.count && tagged) [artists addObject:tagged];
 }
 
-static SGLyricsResult *resultOf(SGLRCSheet *sheet, NSString *title, NSString *artist) {
+static SGLyricsResult *resultOf(SGLRCSheet *sheet, NSString *name, NSString *title, NSString *artist) {
     if (!sheet.lines.count) return nil;
     SGLyricsResult *result = [SGLyricsResult new];
     result.provider = kCredit;
@@ -269,6 +302,15 @@ static SGLyricsResult *resultOf(SGLRCSheet *sheet, NSString *title, NSString *ar
     result.karaokeLines = sheet.lines;
     result.starts = sheet.starts;
     result.texts = sheet.texts;
+    NSInteger correction = sheet.synced ? SGImportedLRCOffset(name) : 0;
+    if (correction) {
+        result.karaokeLines = timedLines(sheet, correction);
+        NSArray<NSNumber *> *starts;
+        NSArray<NSString *> *texts;
+        SGLyricsPageLines(result.karaokeLines, &starts, &texts);
+        result.starts = starts;
+        result.texts = texts;
+    }
     result.title = sheet.title ?: title;
     result.artist = sheet.artist ?: artist;
     return result;
@@ -279,15 +321,19 @@ SGLyricsResult *SGImportedLRCFor(NSString *trackID, NSString *title, NSString *a
     NSMutableArray<NSString *> *artists = [NSMutableArray array];
     if (SGLocalFileIs(trackID) && !title.length) localNames(trackID, &title, artists);
     else if (artist.length) [artists addObject:artist];
-    if (linked) return resultOf(sheetNamed(linked), title, artists.firstObject);
+    if (linked) return resultOf(sheetNamed(linked), linked, title, artists.firstObject);
     for (NSString *name in SGImportedLRCFiles()) {
         SGLRCSheet *sheet = sheetNamed(name);
-        if (sheet.lines.count && sheetMatches(sheet, name, title, artists)) return resultOf(sheet, nil, nil);
+        if (sheet.lines.count && sheetMatches(sheet, name, title, artists)) return resultOf(sheet, name, nil, nil);
     }
     return nil;
 }
 
 SGLyricsAsk SGImportedLRCAsk = ^(SGLyricsQuery *query, void (^done)(SGLyricsResult *result)) {
+    if (![SGLyricsOrder() containsObject:SGImportedLRCKey]) {
+        done(nil);
+        return;
+    }
     done(SGImportedLRCFor(query.trackID, query.title, query.artist));
 };
 
@@ -373,6 +419,7 @@ BOOL SGDeleteImportedLRC(NSString *name) {
     NSMutableDictionary *links = [allLinks() mutableCopy];
     [links removeObjectsForKeys:[links allKeysForObject:name]];
     storeLinks(links);
+    storeOffset(name, 0);
     changed();
     return YES;
 }

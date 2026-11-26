@@ -400,6 +400,10 @@ static void loadLyrics(void) {
 - (void)showBadge:(BOOL)shown on:(UIView *)cover;
 @end
 
+@interface UIView (SGRHarnessMotion)
+- (void)playFile:(NSURL *)file poster:(UIImage *)poster;
+@end
+
 // PlayerLyrics.x's tap that brings the controls back and the thumbnail's, fired by hand.
 @interface NSObject (SGRHarnessLyrics)
 - (void)sgr_woke;
@@ -871,6 +875,21 @@ static void logLandscape(NSString *step, NSString *want) {
         serve(imageURI(@"bbbb"), green, 1.0, NO);
         [self playTrack:@"spotify:track:harnessB" image:imageURI(@"bbbb")];
     });
+    after(2.5, ^{ [self check:@"2 artwork pending, old cover cleared" want:@"none"]; });
+    after(2.6, ^{
+        SGRPlayerToggleLyrics();
+        UIView *overlay = firstOfClass(self->_host, @"SGRPlayerLyricsOverlay");
+        UIImageView *cover = [overlay valueForKey:@"cover"];
+        [self expect:SGRPlayerLyricsAvailable() && SGRPlayerLyricsOpen() && cover.image && !SGRNowPlayingArtwork(NULL, NULL)
+                step:@"lyrics open before artwork arrives" detail:@"the thumbnail has a placeholder"];
+    });
+    after(4, ^{
+        UIView *overlay = firstOfClass(self->_host, @"SGRPlayerLyricsOverlay");
+        UIImageView *cover = [overlay valueForKey:@"cover"];
+        [self expect:SGRPlayerLyricsOpen() && [colorName(cover.image) isEqualToString:@"green"]
+                step:@"artwork arrives with lyrics open" detail:@"the thumbnail shows the new track's cover"];
+        if (SGRPlayerLyricsOpen()) SGRPlayerToggleLyrics();
+    });
     after(5.5, ^{ [self showOnScreen:green]; });
     after(7, ^{ [self check:@"2 album switch, the screens late" want:@"green"]; });
 
@@ -928,6 +947,13 @@ static BOOL fieldCovered(void) {
 }
 
 - (void)runMotionChecks {
+    Class motionClass = NSClassFromString(@"SGRPlayerMotionView");
+    UIView *invalid = [[motionClass alloc] initWithFrame:CGRectMake(0, 0, 320, 600)];
+    [invalid playFile:[NSURL fileURLWithPath:@"/missing.mp4"] poster:[UIImage new]];
+    [invalid layoutSubviews];
+    [self expect:invalid && ![invalid valueForKey:@"_player"] && [[invalid valueForKey:@"_aspect"] doubleValue] == 0
+            step:@"zero-sized poster" detail:@"invalid geometry must not start a clip"];
+
     // The clip comes in before the player has laid out, as for the track restored at launch.
     after(3, ^{
         [self expect:SGRPlayerMotionShowing() && !SGRPlayerField() step:@"before the player opened"

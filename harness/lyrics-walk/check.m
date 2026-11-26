@@ -247,6 +247,12 @@ int main(int argc, char **argv) {
         got = fetch(@"t5");
         CHECK([sg_asked isEqualToArray:(@[@"musixmatch:t5", @"importedLRC:t5", @"lrclib:t5"])] && [got.provider isEqualToString:@"Musixmatch"]);
 
+        [NSUserDefaults.standardUserDefaults setVolatileDomain:@{SGKeyLyricsProviders: @[]} forName:NSArgumentDomain];
+        SGPrefsChanged();
+        CHECK([SGLyricsForgetImportedAnswers() containsObject:@"t4"]);
+        [sg_asked removeAllObjects];
+        CHECK(!fetch(@"t4") && !sg_asked.count);
+
         printf("lyrics-walk: all checks passed\n");
     }
     return 0;

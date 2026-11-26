@@ -50,6 +50,7 @@ int main(void) {
         NSString *documents = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
         [NSFileManager.defaultManager removeItemAtPath:[documents stringByAppendingPathComponent:@"Vitrine/Lyrics"] error:nil];
         [NSUserDefaults.standardUserDefaults removeObjectForKey:SGKeyImportedLRCLinks];
+        [NSUserDefaults.standardUserDefaults removeObjectForKey:SGKeyImportedLRCOffsets];
         sg_order = @[@"lrclib"];
         NSError *error = nil;
 
@@ -70,12 +71,38 @@ int main(void) {
         CHECK([starts isEqualToArray:(@[@10000, @19750, @59750, @64623])]);
         CHECK([SGKaraokeLineText(found.karaokeLines[2]) isEqualToString:@"Remember"]);
         CHECK([found.title isEqualToString:@"Halo"] && [found.provider isEqualToString:@"Imported LRC"]);
+        SGSetImportedLRCOffset(name, 750);
+        found = SGImportedLRCFor(@"spotify:track:x", @"HALO", @"beyonce");
+        CHECK(SGImportedLRCOffset(name) == 750);
+        CHECK(found.karaokeLines.firstObject.start == 10750 && found.starts.firstObject.integerValue == 10750);
+        SGLyricsQuery *query = [SGLyricsQuery new];
+        query.trackID = @"spotify:track:x";
+        query.title = @"HALO";
+        query.artist = @"beyonce";
+        __block SGLyricsResult *answer;
+        SGImportedLRCAsk(query, ^(SGLyricsResult *result) { answer = result; });
+        CHECK(answer.karaokeLines.firstObject.start == 10750);
+        NSArray<NSString *> *order = SGLyricsOrder();
+        SGLyricsSetOrder(@[@"lrclib"]);
+        SGImportedLRCAsk(query, ^(SGLyricsResult *result) { answer = result; });
+        CHECK(!answer);
+        SGLyricsSetOrder(@[]);
+        CHECK(SGImportedLRCFor(@"spotify:track:x", @"HALO", @"beyonce").karaokeLines.firstObject.start == 10750);
+        SGLyricsSetOrder(order);
+        SGSetImportedLRCOffset(name, -10500);
+        found = SGImportedLRCFor(@"spotify:track:x", @"HALO", @"beyonce");
+        CHECK(found.karaokeLines.firstObject.start == 0 && found.karaokeLines[1].start == 9250);
+        SGSetImportedLRCOffset(name, 0);
+        CHECK(SGImportedLRCFor(@"spotify:track:x", @"HALO", @"beyonce").karaokeLines.firstObject.start == 10000);
         CHECK(!SGImportedLRCFor(@"spotify:track:x", @"Halo", @"Someone else"));
         CHECK(!SGImportedLRCFor(@"spotify:track:x", nil, @"Beyoncé"));   // never without a title
 
         // A taken name is numbered.
         CHECK([SGImportLRC(lrc(@"halo.lrc", sheet), nil, &error) isEqualToString:@"halo (2).lrc"]);
+        SGSetImportedLRCOffset(@"halo (2).lrc", 500);
+        CHECK(SGImportedLRCOffset(name) == 0);
         CHECK(SGDeleteImportedLRC(@"halo (2).lrc"));
+        CHECK(SGImportedLRCOffset(@"halo (2).lrc") == 0);
 
         // "Artist - Title" and "Title – Artist" with no tags: the sides come from the track.
         SGImportLRC(lrc(@"Daft Punk - One More Time.lrc", @"[00:01.00]One more time"), nil, &error);
@@ -97,6 +124,8 @@ int main(void) {
         CHECK([SGImportedLRCLinkedTo([other stringByAppendingString:@"#123"]) isEqualToString:plain]);
         found = SGImportedLRCFor(other, nil, nil);
         CHECK(found && !found.synced && found.karaokeLines.count == 2 && [found.title isEqualToString:@"Track 01"]);
+        SGSetImportedLRCOffset(plain, 4000);
+        CHECK(SGImportedLRCFor(other, nil, nil).karaokeLines.firstObject.timing == SGKaraokeTimingNone);
         CHECK(!SGImportLRC(lrc(@"skip.lrc", @"[00:01]x"), @"spotify:track:z", &error) || !SGImportedLRCLinkedTo(@"spotify:track:z"));
 
         // Deleting the file takes its link and its lyrics.

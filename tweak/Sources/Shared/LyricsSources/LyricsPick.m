@@ -10,6 +10,7 @@
 #import "Core/SGCore.h"
 #import "LyricsSources.h"
 #import "Shared/Lyrics/Lyrics.h"
+#import "Shared/LocalFiles/LocalLyrics.h"
 
 NSNotificationName const SGLyricsSourceChosenNotification = @"spotifyglass.lyricsSourceChosen";
 NSNotificationName const SGLyricsOffersDidChangeNotification = @"spotifyglass.lyricsOffersDidChange";
@@ -47,6 +48,13 @@ static NSMutableDictionary<NSString *, SGLyricsAutomatic *> *sg_automatic;   // 
 
 NSString *SGLyricsChosenSource(NSString *trackID) {
     return trackID ? sg_chosen[trackID] : nil;
+}
+
+void SGLyricsForgetImportedOffers(void) {
+    for (SGLyricsOfferAsk *ask in sg_asks.allValues) [ask.answers removeObjectForKey:SGImportedLRCKey];
+    for (NSString *trackID in sg_automatic.allKeys) {
+        if (SGLyricsAnswerUsesImportedLRC(sg_automatic[trackID].kept)) [sg_automatic removeObjectForKey:trackID];
+    }
 }
 
 static NSDictionary<NSString *, SGLyricsResult *> *offersIn(SGLyricsOfferAsk *ask) {

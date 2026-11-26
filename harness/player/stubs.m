@@ -106,6 +106,7 @@ NSArray<SGKaraokeLine *> *SGKaraokeLinesForTrack(NSString *trackID) { return sg_
 void SGKaraokeKeepLines(NSString *trackID, NSArray<SGKaraokeLine *> *lines) { sg_lines = lines; }
 void SGKaraokeRequestLyrics(NSString *trackID) {}
 NSNotificationName const SGKaraokeLinesKeptNotification = @"harness.karaokeLinesKept";
+NSNotificationName const SGKaraokeLinesInvalidatedNotification = @"spotifyglass.karaoke.linesInvalidated";
 BOOL SGKaraokeLooking(NSString *trackID) { return NO; }
 id SGKaraokePlayer(void) { return nil; }
 SPTPlayerTrack *SGKaraokeTrackFor(NSString *trackID) { return nil; }

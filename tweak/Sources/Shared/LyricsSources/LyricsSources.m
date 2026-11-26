@@ -754,6 +754,25 @@ id SGLyricsKeptAnswer(NSString *trackID) {
     return sg_kept[trackID];
 }
 
+BOOL SGLyricsAnswerUsesImportedLRC(id answer) {
+    if (![answer isKindOfClass:SGLyricsResult.class]) return NO;
+    SGLyricsResult *lyrics = answer;
+    NSString *provider = SGLyricsProviderFor(SGImportedLRCKey).name;
+    return [lyrics.provider isEqualToString:provider] || [lyrics.pageProvider isEqualToString:provider];
+}
+
+NSArray<NSString *> *SGLyricsForgetImportedAnswers(void) {
+    setUp();
+    SGLyricsForgetImportedOffers();
+    NSMutableArray<NSString *> *forgotten = [NSMutableArray array];
+    for (NSString *trackID in sg_kept.allKeys) {
+        if (!SGLyricsAnswerUsesImportedLRC(sg_kept[trackID])) continue;
+        [sg_kept removeObjectForKey:trackID];
+        [forgotten addObject:trackID];
+    }
+    return forgotten;
+}
+
 void SGLyricsRestoreKept(NSString *trackID, id kept) {
     setUp();
     if (kept) sg_kept[trackID] = kept;

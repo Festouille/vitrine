@@ -16,6 +16,7 @@
 #import <objc/runtime.h>
 #import "Redesigned/ContextMenu/ContextMenu.h"
 #import "Shared/LyricsSources/LyricsSources.h"
+#import "Shared/Player/SleepTimer.h"
 
 // The album footer is exercised by harness/album-queue and the Spotify simulator test. These
 // player-menu fixtures do not provide an album page or the shared album footer.
@@ -74,6 +75,15 @@ void SGPlayerSetReverb(float amount) { sg_reverb = amount; }
 BOOL SGPlayerMenuOffersAnimatedArtwork(void) { return YES; }
 BOOL SGPlayerMenuAnimatedArtwork(void) { return sg_animated; }
 void SGPlayerMenuSetAnimatedArtwork(BOOL on) { sg_animated = on; NSLog(@"[harness] animated artwork %d", on); }
+// Shared/Player/SleepTimer.h: what the Sleep Timer submenu set, from its own state.
+static SGSleepTimerMode sg_sleepMode;
+static NSTimeInterval sg_sleepSeconds;
+SGSleepTimerMode SGSleepTimerCurrentMode(void) { return sg_sleepMode; }
+NSDate *SGSleepTimerEnd(void) { return sg_sleepMode == SGSleepTimerAtTime ? [NSDate dateWithTimeIntervalSinceNow:sg_sleepSeconds] : nil; }
+void SGSetSleepTimer(SGSleepTimerMode mode, NSTimeInterval seconds) {
+    sg_sleepMode = mode; sg_sleepSeconds = seconds; NSLog(@"[harness] sleep timer %ld %.0f s", (long)mode, seconds);
+}
+void SGSleepTimerAdd(NSTimeInterval seconds) { sg_sleepSeconds += seconds; }
 static NSUInteger sg_marked;
 void SGPlayerMenuMarkPlayers(void) { sg_marked++; }
 // Lyrics Source (LyricsSources.m, LyricsPick.m): every source off, so the menu offers no Lyrics Source, and the
@@ -895,6 +905,19 @@ static NSArray<NSString *> *quickTitles(void) {
         });
         return;
     }
+    if ([run isEqualToString:@"sleeptimer"]) {
+        check(menuShows(@"Sleep Timer") && menuShows(@"Off"), @"the mod's Sleep Timer is in the menu, Off under it, with its switch on");
+        pick(@"Sleep Timer");
+        waitFor(^BOOL { return menuShows(@"30 Minutes"); }, 3, ^{
+            check(menuShowsAll(@[@"15 Minutes", @"30 Minutes", @"45 Minutes", @"1 Hour", @"End of Track", @"End of Album or Playlist"]),
+                  @"Sleep Timer holds the times, End of Track and End of Album or Playlist");
+            check(!menuShows(@"Turn Off Timer"), @"no Turn Off Timer while no timer runs");
+            pick(@"30 Minutes");
+            check(sg_sleepMode == SGSleepTimerAtTime && sg_sleepSeconds == 30 * 60, @"30 Minutes set the timer to 30 minutes");
+            [self gone:@"picked 30 Minutes" selected:nil from:CACurrentMediaTime() finish:finish];
+        });
+        return;
+    }
     if ([run isEqualToString:@"animated"]) {
         pick(@"Show Animated Artwork");
         check(sg_animated, @"Show Animated Artwork switched it on");
@@ -934,6 +957,8 @@ __attribute__((constructor(101))) static void sgr_harnessDefaults(void) {
             [defaults removeObjectForKey:key];
         }
     }
+    if (is(@"sleeptimer")) [defaults setBool:YES forKey:@"spotifyglass.redesign.player.sleepTimer"];
+    else [defaults removeObjectForKey:@"spotifyglass.redesign.player.sleepTimer"];
     sg_elements = [NSMutableDictionary dictionary];
     Method make = class_getClassMethod(UIAction.class, @selector(actionWithTitle:image:identifier:handler:));
     sg_actionWithTitle = method_setImplementation(make, (IMP)recordAction);

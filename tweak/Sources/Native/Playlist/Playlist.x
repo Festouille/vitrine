@@ -51,6 +51,11 @@ static UIViewController *playlistHeaderOf(UIView *view) {
 
 // Each switch only ever hides, here and below. A switch turned off again shows after Spotify restarts, like
 // every other one.
+static void conceal(UIView *view) {
+    view.alpha = 0;
+    view.userInteractionEnabled = NO;
+    view.accessibilityElementsHidden = YES;
+}
 
 // Title, description, the creator row and the length share one column, and only the description
 // names a class of its own, so the column is reached through it and its rows go by what they hold.
@@ -74,12 +79,12 @@ static void applyColumn(UIView *header) {
         if (SGHasClass(row, @"ExpandableTextView")) hide = hideDescription;
         else if (SGHasClass(row, @"FacepileView")) hide = hideCreator;
         else if (last) hide = hideLength;
-        if (hide) row.hidden = YES;
+        if (hide) conceal(row);
     }
 }
 
 // The identifier sits on the button, the stack arranges the action around it, so each switch hides
-// the action rather than the button and the row closes up behind it.
+// the action rather than the button, leaving it in the stack's layout.
 // An action already hidden is passed over.
 static void applyActions(UIView *row) {
     // The buttons with a switch on, looked for under each action in one walk.
@@ -96,8 +101,10 @@ static void applyActions(UIView *row) {
         if (action.hidden) continue;
         UIView *found[count];
         SGFindIdentifiers(action, count, idents, keys, found);
-        for (NSUInteger i = 0; i < count && !action.hidden; i++) {
-            if (found[i]) action.hidden = YES;
+        for (NSUInteger i = 0; i < count; i++) {
+            if (!found[i]) continue;
+            conceal(action);
+            break;
         }
     }
 }

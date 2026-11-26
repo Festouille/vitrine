@@ -1,0 +1,66 @@
+name: Verify
+
+on:
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build iOS components
+    runs-on: macos-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    env:
+      THEOS: ${{ github.workspace }}/theos
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Check source layers
+        run: scripts/check-layers.sh
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Build Live Activity extension
+        run: |
+          host_plist="$RUNNER_TEMP/vitrine-host.plist"
+          plutil -create xml1 "$host_plist"
+          plutil -insert CFBundleIdentifier -string org.vitrine.ci "$host_plist"
+          plutil -insert CFBundleShortVersionString -string 1.0 "$host_plist"
+          plutil -insert CFBundleVersion -string 1 "$host_plist"
+          out="$RUNNER_TEMP/vitrine-extension"
+          scripts/build-extension.sh "$host_plist" "$out"
+          test -s "$out/app/Metadata.appintents/extract.actionsdata"
+
+      - uses: actions/checkout@v5
+        with:
+          repository: theos/theos
+          path: theos
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Install tools
+        run: brew install make dpkg ldid
+
+      # Compile and link without Spotify data or secrets, including on fork PRs.
+      - name: Create CI-only flag table
+        run: |
+          cat > tweak/Sources/Shared/Flags/SGFlagList.m <<'EOF'
+          #import "Flags.h"
+          const SGFlagDef SGFlagTable[1] = {0};
+          const NSUInteger SGFlagCount = 0;
+          EOF
+
+      - name: Build tweak
+        run: env -u MAKELEVEL gmake -C tweak clean package
+
+      - name: Build Vitrine Addon
+        run: env -u MAKELEVEL gmake -C addons/haptics clean package THEOS_PACKAGE_SCHEME=rootless

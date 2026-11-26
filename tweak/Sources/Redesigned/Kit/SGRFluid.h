@@ -29,7 +29,7 @@ void SGRResetFluidSettings(void);   // all five back to their standard values, o
 extern NSNotificationName const SGRFluidSettingsDidChangeNotification;
 
 @interface SGRFluidLayer : CALayer
-// The cover, blurred off the main thread and crossfaded in. The same image again is a no-op.
+// The cover, blurred off the main thread and crossfaded in. The same image again is a no-op; nil clears it.
 - (void)setArtwork:(UIImage *)image animated:(BOOL)animated;
 // Turning, or held still where it is. Off to begin with.
 @property (nonatomic) BOOL moving;

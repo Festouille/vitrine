@@ -26,6 +26,7 @@ static const NSTimeInterval kRetryPause = 10, kRetryPauseMost = 60;
 static NSString *const kSpclientHeaders[] = {@"authorization", @"client-token", @"app-platform", @"spotify-app-version", @"user-agent", @"accept-language"};
 
 static NSMutableDictionary<NSString *, NSArray<SGKaraokeLine *> *> *sg_lyrics;
+static NSMutableDictionary<NSString *, NSArray<SGKaraokeLine *> *> *sg_pageLyrics;
 static NSMutableSet<NSString *> *sg_requested;
 // Of those, the ones with a request still out or waiting out its pause. A full cache spares their lines
 // and leaves them asked for, so no second request runs beside the first.
@@ -43,6 +44,7 @@ static NSMutableDictionary<NSString *, SPTPlayerTrack *> *sg_seenTracks;
 static __weak SPTPlayerTrack *sg_lastSeen;
 static NSString *sg_lastSeenID;   // the player makes a new track object on every state it reports, so the id is what tells a change
 static BOOL sg_ownSources;   // a source of the mod's answers the color-lyrics request, not Spotify
+static BOOL sg_prefetchLocalLyrics;
 static char kBodyKey;
 
 static NSString *trackInURL(NSURL *url) {
@@ -113,6 +115,7 @@ static void translate(NSString *track) {
 }
 
 NSNotificationName const SGKaraokeLinesKeptNotification = @"spotifyglass.karaoke.linesKept";
+NSNotificationName const SGKaraokeLinesInvalidatedNotification = @"spotifyglass.karaoke.linesInvalidated";
 
 // Main queue only.
 static void announce(NSString *track) {
@@ -147,6 +150,17 @@ void SGKaraokeKeepLines(NSString *track, NSArray<SGKaraokeLine *> *lines) {
     dispatch_async(dispatch_get_main_queue(), ^{ keep(track, lines); });
 }
 
+NSArray<SGKaraokeLine *> *SGKaraokePageLinesForTrack(NSString *trackID) {
+    return trackID ? sg_pageLyrics[trackID] : nil;
+}
+
+void SGKaraokeKeepPageLines(NSString *trackID, NSArray<SGKaraokeLine *> *lines) {
+    if (!trackID || !SGNativeUI()) return;
+    if (!sg_pageLyrics) sg_pageLyrics = [NSMutableDictionary dictionary];
+    if (lines && sg_pageLyrics.count >= kKeptTracks && !sg_pageLyrics[trackID]) [sg_pageLyrics removeAllObjects];
+    sg_pageLyrics[trackID] = lines;
+}
+
 static void received(NSURLSession *session, NSURLSessionTask *task, NSData *data) {
     rememberHeaders(session, task.currentRequest);
     if (sg_ownSources || !trackInURL(task.currentRequest.URL)) return;
@@ -167,7 +181,10 @@ static void completed(NSURLSessionTask *task, NSError *error) {
     if (error || !track) return;
     NSArray<SGKaraokeLine *> *lines = SGKaraokeLinesFromBody(body);
     SGLog(@"karaoke: lyrics for %@, %lu bytes, %lu synced lines", track, (unsigned long)body.length, (unsigned long)lines.count);
-    if (lines) SGKaraokeKeepLines(track, lines);
+    dispatch_async(dispatch_get_main_queue(), ^{
+        SGKaraokeKeepPageLines(track, lines);
+        if (lines) keep(track, lines);
+    });
 }
 
 NSArray<SGKaraokeLine *> *SGKaraokeLinesForTrack(NSString *trackID) {
@@ -339,7 +356,7 @@ static BOOL askLrcLib(NSString *trackID, void (^done)(SGLyricsResult *lyrics)) {
 }
 
 // Main queue only.
-void SGKaraokeRequestLyrics(NSString *trackID) {
+static void requestLyrics(NSString *trackID, BOOL allowRemote) {
     if (!trackID || sg_lyrics[trackID] || [sg_requested containsObject:trackID]) return;
     // spclient has nothing for a local file, which only the sources can name. A file of the user's own,
     // linked to it or matching its names, comes before every source.
@@ -350,6 +367,7 @@ void SGKaraokeRequestLyrics(NSString *trackID) {
         SGLyricsSetCredit(trackID, imported.provider);
         return;
     }
+    if (!allowRemote) return;
     if (!sg_ownSources && !local) {
         requestFromSpotify(trackID);
         return;
@@ -387,6 +405,10 @@ void SGKaraokeRequestLyrics(NSString *trackID) {
         [sg_looking removeObject:trackID];
         announce(trackID);
     }
+}
+
+void SGKaraokeRequestLyrics(NSString *trackID) {
+    requestLyrics(trackID, YES);
 }
 
 id SGKaraokePlayer(void) {
@@ -479,7 +501,7 @@ static void prefetch(SPTPlayerTrack *track, NSString *trackID, SPTPlayerState *s
     // mod's on or not (SGKaraokeRequestLyrics). The state is read on any thread, and the kept lines are
     // the main queue's.
     BOOL local = SGLocalFileIs(trackID);
-    if (local) dispatch_async(dispatch_get_main_queue(), ^{ SGKaraokeRequestLyrics(trackID); });
+    if (local && sg_prefetchLocalLyrics) dispatch_async(dispatch_get_main_queue(), ^{ SGKaraokeRequestLyrics(trackID); });
     if (!sg_ownSources) return;
     if (!local) SGLyricsPrefetch(trackID);
     SPTPlayerTrack *next = upNextIn(state);
@@ -551,24 +573,6 @@ static SGKaraokeTrackWatcher *sg_trackWatcher;
 }
 %end
 
-// With nothing of the karaoke's on, the headers are still read for SGSpclientHeaders' other askers
-// (Native iOS Music Haptics, which can be picked at any moment).
-%group SGSpclientHeadersOnly
-%hook SPTDataLoaderService
-- (void)URLSession:(NSURLSession *)session dataTask:(NSURLSessionDataTask *)task didReceiveData:(NSData *)data {
-    rememberHeaders(session, task.currentRequest);
-    %orig;
-}
-%end
-
-%hook _TtC26Connectivity_HttpClientKit20HttpClientURLSession
-- (void)URLSession:(NSURLSession *)session dataTask:(NSURLSessionDataTask *)task didReceiveData:(NSData *)data {
-    rememberHeaders(session, task.currentRequest);
-    %orig;
-}
-%end
-%end
-
 // Whether anything shows the lines now: the redesign, the lock screen's lines, the mod's own sources, the lock screen's
 // artwork with lyrics, or the large cover's lyrics once they are picked with its button. The Canvas add-on's lyrics
 // switch alone keeps the player caught (the %ctor), not the fetches: a user who never picks the lyrics pays nothing.
@@ -578,13 +582,7 @@ static BOOL linesShown(void) {
 }
 
 %ctor {
-    // The sources that search by name learn the name from the player, so the player is caught
-    // whenever one is on, not only for the redesign's lyrics and the lock screen.
-    if (!SGRedesignedUI() && !SGFlag(SGKeyLockScreenLyrics, NO) && !SGLyricsEnabled()
-        && !SGLockArtworkShowsLyrics(SGLockScreenArtwork()) && !SGLockCoverLyricsWanted()) {
-        %init(SGSpclientHeadersOnly);
-        return;
-    }
+    sg_prefetchLocalLyrics = linesShown() || SGLockCoverLyricsWanted();
     sg_seenTracks = [NSMutableDictionary dictionary];
     sg_lyrics = [NSMutableDictionary dictionary];
     sg_requested = [NSMutableSet set];
@@ -598,22 +596,53 @@ static BOOL linesShown(void) {
     [NSNotificationCenter.defaultCenter addObserverForName:SGLocalFileEditsDidChangeNotification object:nil queue:nil
                                                 usingBlock:^(NSNotification *note) {
         NSString *key = SGLocalFileLyricsKey(note.object);
-        if (key && [key isEqualToString:SGKaraokePlayingTrack()]) SGKaraokeRequestLyrics(key);
+        if (key && [key isEqualToString:SGKaraokePlayingTrack()]) requestLyrics(key, sg_prefetchLocalLyrics);
     }];
-    // An imported or deleted LRC file can change any local file's lyrics, found or missed: they are
-    // forgotten, but for a look still out, and the file playing is asked for again.
+    // Forget local lookups and source answers that used imported lyrics.
     [NSNotificationCenter.defaultCenter addObserverForName:SGImportedLRCDidChangeNotification object:nil queue:nil
                                                 usingBlock:^(NSNotification *note) {
-        for (NSString *track in [sg_requested setByAddingObjectsFromArray:sg_lyrics.allKeys]) {
-            if (!SGLocalFileIs(track) || [sg_looking containsObject:track]) continue;
+        NSSet<NSString *> *imported = [NSSet setWithArray:SGLyricsForgetImportedAnswers()];
+        BOOL timingEdit = note.object != nil;
+        NSString *importedCredit = timingEdit ? SGLyricsProviderFor(SGImportedLRCKey).name : nil;
+        BOOL (^refreshes)(NSString *) = ^BOOL(NSString *track) {
+            if (!track) return NO;
+            if (!timingEdit) return SGLocalFileIs(track) || [imported containsObject:track];
+            NSString *picked = SGLyricsChosenSource(track);
+            if (picked) return [picked isEqualToString:SGImportedLRCKey];
+            return [imported containsObject:track] || [SGLyricsCreditFor(track) isEqualToString:importedCredit];
+        };
+        NSMutableSet<NSString *> *tracks = [NSMutableSet setWithSet:[sg_requested setByAddingObjectsFromArray:sg_lyrics.allKeys]];
+        [tracks unionSet:imported];
+        for (NSString *track in tracks) {
+            if (!refreshes(track) || [sg_looking containsObject:track]) continue;
             [sg_lyrics removeObjectForKey:track];
             [sg_requested removeObject:track];
             [sg_asking removeObject:track];
             [sg_losses removeObjectForKey:track];
+            if (timingEdit) {
+                [NSNotificationCenter.defaultCenter postNotificationName:SGKaraokeLinesInvalidatedNotification object:track];
+                BOOL picked = [SGLyricsChosenSource(track) isEqualToString:SGImportedLRCKey];
+                if (picked || [SGLyricsCreditFor(track) isEqualToString:importedCredit]) {
+                    BOOL local = SGLocalFileIs(track);
+                    BOOL useSource = !local || [SGLyricsOrder() containsObject:SGImportedLRCKey];
+                    void (^reload)(SGLyricsResult *) = ^(SGLyricsResult *fresh) {
+                        if (!fresh) return;
+                        if (useSource) {
+                            if (picked) SGLyricsKeepChosen(track, fresh);
+                            else if ([imported containsObject:track]) SGLyricsRestoreKept(track, fresh);
+                        }
+                        SGLyricsSetCredit(track, fresh.provider);
+                        keep(track, fresh.karaokeLines);
+                    };
+                    if (local) reload(SGImportedLRCFor(track, nil, nil));
+                    else SGImportedLRCAsk(SGLyricsQueryFor(track), reload);
+                }
+            }
         }
         NSString *playing = SGKaraokePlayingTrack();
-        if (!SGLocalFileIs(playing)) return;
-        SGKaraokeRequestLyrics(playing);
+        if (!refreshes(playing)) return;
+        if (timingEdit) requestLyrics(playing, !SGLocalFileIs(playing));
+        else if (sg_prefetchLocalLyrics || [imported containsObject:playing]) SGKaraokeRequestLyrics(playing);
         announce(playing);
     }];
     // Spotify asks for a track's lyrics only while a page of its own shows them, so a track the player

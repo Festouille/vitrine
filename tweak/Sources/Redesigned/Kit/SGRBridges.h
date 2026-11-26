@@ -28,15 +28,14 @@ typedef NS_ENUM(NSInteger, SGRArtworkQuality) {
     SGRArtworkQualityHigh,    // the player's own cover
     SGRArtworkQualityExact,   // the picture the track's metadata names, fetched by the Kit
 };
-// Posted when the artwork changes, object nil, userInfo image, trackURI and quality.
+// Posted when the artwork changes, object nil, userInfo trackURI and quality, and image if available.
 extern NSNotificationName const SGRNowPlayingArtworkDidChangeNotification;
 // A picture read off a screen for `trackURI`: ignored unless that track is still the one playing, when
 // it is a picture already published for another track, when a better one is in for this picture, and
 // when it is the same image again.
 void SGRSetNowPlayingArtwork(UIImage *image, NSString *trackURI, SGRArtworkQuality quality);
-// The last artwork published; `trackURI` and `identity` (for -[SGRArtworkField setArtwork:identity:
-// animated:]: the same identity is the same picture) are filled when asked for. Until the playing
-// track's own picture is in, this is the last one.
+// The playing track's artwork, or nil until it arrives; `trackURI` and `identity` (for
+// -[SGRArtworkField setArtwork:identity:animated:]) are filled when asked for.
 UIImage *SGRNowPlayingArtwork(NSString **trackURI, NSString **identity);
 
 #pragma mark - the player's open and close

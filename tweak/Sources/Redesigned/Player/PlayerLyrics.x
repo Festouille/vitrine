@@ -30,6 +30,7 @@
 #import "Redesigned/Lyrics/SGRKaraokeView.h"
 #import "Redesigned/Lyrics/SGRSingButton.h"
 #import "Settings/SGPageStyle.h"
+#import "Shared/Player/SGLastTrack.h"
 #import "Shared/Sing/Sing.h"
 #import "Shared/Lyrics/Lyrics.h"
 #import "Shared/LocalFiles/LocalFiles.h"
@@ -597,6 +598,14 @@ static void setAlone(BOOL alone, BOOL animated) {
     SGLog(@"redesign player: the lines %@", alone ? @"on their own" : @"with the controls");
 }
 
+static UIImage *thumbnailArtwork(void) {
+    UIImage *image = SGRNowPlayingArtwork(NULL, NULL);
+    if (image) return image;
+    static UIImage *placeholder;
+    if (!placeholder) placeholder = SGPlaceholderArtwork(SGRNeutralField());
+    return placeholder;
+}
+
 static void setOpen(BOOL open, BOOL animated) {
     UIView *host = sg_host;
     if (open == sg_open) return;
@@ -607,13 +616,6 @@ static void setOpen(BOOL open, BOOL animated) {
     SGRLyricsLayout l = layoutIn(host);
     if (open && !l.ok) {
         SGLog(@"redesign player: the lyrics have nowhere to go (stage %.0fx%.0f, lift %.0f)", l.stage.size.width, l.stage.size.height, l.lift);
-        return;
-    }
-    // The thumbnail is the Kit's picture drawn again, and Spotify's cover goes as it appears: without a
-    // picture there would be a hole where the cover was, so the cover stays and the lyrics wait.
-    UIImage *picture = SGRNowPlayingArtwork(NULL, NULL);
-    if (open && !picture) {
-        SGLog(@"redesign player: no artwork read yet, the lyrics stay down");
         return;
     }
     if (!open) setAlone(NO, NO);
@@ -633,7 +635,7 @@ static void setOpen(BOOL open, BOOL animated) {
     // Under Reduce Motion the lines only fade, without growing.
     CGAffineTransform entering = SGRReduceMotion() ? CGAffineTransformIdentity : CGAffineTransformMakeScale(kLyricsEnterScale, kLyricsEnterScale);
     if (open) {
-        overlay.cover.image = SGRNowPlayingArtwork(NULL, NULL);
+        overlay.cover.image = thumbnailArtwork();
         overlay.stage.alpha = 0;
         overlay.stage.transform = entering;
         // Once a drag, as it starts: the lines resize then and not again under the finger. Scrolling on hides,
@@ -642,8 +644,8 @@ static void setOpen(BOOL open, BOOL animated) {
             if (!onward) setAlone(NO, YES);
             else if (!UIAccessibilityIsVoiceOverRunning() && !coveredBySheet()) setAlone(YES, YES);
         };
-        // Spotify's cover goes the moment the redesign's own takes its place: the same picture at the
-        // same size with the same corners, so there is nothing to see in the swap. Coming back it waits
+        // Spotify's cover goes the moment the redesign's own takes its place, at the same size with
+        // the same corners. Coming back it waits
         // for the thumbnail to land on it, or the two would be on screen at once, one of them half size.
         SGRPlayerCoverList().alpha = 0;
     }
@@ -959,7 +961,7 @@ BOOL SGRPlayerLyricsNone(void) {
     [NSNotificationCenter.defaultCenter addObserverForName:SGRNowPlayingArtworkDidChangeNotification object:nil queue:nil usingBlock:^(NSNotification *note) {
         if (!sg_open) return;
         SGRPlayerLyricsOverlay *overlay = objc_getAssociatedObject(sg_host, &kOverlayKey);
-        overlay.cover.image = SGRNowPlayingArtwork(NULL, NULL);
+        overlay.cover.image = thumbnailArtwork();
     }];
     SGRequireClasses(@[
         @"_TtC19NowPlaying_ViewImpl24NowPlayingViewController",

@@ -9,11 +9,15 @@
 //                             three, named for what it switches to
 //     Lyrics Source           a song's lyrics from another source than the one the order chose (issue #67), in a
 //                             popover from the ⋯ that asks every source and lists each as it answers
+//     Sleep Timer             the mod's own timer (Shared/Player/SleepTimer.h) in a submenu, while its switch on
+//                             the Player page is on (SGRKeyPlayerSleepTimer): the times, End of Track and End of
+//                             Album or Playlist, and Add 15 Minutes and Turn Off Timer while one runs
 //
 // The item says under its name what is not as Spotify plays it, so the menu reads as a settings summary.
 #import "Core/SGCore.h"
 #import "Redesigned/ContextMenu/ContextMenu.h"
 #import "Shared/Player/PlayerState.h"
+#import "Shared/Player/SleepTimer.h"
 #import "Shared/Player/SpeedPitch.h"
 #import "Shared/Lyrics/Lyrics.h"
 #import "Shared/LyricsSources/LyricsSources.h"
@@ -213,7 +217,66 @@ static UIAction *lyricsSourceItem(void) {
     return open;
 }
 
-static NSArray<UIMenuElement *> *playerItems(void) {
+BOOL SGRPlayerSleepTimerMenuOn(void) {
+    return SGFlag(SGRKeyPlayerSleepTimer, NO);
+}
+
+// What the timer is set to, under the item's name: the minutes left (rounded up), or where it pauses.
+static NSString *sleepTimerState(BOOL episode) {
+    switch (SGSleepTimerCurrentMode()) {
+        case SGSleepTimerAtTime: {
+            NSInteger minutes = MAX(1, (NSInteger)ceil(SGSleepTimerEnd().timeIntervalSinceNow / 60));
+            if (minutes < 60) return [NSString stringWithFormat:@"%ld min left", (long)minutes];
+            return [NSString stringWithFormat:@"%ld h %02ld min left", (long)(minutes / 60), (long)(minutes % 60)];
+        }
+        case SGSleepTimerEndOfTrack: return episode ? @"End of episode" : @"End of track";
+        case SGSleepTimerEndOfAlbum: return @"End of album or playlist";
+        default: return @"Off";
+    }
+}
+
+// The mod's sleep timer as a submenu, nil while its switch is off. The AI DJ never runs out, so it has no End of Album.
+static UIMenuElement *sleepTimerMenu(BOOL episode, BOOL endless) {
+    if (!SGRPlayerSleepTimerMenuOn()) return nil;
+    SGSleepTimerMode mode = SGSleepTimerCurrentMode();
+    NSMutableArray<UIMenuElement *> *lengths = [NSMutableArray array];
+    for (NSNumber *length in @[@15, @30, @45, @60]) {
+        NSInteger minutes = length.integerValue;
+        NSString *title = minutes == 60 ? @"1 Hour" : [NSString stringWithFormat:@"%ld Minutes", (long)minutes];
+        [lengths addObject:[UIAction actionWithTitle:title image:nil identifier:nil
+                                             handler:^(UIAction *action) { SGSetSleepTimer(SGSleepTimerAtTime, minutes * 60); }]];
+    }
+    UIAction *track = [UIAction actionWithTitle:episode ? @"End of Episode" : @"End of Track" image:nil identifier:nil
+                                        handler:^(UIAction *action) { SGSetSleepTimer(SGSleepTimerEndOfTrack, 0); }];
+    if (mode == SGSleepTimerEndOfTrack) track.state = UIMenuElementStateOn;
+    [lengths addObject:track];
+    if (!endless) {
+        UIAction *album = [UIAction actionWithTitle:@"End of Album or Playlist" image:nil identifier:nil
+                                            handler:^(UIAction *action) { SGSetSleepTimer(SGSleepTimerEndOfAlbum, 0); }];
+        if (mode == SGSleepTimerEndOfAlbum) album.state = UIMenuElementStateOn;
+        [lengths addObject:album];
+    }
+    NSMutableArray<UIMenuElement *> *children = [NSMutableArray array];
+    if (mode != SGSleepTimerOff) {
+        NSMutableArray<UIMenuElement *> *running = [NSMutableArray array];
+        if (mode == SGSleepTimerAtTime) {
+            [running addObject:[UIAction actionWithTitle:@"Add 15 Minutes" image:symbol(@"plus") identifier:nil
+                                                 handler:^(UIAction *action) { SGSleepTimerAdd(15 * 60); }]];
+        }
+        UIAction *off = [UIAction actionWithTitle:@"Turn Off Timer" image:symbol(@"xmark") identifier:nil
+                                          handler:^(UIAction *action) { SGSetSleepTimer(SGSleepTimerOff, 0); }];
+        off.attributes = UIMenuElementAttributesDestructive;
+        [running addObject:off];
+        [children addObject:[UIMenu menuWithTitle:@"" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:running]];
+    }
+    [children addObject:[UIMenu menuWithTitle:@"" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:lengths]];
+    UIMenu *menu = [UIMenu menuWithTitle:@"Sleep Timer" image:symbol(mode == SGSleepTimerOff ? @"moon.zzz" : @"moon.zzz.fill")
+                              identifier:nil options:0 children:children];
+    menu.subtitle = sleepTimerState(episode);
+    return menu;
+}
+
+static NSArray<UIMenuElement *> *playerItems(BOOL dj) {
     NSMutableArray<UIMenuElement *> *items = [NSMutableArray arrayWithObject:soundMenu()];
     if (SGPlayerMenuOffersAnimatedArtwork()) {
         // Buttons named for what they do, not checkmarks: the HIG's changeable label for a toggled item.
@@ -232,6 +295,8 @@ static NSArray<UIMenuElement *> *playerItems(void) {
     }
     UIAction *lyrics = lyricsSourceItem();
     if (lyrics) [items addObject:lyrics];
+    UIMenuElement *sleep = sleepTimerMenu([sheetKind() isEqualToString:@"episode"], dj);
+    if (sleep) [items addObject:sleep];
     return items;
 }
 
@@ -244,11 +309,11 @@ static NSString *sheetKind(void) {
 
 void SGRPlayerMenuWatch(UIView *button) {
     sg_moreButton = button;
-    SGRSystemMenuWatch(button, ^NSArray<UIMenuElement *> *{ return playerItems(); }, ^NSString *{ return sheetKind(); });
+    SGRSystemMenuWatch(button, ^NSArray<UIMenuElement *> *{ return playerItems(NO); }, ^NSString *{ return sheetKind(); });
 }
 
 // The AI DJ's sheet has rows of its own (feedback, language, voice), so it is kept apart from a song's.
 void SGRDJPlayerMenuWatch(UIView *button) {
     sg_moreButton = button;
-    SGRSystemMenuWatch(button, ^NSArray<UIMenuElement *> *{ return playerItems(); }, ^NSString *{ return @"dj"; });
+    SGRSystemMenuWatch(button, ^NSArray<UIMenuElement *> *{ return playerItems(YES); }, ^NSString *{ return @"dj"; });
 }

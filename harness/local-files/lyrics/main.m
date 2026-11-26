@@ -30,6 +30,19 @@ static CFTimeInterval sg_started;
 }
 @end
 
+@interface UIViewController (SGHarnessLyricsActions)
+- (void)tapped:(UITapGestureRecognizer *)tap;
+- (void)held:(UILongPressGestureRecognizer *)hold;
+@end
+
+@interface SGBeganHold : UILongPressGestureRecognizer
+@end
+
+@implementation SGBeganHold
+- (UIGestureRecognizerState)state { return UIGestureRecognizerStateBegan; }
+@end
+
+static NSInteger sg_sought = -1;
 static SGFakeState *sg_state;
 SPTPlayerState *SGPlayerState(void) { return (SPTPlayerState *)sg_state; }
 NSString *SGURIString(id uri) { return [uri isKindOfClass:NSString.class] ? uri : nil; }
@@ -49,6 +62,7 @@ void SGLyricsPageLines(NSArray<SGKaraokeLine *> *lines, NSArray<NSNumber *> **st
 }
 SPTPlayerTrack *SGKaraokeTrackFor(NSString *trackID) { return nil; }
 NSInteger SGKaraokeDelayMs(void) { return [NSUserDefaults.standardUserDefaults integerForKey:SGKeyLyricsDelay]; }
+void SGKaraokeSeek(NSInteger ms) { sg_sought = ms; }
 
 #pragma mark - the run
 
@@ -94,6 +108,7 @@ static NSArray<UILabel *> *labelsIn(UIView *view) {
     NSString *documents = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
     [NSFileManager.defaultManager removeItemAtPath:[documents stringByAppendingPathComponent:@"Vitrine/Lyrics"] error:nil];
     [NSUserDefaults.standardUserDefaults removeObjectForKey:SGKeyImportedLRCLinks];
+    [NSUserDefaults.standardUserDefaults removeObjectForKey:SGKeyImportedLRCOffsets];
     NSMutableString *sheet = [NSMutableString string];
     for (NSInteger i = 0; i < 24; i++) {
         [sheet appendFormat:@"[00:%02ld.00]Line %ld of the song, long enough to wrap onto a second row here\n", (long)(i * 2), (long)i + 1];
@@ -136,7 +151,21 @@ static NSArray<UILabel *> *labelsIn(UIView *view) {
                 if (line.alpha == 1) lit = line;
             }
             check([lit.text hasPrefix:@"Line 7 "], [NSString stringWithFormat:@"line 7 lit (%@)", lit.text]);
+            UITapGestureRecognizer *tap = nil;
+            for (UIGestureRecognizer *gesture in lit.gestureRecognizers) {
+                if ([gesture isKindOfClass:UITapGestureRecognizer.class]) tap = (UITapGestureRecognizer *)gesture;
+            }
+            sg_sought = -1;
+            if (tap) [page tapped:tap];
+            check(sg_sought == 12000 + SGKaraokeDelayMs(), @"a timed line seeks to its start plus lyrics delay");
             say(@"SHOT playing");
+            SGBeganHold *hold = [SGBeganHold new];
+            [lit addGestureRecognizer:hold];
+            [page held:hold];
+            UIAlertController *menu = (UIAlertController *)page.presentedViewController;
+            NSArray *actions = [menu isKindOfClass:UIAlertController.class] ? [menu.actions valueForKey:@"title"] : @[];
+            check([actions containsObject:@"Copy Line"] && [actions containsObject:@"Share Line…"], @"holding a line offers Copy and Share");
+            after(0.5, ^{ [menu dismissViewControllerAnimated:NO completion:nil]; });
             after(4, ^{
                 say(@"SHOT later");
                 // Another track with nothing linked or matching.

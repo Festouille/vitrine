@@ -90,6 +90,7 @@ SGModRow *SGPageRow(NSString *title, UIViewController *(^page)(void)) {
     SGModRow *row = [SGModRow new];
     row.title = title;
     row.page = page;
+    row.searchChildren = YES;
     return row;
 }
 
@@ -745,6 +746,7 @@ static void showWaiting(UITableViewCell *cell, BOOL waiting, NSString *switchTit
     NSTimer *_ticker;
     BOOL _live;
     NSIndexPath *_nudgeAfterScroll;   // the switch a waiting row's tap is scrolling to
+    SGModRow *_rowToReveal;
 }
 
 - (instancetype)initWithTitle:(NSString *)title intro:(NSString *)intro sections:(NSArray<SGModSection *> *)sections footer:(NSString *)footer {
@@ -769,6 +771,16 @@ static void showWaiting(UITableViewCell *cell, BOOL waiting, NSString *switchTit
         [shown addObject:rows];
     }
     return shown;
+}
+
+- (void)enumerateVisibleRows:(void (^)(SGModRow *row, NSString *section))visit {
+    [[self rowsToShow] enumerateObjectsUsingBlock:^(NSArray<SGModRow *> *rows, NSUInteger section, BOOL *stop) {
+        for (SGModRow *row in rows) visit(row, self->_sections[section].title);
+    }];
+}
+
+- (void)revealRowOnAppearance:(SGModRow *)row {
+    _rowToReveal = row;
 }
 
 // The rows that are to show now fade in where they sit and the others fade out, and whatever came in is
@@ -994,6 +1006,30 @@ static void showWaiting(UITableViewCell *cell, BOOL waiting, NSString *switchTit
 
 - (void)viewDidAppear:(BOOL)animated {
     [super viewDidAppear:animated];
+    if (_rowToReveal) {
+        NSIndexPath *path = [self pathOfRow:_rowToReveal];
+        _rowToReveal = nil;
+        if (path) {
+            UITableView *table = self.tableView;
+            [table layoutIfNeeded];
+            [table scrollToRowAtIndexPath:path atScrollPosition:UITableViewScrollPositionMiddle animated:NO];
+            [table layoutIfNeeded];
+            UITableViewCell *cell = [table cellForRowAtIndexPath:path];
+            if (cell) {
+                UIView *highlight = [[UIView alloc] initWithFrame:cell.contentView.bounds];
+                highlight.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+                highlight.backgroundColor = [SGAccentMark() colorWithAlphaComponent:0.26];
+                highlight.userInteractionEnabled = NO;
+                [cell.contentView addSubview:highlight];
+                UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification, controlsIn(cell).lastObject ?: cell);
+                [UIView animateWithDuration:0.5 delay:0.55 options:UIViewAnimationOptionAllowUserInteraction animations:^{
+                    highlight.alpha = 0;
+                } completion:^(BOOL finished) {
+                    [highlight removeFromSuperview];
+                }];
+            }
+        }
+    }
     // UIKit makes the bar's Back and title once the push has settled.
     __weak SGModPage *weak = self;
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.25 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{

@@ -16,6 +16,7 @@
 @property (nonatomic) BOOL flag;
 @property (nonatomic) BOOL forceOff;
 @property (nonatomic, copy) UIViewController *(^page)(void);
+@property (nonatomic) BOOL searchChildren;
 @property (nonatomic, copy) NSString *(^value)(void);
 @property (nonatomic, copy) void (^action)(void);
 @property (nonatomic, copy) NSString *warning;
@@ -70,6 +71,9 @@
 - (instancetype)initWithTitle:(NSString *)title intro:(NSString *)intro sections:(NSArray<SGModSection *> *)sections footer:(NSString *)footer;
 // Asks every row's `visible` again, after something other than a switch on the page changed what it reads.
 - (void)refreshVisibility;
+- (void)enumerateVisibleRows:(void (^)(SGModRow *row, NSString *section))visit;
+- (BOOL)isWaiting:(SGModRow *)row;
+- (void)revealRowOnAppearance:(SGModRow *)row;
 // Rows draw their symbol on a colored tile; off, the default, they show none. Mod Settings' main page has them.
 @property (nonatomic) BOOL tiles;
 @end
