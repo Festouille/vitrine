@@ -223,7 +223,7 @@ static void fetchLyricsForTrack(NSString *trackID, NSDictionary<NSString *, NSSt
         return;
     }
     if (SGLyricsEnabled()) {
-        SGLyricsFetch(trackID, ^(SGLyricsResult *result) {
+        SGLyricsFetchSettled(trackID, ^(SGLyricsResult *result) {
             NSArray<SGKaraokeLine *> *providerLines = result.karaokeLines;
             if (providerLines.count && SGKaraokeLinesTiming(providerLines) != SGKaraokeTimingNone) {
                 SGKaraokeKeepLines(trackID, providerLines);

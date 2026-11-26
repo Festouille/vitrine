@@ -10,6 +10,7 @@
 #import "Core/SGCore.h"
 #import "LyricsSources.h"
 #import "Shared/Lyrics/Lyrics.h"
+#import "Shared/LockScreenLyrics/LockScreenLyrics.h"
 #import "Shared/LocalFiles/LocalFiles.h"
 #import "Shared/LocalFiles/LocalLyrics.h"
 #import "Settings/SGSourcesPage.h"
@@ -19,6 +20,15 @@
 
 static const NSTimeInterval kTimeout = 6;
 static const NSUInteger kKeptTracks = 40;
+static NSTimeInterval sg_autoSelectWindow = 2.5;
+
+NSTimeInterval SGLyricsAutoSelectWindow(void) {
+    return sg_autoSelectWindow;
+}
+
+void SGLyricsSetAutoSelectWindow(NSTimeInterval seconds) {
+    sg_autoSelectWindow = MAX(seconds, 0);
+}
 
 // What the switches were called while Musixmatch was the only source; read once, to carry an
 // existing install's settings over to the order.
@@ -299,30 +309,129 @@ static void learnFrom(SGLyricsQuery *query, SGLyricsResult *result) {
 // Main queue only, except sg_missing and sg_credits.
 static NSMutableDictionary<NSString *, id> *sg_kept;
 static NSMutableDictionary<NSString *, NSMutableArray *> *sg_waiting;
+static NSMutableDictionary<NSString *, NSMutableArray *> *sg_settledWaiting;
+static NSMutableSet<NSString *> *sg_autoUpgrading;
 static NSMutableSet<NSString *> *sg_missing;
 static NSMutableDictionary<NSString *, NSString *> *sg_credits;
+static BOOL sg_lastAutoSelect;
 // Spotify's own has_lyrics per track, as its metadata said. The player's metadata is read many
 // times a second while a list scrolls, so a value already noted costs one lookup and no write.
 static NSMutableDictionary<NSString *, NSNumber *> *sg_spotifyHas;
 static const NSUInteger kNotedTracks = 200;
+
+static BOOL autoSelectEnabled(void) {
+    return SGFlag(SGKeyLyricsAutoSelect, NO);
+}
 
 static void setUp(void) {
     static dispatch_once_t once;
     dispatch_once(&once, ^{
         sg_kept = [NSMutableDictionary dictionary];
         sg_waiting = [NSMutableDictionary dictionary];
+        sg_settledWaiting = [NSMutableDictionary dictionary];
+        sg_autoUpgrading = [NSMutableSet set];
         sg_missing = [NSMutableSet set];
         sg_credits = [NSMutableDictionary dictionary];
         sg_spotifyHas = [NSMutableDictionary dictionary];
+        sg_lastAutoSelect = autoSelectEnabled();
     });
+}
+
+// Invalidates non-picked cached answers when the Automatic best source switch flips so replaying a
+// previously fetched track re-runs source selection under the new setting.
+static void syncAutoSelectCache(void) {
+    BOOL enabled = autoSelectEnabled();
+    if (enabled == sg_lastAutoSelect) return;
+    sg_lastAutoSelect = enabled;
+    for (NSString *trackID in sg_kept.allKeys) {
+        if (!SGLyricsChosenSource(trackID)) [sg_kept removeObjectForKey:trackID];
+    }
+    @synchronized (sg_missing) { [sg_missing removeAllObjects]; }
+}
+
+static BOOL hasPronunciation(NSArray<SGKaraokeLine *> *lines, BOOL *wordTimed) {
+    BOOL found = NO, words = NO;
+    for (SGKaraokeLine *line in lines) {
+        if (line.pronunciation) {
+            found = YES;
+            if (line.pronunciation.timing == SGKaraokeTimingWords) words = YES;
+        }
+        if (line.backing.pronunciation) {
+            found = YES;
+            if (line.backing.pronunciation.timing == SGKaraokeTimingWords) words = YES;
+        }
+    }
+    if (wordTimed) *wordTimed = words;
+    return found;
+}
+
+static BOOL wantsTranslation(void) {
+    return SGLyricsTranslationLanguage() != nil || SGFlag(SGKeyLockScreenTranslation, NO);
+}
+
+static BOOL wantsRomanization(void) {
+    return SGFlag(SGKeyLyricsRomanised, NO);
+}
+
+static NSInteger autoSelectMaxFacets(void) {
+    NSInteger score = 0;
+    if (wantsTranslation()) score += 1;
+    if (wantsRomanization()) score += 2;
+    return score;
+}
+
+static NSInteger autoSelectFacets(NSArray<SGKaraokeLine *> *lines) {
+    if (!lines.count) return 0;
+    NSInteger score = 0;
+    if (wantsTranslation() && SGKaraokeHasTranslations(lines)) score += 1;
+    if (wantsRomanization()) {
+        BOOL wordTimed = NO;
+        if (hasPronunciation(lines, &wordTimed)) {
+            score += 1;
+            if (wordTimed) score += 1;
+        }
+    }
+    return score;
+}
+
+static BOOL autoSelectOptimal(SGLyricsResult *merged) {
+    if (!merged.karaokeLines.count) return NO;
+    if (SGKaraokeLinesTiming(merged.karaokeLines) != SGKaraokeTimingWords) return NO;
+    return autoSelectFacets(merged.karaokeLines) >= autoSelectMaxFacets();
+}
+
+static SGLyricsResult *copyResult(SGLyricsResult *source) {
+    SGLyricsResult *copy = [SGLyricsResult new];
+    copy.provider = source.provider;
+    copy.creditLinks = source.creditLinks;
+    copy.creditRequired = source.creditRequired;
+    copy.pageProvider = source.pageProvider;
+    copy.synced = source.synced;
+    copy.wordTimed = source.wordTimed;
+    copy.starts = source.starts;
+    copy.texts = source.texts;
+    copy.karaokeLines = source.karaokeLines;
+    copy.title = source.title;
+    copy.artist = source.artist;
+    copy.album = source.album;
+    copy.seconds = source.seconds;
+    copy.instrumental = source.instrumental;
+    copy.picked = source.picked;
+    return copy;
 }
 
 // Whether the source's lines are better than what the walk already has: any lines beat none, and
 // finer timing beats coarser — words timed beat a line's start, which beats plain text. Read off the
 // lines themselves, which say how they were really timed, rather than off what the source claimed.
+// With Automatic best source on, equal timing tiers break ties by requested translation/pronunciation.
 static BOOL betterLines(SGLyricsResult *merged, SGLyricsResult *fresh) {
     if (!fresh.karaokeLines.count) return NO;
-    return !merged.karaokeLines.count || SGKaraokeLinesTiming(fresh.karaokeLines) < SGKaraokeLinesTiming(merged.karaokeLines);
+    if (!merged.karaokeLines.count) return YES;
+    SGKaraokeTiming freshTiming = SGKaraokeLinesTiming(fresh.karaokeLines);
+    SGKaraokeTiming mergedTiming = SGKaraokeLinesTiming(merged.karaokeLines);
+    if (freshTiming != mergedTiming) return freshTiming < mergedTiming;
+    if (!autoSelectEnabled()) return NO;
+    return autoSelectFacets(fresh.karaokeLines) > autoSelectFacets(merged.karaokeLines);
 }
 
 static NSString *timingName(NSArray<SGKaraokeLine *> *lines) {
@@ -408,6 +517,10 @@ void SGLyricsOpenCreditLinks(NSArray<SGLyricsLink *> *links, UIView *from) {
 @property (nonatomic, copy) NSString *picked;
 // The picked source answered with lines, which are the walk's answer however they are timed.
 @property (nonatomic) BOOL pickedAnswered;
+// Auto-select bounded improvement window: the initial timed answer delivered without holding first
+// render, and whether the bounded window has closed (expired, optimal, or superseded).
+@property (nonatomic, strong) SGLyricsResult *delivered;
+@property (nonatomic) BOOL windowClosed;
 @end
 
 @implementation SGLyricsWalk
@@ -456,6 +569,12 @@ static void finish(SGLyricsWalk *walk) {
     NSArray *waiting = sg_waiting[trackID];
     [sg_waiting removeObjectForKey:trackID];
     for (void (^done)(SGLyricsResult *) in waiting) done(lyrics);
+    [sg_autoUpgrading removeObject:trackID];
+    NSArray *settledWait = sg_settledWaiting[trackID];
+    if (settledWait.count) {
+        [sg_settledWaiting removeObjectForKey:trackID];
+        for (void (^done)(SGLyricsResult *) in settledWait) done(lyrics);
+    }
 }
 
 // Whether the walk has its answer. walk.merged is the best seen so far: betterLines keeps the finest timed
@@ -466,15 +585,114 @@ static void finish(SGLyricsWalk *walk) {
 static BOOL settled(SGLyricsWalk *walk) {
     SGLyricsResult *merged = walk.merged;
     if (!(merged.synced && merged.texts.count && merged.karaokeLines.count)) return NO;
+    if (autoSelectEnabled()) return NO;
     if (!SGFlag(SGKeyLyricsPreferWordTiming, NO)) return YES;
     return SGKaraokeLinesTiming(merged.karaokeLines) == SGKaraokeTimingWords;
+}
+
+static BOOL hasMoreSources(SGLyricsWalk *walk) {
+    return walk.index < walk.order.count || (walk.passedOver.count > 0 && named(walk.query));
+}
+
+static void closeAutoSelectWindow(SGLyricsWalk *walk) {
+    if (walk.windowClosed) return;
+    walk.windowClosed = YES;
+    NSString *trackID = walk.query.trackID;
+    [sg_autoUpgrading removeObject:trackID];
+    NSArray *settledWait = sg_settledWaiting[trackID];
+    if (!settledWait.count) return;
+    [sg_settledWaiting removeObjectForKey:trackID];
+    id kept = sg_kept[trackID];
+    SGLyricsResult *result = (kept && kept != NSNull.null) ? kept : walk.delivered;
+    for (void (^done)(SGLyricsResult *) in settledWait) done(result);
+}
+
+// Delivers the first timed answer immediately so first render is never held, then keeps walking
+// remaining sources for a bounded window to upgrade live if a better answer arrives.
+static BOOL deliverForAutoSelect(SGLyricsWalk *walk) {
+    SGLyricsResult *merged = walk.merged;
+    if (!autoSelectEnabled() || walk.delivered) return NO;
+    if (!(merged.synced && merged.texts.count && merged.karaokeLines.count)) return NO;
+    NSString *trackID = walk.query.trackID;
+    if (autoSelectOptimal(merged) || sg_autoSelectWindow <= 0 || !hasMoreSources(walk)
+        || SGLyricsChosenSource(trackID) || SGTrackLyricsLinkedTo(trackID)) {
+        finish(walk);
+        return YES;
+    }
+    SGLyricsResult *initial = copyResult(merged);
+    walk.delivered = initial;
+    [sg_autoUpgrading addObject:trackID];
+    if (sg_kept.count >= kKeptTracks) [sg_kept removeAllObjects];
+    sg_kept[trackID] = initial;
+    @synchronized (sg_missing) { [sg_missing removeObject:trackID]; }
+    SGLog(@"lyrics: auto-select delivered %@ (%@) for %@, opening %.1fs upgrade window",
+          initial.provider, timingName(initial.karaokeLines), trackID, sg_autoSelectWindow);
+    NSArray *waiting = sg_waiting[trackID];
+    [sg_waiting removeObjectForKey:trackID];
+    for (void (^done)(SGLyricsResult *) in waiting) done(initial);
+    NSTimeInterval window = sg_autoSelectWindow;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(window * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        if (walk.windowClosed) return;
+        SGLog(@"lyrics: auto-select window closed for %@", trackID);
+        closeAutoSelectWindow(walk);
+    });
+    return NO;
+}
+
+static BOOL autoSelectSuperseded(SGLyricsWalk *walk) {
+    NSString *trackID = walk.query.trackID;
+    return walk.windowClosed || SGLyricsChosenSource(trackID) != nil || SGTrackLyricsLinkedTo(trackID) != nil
+        || sg_kept[trackID] != walk.delivered;
+}
+
+static void applyAutoSelectUpgrade(SGLyricsWalk *walk, SGLyricsProvider *provider, SGLyricsResult *fresh) {
+    SGLyricsResult *merged = walk.merged;
+    NSString *trackID = walk.query.trackID;
+    merged.karaokeLines = fresh.karaokeLines;
+    merged.wordTimed = fresh.wordTimed;
+    merged.provider = fresh.provider ?: provider.name;
+    merged.creditLinks = fresh.creditLinks;
+    merged.creditRequired = fresh.creditRequired;
+    if (fresh.texts.count) {
+        merged.starts = fresh.starts;
+        merged.texts = fresh.texts;
+        merged.synced = fresh.synced;
+        merged.pageProvider = fresh.provider ?: provider.name;
+    } else {
+        NSArray<NSNumber *> *starts;
+        NSArray<NSString *> *texts;
+        SGLyricsPageLines(fresh.karaokeLines, &starts, &texts);
+        merged.starts = starts;
+        merged.texts = texts;
+        merged.synced = SGKaraokeLinesTiming(fresh.karaokeLines) != SGKaraokeTimingNone;
+        merged.pageProvider = merged.provider;
+    }
+    SGLyricsResult *upgraded = copyResult(merged);
+    walk.delivered = upgraded;
+    if (sg_kept.count >= kKeptTracks) [sg_kept removeAllObjects];
+    sg_kept[trackID] = upgraded;
+    @synchronized (sg_missing) { [sg_missing removeObject:trackID]; }
+    noteCredit(upgraded);
+    SGLyricsSetCredit(trackID, upgraded.provider);
+    SGKaraokeKeepLines(trackID, upgraded.karaokeLines);
+    SGLog(@"lyrics: auto-select upgraded %@ to %@ (%@)", trackID, upgraded.provider, timingName(upgraded.karaokeLines));
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [NSNotificationCenter.defaultCenter postNotificationName:SGLyricsSourceChosenNotification object:trackID];
+    });
 }
 
 static void step(SGLyricsWalk *walk) {
     SGLyricsQuery *query = walk.query;
     SGLyricsResult *merged = walk.merged;
-    if (settled(walk)) {
+    if (walk.delivered) {
+        if (autoSelectSuperseded(walk) || autoSelectOptimal(merged)) {
+            closeAutoSelectWindow(walk);
+            return;
+        }
+    } else if (settled(walk)) {
         finish(walk);
+        return;
+    } else if (deliverForAutoSelect(walk)) {
         return;
     }
     if (walk.index >= walk.order.count) {
@@ -487,6 +705,10 @@ static void step(SGLyricsWalk *walk) {
             walk.index = 0;
             walk.passedOver = [NSMutableArray array];
             step(walk);
+            return;
+        }
+        if (walk.delivered) {
+            closeAutoSelectWindow(walk);
             return;
         }
         finish(walk);
@@ -509,6 +731,22 @@ static void step(SGLyricsWalk *walk) {
     provider.ask(query, ^(SGLyricsResult *fresh) {
         learnFrom(query, fresh);
         noteCredit(fresh);
+        if (walk.delivered) {
+            if (autoSelectSuperseded(walk)) {
+                closeAutoSelectWindow(walk);
+                return;
+            }
+            BOOL imported = fresh.synced && [provider.key isEqualToString:SGImportedLRCKey] && betterLines(merged, fresh);
+            if (fresh.karaokeLines.count && (imported || betterLines(merged, fresh))) {
+                applyAutoSelectUpgrade(walk, provider, fresh);
+                if (imported || autoSelectOptimal(merged)) {
+                    closeAutoSelectWindow(walk);
+                    return;
+                }
+            }
+            step(walk);
+            return;
+        }
         // Instrumental counts as no lines here; a failed request does not, as the server may only be busy.
         if ([provider.key isEqualToString:walk.picked] && !fresh.karaokeLines.count && atomic_load(&sg_failures) == failures) {
             SGLyricsDropChoice(query.trackID, walk.picked);
@@ -532,15 +770,19 @@ static void step(SGLyricsWalk *walk) {
             finish(walk);
             return;
         }
-        if (betterLines(merged, fresh)) {
+        BOOL linesImproved = betterLines(merged, fresh);
+        if (linesImproved) {
             merged.karaokeLines = fresh.karaokeLines;
             merged.wordTimed = fresh.wordTimed;
             merged.provider = fresh.provider ?: provider.name;
-            if (SGFlag(SGKeyLyricsPreferWordTiming, NO) && SGKaraokeLinesTiming(fresh.karaokeLines) == SGKaraokeTimingLine && walk.index < walk.order.count) {
+            merged.creditLinks = fresh.creditLinks;
+            merged.creditRequired = fresh.creditRequired;
+            if (SGFlag(SGKeyLyricsPreferWordTiming, NO) && !autoSelectEnabled()
+                && SGKaraokeLinesTiming(fresh.karaokeLines) == SGKaraokeTimingLine && walk.index < walk.order.count) {
                 SGLog(@"lyrics: %@ line timed by %@, asking on for words timed", query.trackID, merged.provider);
             }
         }
-        if (betterTexts(merged, fresh)) {
+        if (betterTexts(merged, fresh) || (linesImproved && fresh.texts.count && (fresh.synced || !merged.synced))) {
             merged.starts = fresh.starts;
             merged.texts = fresh.texts;
             merged.synced = fresh.synced;
@@ -595,6 +837,7 @@ void SGLyricsFetch(NSString *trackID, void (^done)(SGLyricsResult *result)) {
             done(nil);
             return;
         }
+        syncAutoSelectCache();
         id kept = sg_kept[trackID];
         if (kept) {
             done(kept == NSNull.null ? nil : kept);
@@ -607,6 +850,34 @@ void SGLyricsFetch(NSString *trackID, void (^done)(SGLyricsResult *result)) {
         }
         sg_waiting[trackID] = [NSMutableArray arrayWithObject:[done copy]];
         whenNamed(trackID, 0);
+    });
+}
+
+void SGLyricsFetchSettled(NSString *trackID, void (^done)(SGLyricsResult *result)) {
+    setUp();
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if (!trackID.length) {
+            done(nil);
+            return;
+        }
+        syncAutoSelectCache();
+        if (![sg_autoUpgrading containsObject:trackID]) {
+            id kept = sg_kept[trackID];
+            if (kept) {
+                done(kept == NSNull.null ? nil : kept);
+                return;
+            }
+        }
+        NSMutableArray *settledWait = sg_settledWaiting[trackID];
+        if (settledWait) {
+            [settledWait addObject:[done copy]];
+            return;
+        }
+        sg_settledWaiting[trackID] = [NSMutableArray arrayWithObject:[done copy]];
+        if (![sg_autoUpgrading containsObject:trackID] && !sg_waiting[trackID]) {
+            sg_waiting[trackID] = [NSMutableArray array];
+            whenNamed(trackID, 0);
+        }
     });
 }
 
@@ -719,7 +990,9 @@ UIViewController *SGLyricsSourcesPage(void) {
         NSString *detail = [provider.key isEqualToString:SGSpicyLyricsKey] ? SGSpicyLyricsStatus() ?: provider.detail : provider.detail;
         [all addObject:[SGSource sourceWithKey:provider.key name:provider.name detail:detail]];
     }
-    NSString *note = SGFlag(SGKeyLyricsPreferWordTiming, NO)
+    NSString *note = autoSelectEnabled()
+        ? @"Asked top to bottom. Shows the first timed answer, then briefly upgrades if a later source has finer timing or richer metadata. Sources get only the track, never your account."
+        : SGFlag(SGKeyLyricsPreferWordTiming, NO)
         ? @"Asked top to bottom until one has word timing. Sources get only the track, never your account."
         : @"Asked top to bottom until one has timed lyrics. Sources get only the track, never your account.";
     return SGSourcesPageMake(@"Lyrics sources", note,

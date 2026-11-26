@@ -33,10 +33,12 @@
 #import <objc/runtime.h>
 #import "Core/SGCore.h"
 #import "Settings/SGPageStyle.h"
+#import "Settings/SGLocalize.h"
 #import "Shared/AnimatedArtwork/SaveCanvas.h"
 #import "Shared/AudioEffects/AudioEffects.h"
 #import "Shared/Haptics/Haptics.h"
 #import "ABLoop.h"
+#import "PlayerShortcuts.h"
 #import "SpeedPitch.h"
 
 // A menu this soon after the more button's tap is the player's.
@@ -125,6 +127,7 @@ static char kBlockKey, kDecidedKey, kWatchedKey, kShownAtKey, kRowsInKey;
     UISwitch *_animated;
     UIButton *_saveCanvas;
     UIButton *_loop;
+    UIButton *_quickEQ, *_playingNext;
     float _shownSpeed, _shownPitch, _shownReverb;
     NSTimeInterval _speedSentAt;
     BOOL _speedPending;
@@ -292,6 +295,23 @@ static void placeTick(UISlider *slider) {
     return self;
 }
 
+- (UIButton *)shortcutButton:(NSString *)title symbol:(NSString *)name menu:(UIMenu *(^)(void))menu {
+    UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
+    UIButtonConfiguration *config = [UIButtonConfiguration plainButtonConfiguration];
+    config.title = SGL(title);
+    config.image = [UIImage systemImageNamed:name];
+    config.imagePadding = kGrid * 2;
+    config.baseForegroundColor = primary();
+    button.configuration = config;
+    button.contentHorizontalAlignment = UIControlContentHorizontalAlignmentLeading;
+    button.menu = [UIMenu menuWithChildren:@[[UIDeferredMenuElement elementWithUncachedProvider:^(void (^complete)(NSArray<UIMenuElement *> *)) {
+        complete(menu().children ?: @[]);
+    }]]];
+    button.showsMenuAsPrimaryAction = YES;
+    [self addSubview:button];
+    return button;
+}
+
 - (void)resolveCanvas {
     __weak SGSpeedPitchView *weakSelf = self;
     SGResolveSaveCanvasAction(^(UIAction *save) {
@@ -319,7 +339,8 @@ static void placeTick(UISlider *slider) {
 
 - (CGFloat)heightOpen:(BOOL)open {
     return kRowHeight + (open ? 3 * kSliderBlockHeight + kSwitchRowHeight + kPanelBottom : 0)
-         + (_animatedRow ? kRowHeight : 0) + (_saveCanvas ? kRowHeight : 0) + (_loop ? kRowHeight : 0);
+         + (_animatedRow ? kRowHeight : 0) + (_saveCanvas ? kRowHeight : 0) + (_loop ? kRowHeight : 0)
+         + (_quickEQ ? 2 * kRowHeight : 0);
 }
 
 // Set after init, which drew the values for the sheet's closed block: drawn again open.
@@ -372,6 +393,16 @@ static void placeTick(UISlider *slider) {
     _loop.hidden = self.panelOnly;
     CGFloat loopY = (sg_open ? CGRectGetMaxY(_panel.frame) : kRowHeight) + (_animatedRow ? kRowHeight : 0) + (_saveCanvas ? kRowHeight : 0);
     _loop.frame = CGRectMake(0, loopY, width, kRowHeight);
+    CGFloat shortcutsY = loopY + (_loop ? kRowHeight : 0);
+    _quickEQ.frame = CGRectMake(0, shortcutsY, width, kRowHeight);
+    _playingNext.frame = CGRectMake(0, shortcutsY + kRowHeight, width, kRowHeight);
+}
+
+- (void)addPlayerShortcuts {
+    if (!SGHidden(SGKeyPlayerShortcuts)) return;
+    _quickEQ = [self shortcutButton:@"Quick EQ" symbol:@"slider.vertical.3" menu:^UIMenu *{ return SGQuickEQMenu(); }];
+    _playingNext = [self shortcutButton:@"Playing Next" symbol:@"list.bullet" menu:^UIMenu *{ return SGPlayingNextMenu(); }];
+    _playingNext.preferredMenuElementOrder = UIContextMenuConfigurationElementOrderFixed;
 }
 
 #pragma mark state
@@ -783,6 +814,7 @@ static void install(UIViewController *menu) {
             return;
         }
         block = [[SGSpeedPitchView alloc] initWithFrame:CGRectZero];
+        [block addPlayerShortcuts];
         block.frame = CGRectMake(0, 0, width, [block heightOpen:sg_open]);
         block.table = table;
         block.inFooter = !headerFree;
