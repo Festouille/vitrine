@@ -362,10 +362,13 @@ UIViewController *SGRPlayerSettingsPage(NSArray *more) {
                                    @"background still. Animated and Visualizer use these where they show Fluid."),
         SGNotedSection(@"Controls", @[SGSwitchRow(@"Volume", nil, SGRKeyPlayerVolume),
                                       SGOptionRow(@"Follow the cover", nil, SGRKeyPlayerFollowsCover),
-                                      SGOptionRow(@"Spotify's icons", @"Lyrics, device, queue and the AI DJ's button", SGRKeyPlayerSpotifyIcons)],
+                                      SGOptionRow(@"Spotify's icons", @"Lyrics, device, queue and the AI DJ's button", SGRKeyPlayerSpotifyIcons),
+                                      SGOptionRow(@"Sleep timer", @"In the ⋯ menu", SGRKeyPlayerSleepTimer)],
                        @"Volume puts a slider under the controls for this iPhone, or the speaker's while Spotify plays on another device. "
                        @"Follow the cover paints the like, shuffle, repeat, device and queue buttons, and the mini player's device and like, in the color of the song playing. "
-                       @"Spotify's icons keeps Spotify's own glyphs in the row under the controls instead of the Music app's."),
+                       @"Spotify's icons keeps Spotify's own glyphs in the row under the controls instead of the Music app's. "
+                       @"Sleep timer puts a timer of the mod's in the ⋯ menu that pauses after a time or at the end of the track, album or "
+                       @"playlist, fading out by the Live Activity page's Fade out choice."),
         SGNotedSection(@"Mini player", SGRNowPlayingBarRows(),
                        @"Apple Music style moves the now playing bar in between two tabs as you scroll down."), nil];
     [sections addObjectsFromArray:more];

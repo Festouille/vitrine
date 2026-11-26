@@ -292,7 +292,7 @@ Shared:
                   (PlayerGestures.x) returns before Spotify's, as it does while Gestures is on. Spotify's own flag
                   (cover_art_tilt_enabled) is left alone: with it off the cover is built without CoverArtTiltView,
                   and every hook on that view (the redesign's rounding and shadow, the hold to 2x) has nothing to reach.
-                  The sleep timer (SleepTimer.m, set from the Live Activity) pauses Spotify at a time, at the end of
+                  The sleep timer (SleepTimer.m, set from the Live Activity and the redesigned player's ⋯) pauses Spotify at a time, at the end of
                   the track or at the end of the album or playlist, the last track of it found by the tracks to come
                   that are neither queued by hand nor autoplay's (SPTPlayerTrack's provider), or by the next one
                   having played already when it repeats. Over the last seconds (the Live Activity page's Fade out: Off,
@@ -587,8 +587,10 @@ Redesigned:
     Player/       the redesigned full screen player (Player.h lists its files); its more button opens the system
                   menu (ContextMenu/), Spotify's rows and then Speed, Pitch & Reverb, which opens the sliders and
                   Pitch follows speed in a popover from the ⋯ (SpeedPitchMenu.x; below iOS 26 its background is the ⋯ menu's
-                  glass, PlayerPanelGlass.m), and the backgrounds it can switch
-                  to (PlayerMenu.m), and a hold on either side of the
+                  glass, PlayerPanelGlass.m), the backgrounds it can switch to and, with the Player page's Sleep timer
+                  switch on (spotifyglass.redesign.player.sleepTimer, off unless set), a Sleep Timer submenu that sets
+                  the mod's own timer, 15, 30 or 45 minutes, an hour, End of Track or End of Album or Playlist, with
+                  Add 15 Minutes and Turn Off Timer while one runs (PlayerMenu.m), and a hold on either side of the
                   cover plays at 2x until the finger lifts (PlayerArtwork.x), an octave higher while Pitch follows
                   speed is on. Hide on the player's Shuffle and Repeat (spotifyglass.redesign.player.hideShuffle,
                   .hideRepeat, read at launch) take those buttons off the controls by alpha in their slots, as the
