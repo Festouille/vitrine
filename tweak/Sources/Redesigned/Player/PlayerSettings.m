@@ -357,10 +357,18 @@ UIViewController *SGRPlayerSettingsPage(NSArray *more) {
     ];
     for (SGModRow *row in fluid) row.visible = ^BOOL { return SGRPlayerBackground() == SGRPlayerBackgroundFluid; };
 
+    NSArray<SGModRow *> *artwork = @[
+        SGOptionRow(@"Square artwork", @"Use sharp corners on the full-size cover", SGRKeyPlayerSquareArtwork),
+        SGOptionRow(@"Hide artwork shadow", nil, SGRKeyPlayerHideArtworkShadow),
+        SGOptionRow(@"Full-size artwork when paused", @"Keep the cover from shrinking", SGRKeyPlayerFullSizePausedArtwork),
+    ];
+    for (SGModRow *row in artwork) row.changed = ^(BOOL on) { SGRPlayerRefreshArtwork(); };
+
     NSMutableArray<SGModSection *> *sections = [NSMutableArray arrayWithObjects:
         SGSection(nil, @[sources, lowData]),
         SGNotedSection(nil, fluid, @"Brightness above 100% can make white text harder to read. A paused song holds the "
                                    @"background still. Animated and Visualizer use these where they show Fluid."),
+        SGSection(@"Artwork", artwork),
         SGNotedSection(@"Controls", @[SGSwitchRow(@"Volume", nil, SGRKeyPlayerVolume),
                                       SGOptionRow(@"Follow the cover", nil, SGRKeyPlayerFollowsCover),
                                       SGOptionRow(@"Spotify's icons", @"Lyrics, device, queue and the AI DJ's button", SGRKeyPlayerSpotifyIcons),

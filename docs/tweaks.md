@@ -601,7 +601,9 @@ Redesigned:
                   out to a quarter of the row either side of play, the Music app's spacing (issue #162). A Free account gets it too: Spotify's Reinvented Free player mode, whose units none of
                   the hooks reach, declines while the redesign runs, so the track falls to Spotify's other Free mode,
                   built from the units the redesign styles (PlayerFree.x, read from the binary, not yet seen on a Free
-                  account). Animated artwork (PlayerMotion.x)
+                  account). The Player page's Artwork switches keep the full-size cover square, remove its shadow,
+                  or keep it full size when paused. Each is off by default and leaves the mini player alone.
+                  Animated artwork (PlayerMotion.x)
                   runs the clip edge to edge from the top over the color of its last rows drawn on down, with a blur coming in
                   from the seam under the controls and over the whole clip behind the lyrics. The clip and the cover
                   cross over as one comes and the other goes, the clip from its poster frame before the video has

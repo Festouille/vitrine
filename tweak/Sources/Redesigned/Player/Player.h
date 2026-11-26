@@ -61,6 +61,12 @@ void SGRPlayerHoldField(void);
 
 #pragma mark - the cover (PlayerArtwork.x)
 
+#define SGRKeyPlayerSquareArtwork @"spotifyglass.redesign.player.squareArtwork"
+#define SGRKeyPlayerHideArtworkShadow @"spotifyglass.redesign.player.hideArtworkShadow"
+#define SGRKeyPlayerFullSizePausedArtwork @"spotifyglass.redesign.player.fullSizePausedArtwork"
+
+CGFloat SGRPlayerCoverCornerRadius(void);
+void SGRPlayerRefreshArtwork(void);
 // The sideways list of covers behind the player, nil until one has laid out.
 UIView *SGRPlayerCoverList(void);
 // The cover on screen as it is drawn, its paused shrink included, in `host`'s coordinates; CGRectNull
