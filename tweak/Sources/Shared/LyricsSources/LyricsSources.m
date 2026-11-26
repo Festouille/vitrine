@@ -314,6 +314,10 @@ static NSMutableSet<NSString *> *sg_autoUpgrading;
 static NSMutableSet<NSString *> *sg_missing;
 static NSMutableDictionary<NSString *, NSString *> *sg_credits;
 static BOOL sg_lastAutoSelect;
+static NSString *sg_lastTranslationLang;
+static BOOL sg_lastLockScreenTrans;
+static BOOL sg_lastRomanised;
+static NSUInteger sg_cacheGeneration;
 // Spotify's own has_lyrics per track, as its metadata said. The player's metadata is read many
 // times a second while a list scrolls, so a value already noted costs one lookup and no write.
 static NSMutableDictionary<NSString *, NSNumber *> *sg_spotifyHas;
@@ -334,15 +338,29 @@ static void setUp(void) {
         sg_credits = [NSMutableDictionary dictionary];
         sg_spotifyHas = [NSMutableDictionary dictionary];
         sg_lastAutoSelect = autoSelectEnabled();
+        sg_lastTranslationLang = SGLyricsTranslationLanguage();
+        sg_lastLockScreenTrans = SGFlag(SGKeyLockScreenTranslation, NO);
+        sg_lastRomanised = SGFlag(SGKeyLyricsRomanised, NO);
     });
 }
 
-// Invalidates non-picked cached answers when the Automatic best source switch flips so replaying a
-// previously fetched track re-runs source selection under the new setting.
+// Invalidates non-picked cached answers when Automatic best source or any preference that affects
+// its ranking (translation language, lock-screen translation, romanization) changes.
 static void syncAutoSelectCache(void) {
     BOOL enabled = autoSelectEnabled();
-    if (enabled == sg_lastAutoSelect) return;
+    NSString *lang = SGLyricsTranslationLanguage();
+    BOOL lockTrans = SGFlag(SGKeyLockScreenTranslation, NO);
+    BOOL romanised = SGFlag(SGKeyLyricsRomanised, NO);
+    BOOL langChanged = (lang != sg_lastTranslationLang) && ![lang isEqualToString:sg_lastTranslationLang];
+    BOOL prefsChanged = langChanged || lockTrans != sg_lastLockScreenTrans || romanised != sg_lastRomanised;
+    BOOL modeChanged = enabled != sg_lastAutoSelect;
+    BOOL wasEnabled = sg_lastAutoSelect;
     sg_lastAutoSelect = enabled;
+    sg_lastTranslationLang = lang;
+    sg_lastLockScreenTrans = lockTrans;
+    sg_lastRomanised = romanised;
+    if (!modeChanged && !(prefsChanged && (enabled || wasEnabled))) return;
+    sg_cacheGeneration++;
     for (NSString *trackID in sg_kept.allKeys) {
         if (!SGLyricsChosenSource(trackID)) [sg_kept removeObjectForKey:trackID];
     }
@@ -520,7 +538,9 @@ void SGLyricsOpenCreditLinks(NSArray<SGLyricsLink *> *links, UIView *from) {
 // Auto-select bounded improvement window: the initial timed answer delivered without holding first
 // render, and whether the bounded window has closed (expired, optimal, or superseded).
 @property (nonatomic, strong) SGLyricsResult *delivered;
+@property (nonatomic) BOOL previewedKaraoke;
 @property (nonatomic) BOOL windowClosed;
+@property (nonatomic) NSUInteger generation;
 @end
 
 @implementation SGLyricsWalk
@@ -607,14 +627,35 @@ static void closeAutoSelectWindow(SGLyricsWalk *walk) {
     for (void (^done)(SGLyricsResult *) in settledWait) done(result);
 }
 
+static BOOL autoSelectComplete(SGLyricsResult *merged) {
+    return autoSelectOptimal(merged) && merged.synced && merged.texts.count > 0;
+}
+
 // Delivers the first timed answer immediately so first render is never held, then keeps walking
 // remaining sources for a bounded window to upgrade live if a better answer arrives.
+// When a word-timing-only source (e.g. NetEase) answers first without page texts, publish its
+// karaokeLines immediately for Redesigned while letting sg_waiting wait for page texts so Native's
+// donor/missing request never receives a premature text-less 404.
 static BOOL deliverForAutoSelect(SGLyricsWalk *walk) {
     SGLyricsResult *merged = walk.merged;
     if (!autoSelectEnabled() || walk.delivered) return NO;
-    if (!(merged.synced && merged.texts.count && merged.karaokeLines.count)) return NO;
+    BOOL hasTimedLines = merged.karaokeLines.count && SGKaraokeLinesTiming(merged.karaokeLines) != SGKaraokeTimingNone;
+    if (!hasTimedLines) return NO;
     NSString *trackID = walk.query.trackID;
-    if (autoSelectOptimal(merged) || sg_autoSelectWindow <= 0 || !hasMoreSources(walk)
+    if (!(merged.synced && merged.texts.count)) {
+        if (!walk.previewedKaraoke && hasMoreSources(walk)
+            && !SGLyricsChosenSource(trackID) && !SGTrackLyricsLinkedTo(trackID)) {
+            walk.previewedKaraoke = YES;
+            noteCredit(merged);
+            SGLyricsSetCredit(trackID, merged.provider);
+            SGKaraokeKeepLines(trackID, merged.karaokeLines);
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [NSNotificationCenter.defaultCenter postNotificationName:SGLyricsSourceChosenNotification object:trackID];
+            });
+        }
+        return NO;
+    }
+    if (autoSelectComplete(merged) || sg_autoSelectWindow <= 0 || !hasMoreSources(walk)
         || SGLyricsChosenSource(trackID) || SGTrackLyricsLinkedTo(trackID)) {
         finish(walk);
         return YES;
@@ -641,8 +682,9 @@ static BOOL deliverForAutoSelect(SGLyricsWalk *walk) {
 
 static BOOL autoSelectSuperseded(SGLyricsWalk *walk) {
     NSString *trackID = walk.query.trackID;
-    return walk.windowClosed || SGLyricsChosenSource(trackID) != nil || SGTrackLyricsLinkedTo(trackID) != nil
-        || sg_kept[trackID] != walk.delivered;
+    return walk.windowClosed || walk.generation != sg_cacheGeneration
+        || SGLyricsChosenSource(trackID) != nil || SGTrackLyricsLinkedTo(trackID) != nil
+        || (sg_kept[trackID] != nil && sg_kept[trackID] != walk.delivered);
 }
 
 static void applyAutoSelectUpgrade(SGLyricsWalk *walk, SGLyricsProvider *provider, SGLyricsResult *fresh) {
@@ -653,19 +695,13 @@ static void applyAutoSelectUpgrade(SGLyricsWalk *walk, SGLyricsProvider *provide
     merged.provider = fresh.provider ?: provider.name;
     merged.creditLinks = fresh.creditLinks;
     merged.creditRequired = fresh.creditRequired;
-    if (fresh.texts.count) {
+    // Keep existing synced page text when a word-timing-only provider (e.g. NetEase) omits page text,
+    // so uncensored native page text is never replaced with synthesized censored lines.
+    if (fresh.texts.count && (fresh.synced || !merged.synced)) {
         merged.starts = fresh.starts;
         merged.texts = fresh.texts;
         merged.synced = fresh.synced;
         merged.pageProvider = fresh.provider ?: provider.name;
-    } else {
-        NSArray<NSNumber *> *starts;
-        NSArray<NSString *> *texts;
-        SGLyricsPageLines(fresh.karaokeLines, &starts, &texts);
-        merged.starts = starts;
-        merged.texts = texts;
-        merged.synced = SGKaraokeLinesTiming(fresh.karaokeLines) != SGKaraokeTimingNone;
-        merged.pageProvider = merged.provider;
     }
     SGLyricsResult *upgraded = copyResult(merged);
     walk.delivered = upgraded;
@@ -685,7 +721,7 @@ static void step(SGLyricsWalk *walk) {
     SGLyricsQuery *query = walk.query;
     SGLyricsResult *merged = walk.merged;
     if (walk.delivered) {
-        if (autoSelectSuperseded(walk) || autoSelectOptimal(merged)) {
+        if (autoSelectSuperseded(walk) || autoSelectComplete(merged)) {
             closeAutoSelectWindow(walk);
             return;
         }
@@ -739,7 +775,20 @@ static void step(SGLyricsWalk *walk) {
             BOOL imported = fresh.synced && [provider.key isEqualToString:SGImportedLRCKey] && betterLines(merged, fresh);
             if (fresh.karaokeLines.count && (imported || betterLines(merged, fresh))) {
                 applyAutoSelectUpgrade(walk, provider, fresh);
-                if (imported || autoSelectOptimal(merged)) {
+                if (imported || autoSelectComplete(merged)) {
+                    closeAutoSelectWindow(walk);
+                    return;
+                }
+            } else if (betterTexts(merged, fresh)) {
+                merged.starts = fresh.starts;
+                merged.texts = fresh.texts;
+                merged.synced = fresh.synced;
+                merged.pageProvider = fresh.provider ?: provider.name;
+                SGLyricsResult *updated = copyResult(merged);
+                walk.delivered = updated;
+                if (sg_kept.count >= kKeptTracks) [sg_kept removeAllObjects];
+                sg_kept[query.trackID] = updated;
+                if (autoSelectComplete(merged)) {
                     closeAutoSelectWindow(walk);
                     return;
                 }
@@ -813,6 +862,7 @@ static void startWalk(NSString *trackID, SGLyricsQuery *query) {
     walk.merged = [SGLyricsResult new];
     walk.passedOver = [NSMutableArray array];
     walk.failuresAtStart = atomic_load(&sg_failures);
+    walk.generation = sg_cacheGeneration;
     step(walk);
 }
 
