@@ -32,6 +32,8 @@ static NSDictionary<NSString *, id> *currentValues(void) {
     for (NSString *key in all) {
         if ([key hasPrefix:kPrefix]) values[key] = all[key];
     }
+    values[SGKeyDSPEqualizer] = @(SGDSPSwitch(SGKeyDSPEqualizer));
+    values[SGKeyDSPEqualizerGains] = SGDSPString(SGKeyDSPEqualizerGains);
     return values;
 }
 

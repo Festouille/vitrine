@@ -2,6 +2,7 @@
 // so one preset or one headphone after another can be heard before going back.
 #import "Core/SGCore.h"
 #import "Settings/SGPage.h"
+#import "Settings/SGModPage.h"
 #import "Settings/SGPageStyle.h"
 #import "AudioEffectsPage.h"
 #import "AudioEffectsPresets.h"
@@ -503,4 +504,160 @@ UIViewController *SGDSPHeadphonesPage(void) {
 NSString *SGDSPHeadphoneSummary(void) {
     NSString *path = SGDSPString(SGKeyDSPGraphicEqHeadphone);
     return path.length && SGDSPSwitch(SGKeyDSPGraphicEq) ? SGAutoEqNameOf(path) : @"None";
+}
+
+#pragma mark - EQ per output
+
+@interface SGDSPOutputEQList : SGPage
+@end
+
+@implementation SGDSPOutputEQList {
+    NSArray<NSDictionary<NSString *, NSString *> *> *_assignments;
+    UIView *_note;
+}
+
+- (instancetype)init {
+    if (!(self = [super initWithStyle:UITableViewStyleInsetGrouped])) return nil;
+    self.title = @"EQ per output";
+    return self;
+}
+
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    _note = SGNote(@"An output without a preset uses your default Equalizer. To keep changes to a device’s curve, "
+                   "choose Use current curve before disconnecting. Audio effects must be on to hear the Equalizer.");
+    self.tableView.tableFooterView = _note;
+    [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(refresh)
+                                               name:SGDSPOutputEQChangedNotification object:nil];
+}
+
+- (void)viewWillAppear:(BOOL)animated {
+    [super viewWillAppear:animated];
+    [self refresh];
+}
+
+- (void)viewWillLayoutSubviews {
+    [super viewWillLayoutSubviews];
+    SGFitNote(self.tableView, _note, 16, 24);
+}
+
+- (void)viewDidLayoutSubviews {
+    [super viewDidLayoutSubviews];
+    SGInsetForBars(self.tableView);
+}
+
+- (void)refresh {
+    _assignments = SGDSPOutputEQAssignments();
+    [self.tableView reloadData];
+}
+
+- (NSString *)assignedPreset {
+    for (NSDictionary *entry in _assignments) {
+        if ([entry[@"uid"] isEqualToString:SGDSPOutputEQUID()]) return entry[@"preset"];
+    }
+    return nil;
+}
+
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)table { return _assignments.count ? 2 : 1; }
+
+- (NSInteger)tableView:(UITableView *)table numberOfRowsInSection:(NSInteger)section {
+    return section == 0 ? 2 : (NSInteger)_assignments.count;
+}
+
+- (UIView *)tableView:(UITableView *)table viewForHeaderInSection:(NSInteger)section {
+    return section == 0 ? nil : SGSectionHeader(table, @"Saved outputs");
+}
+
+- (CGFloat)tableView:(UITableView *)table heightForHeaderInSection:(NSInteger)section {
+    return section == 0 ? SGSectionGap : SGSectionHeaderHeight();
+}
+
+- (CGFloat)tableView:(UITableView *)table heightForFooterInSection:(NSInteger)section { return CGFLOAT_MIN; }
+
+- (BOOL)canChoose {
+    return SGHidden(SGKeyDSPOutputEQEnabled) && SGDSPOutputEQUID().length;
+}
+
+- (UITableViewCell *)tableView:(UITableView *)table cellForRowAtIndexPath:(NSIndexPath *)path {
+    UITableViewCell *cell = SGDequeueCell(table, @"output-eq");
+    if (path.section == 1) {
+        NSDictionary *entry = _assignments[(NSUInteger)path.row];
+        SGFillCell(cell, entry[@"name"], entry[@"preset"], nil, nil);
+    } else if (path.row == 0) {
+        NSString *title = @"Remember EQ presets";
+        SGFillCell(cell, title, @"Apply when an output connects", nil, nil);
+        UISwitch *toggle = [UISwitch new];
+        toggle.onTintColor = SGGreen();
+        toggle.on = SGHidden(SGKeyDSPOutputEQEnabled);
+        toggle.accessibilityLabel = title;
+        [toggle addTarget:self action:@selector(toggled:) forControlEvents:UIControlEventValueChanged];
+        cell.accessoryView = toggle;
+    } else {
+        NSString *output = SGDSPOutputEQName();
+        BOOL canChoose = [self canChoose];
+        NSString *detail = !output ? @"Connect an output first" :
+            canChoose ? ([self assignedPreset] ?: @"Default Equalizer") : @"Turn on Remember EQ presets to assign";
+        SGFillCell(cell, output ?: @"No output", detail, canChoose ? nil : SGGrey(), nil);
+        if (canChoose) {
+            cell.accessoryView = SGChevronView();
+            cell.accessibilityTraits = UIAccessibilityTraitButton;
+            cell.selectionStyle = UITableViewCellSelectionStyleDefault;
+        }
+    }
+    return cell;
+}
+
+- (void)toggled:(UISwitch *)toggle {
+    SGDSPOutputEQSetEnabled(toggle.on);
+}
+
+- (BOOL)tableView:(UITableView *)table shouldHighlightRowAtIndexPath:(NSIndexPath *)path {
+    return path.section == 0 && path.row == 1 && [self canChoose];
+}
+
+- (void)tableView:(UITableView *)table didSelectRowAtIndexPath:(NSIndexPath *)path {
+    [table deselectRowAtIndexPath:path animated:YES];
+    if (![self tableView:table shouldHighlightRowAtIndexPath:path]) return;
+    NSString *uid = SGDSPOutputEQUID(), *picked = [self assignedPreset];
+    __weak typeof(self) weakSelf = self;
+    void (^choose)(NSInteger) = ^(NSInteger index) {
+        SGDSPOutputEQList *owner = weakSelf;
+        if (![uid isEqualToString:SGDSPOutputEQUID()] || ![owner canChoose]) {
+            [owner.navigationController popToViewController:owner animated:YES];
+            return;
+        }
+        if (index == -2) SGDSPOutputEQForget(uid);
+        else SGDSPOutputEQAssign(index);
+        [owner.navigationController popToViewController:owner animated:YES];
+    };
+    NSMutableArray<SGModRow *> *presets = [NSMutableArray array];
+    [SGDSPEqualizerPresetNames() enumerateObjectsUsingBlock:^(NSString *name, NSUInteger i, BOOL *stop) {
+        SGModRow *row = SGActionRow(name, nil, ^{ choose((NSInteger)i); });
+        row.checked = ^BOOL{ return [name isEqualToString:picked]; };
+        [presets addObject:row];
+    }];
+    SGModRow *useDefault = SGActionRow(@"Use default EQ", @"Remove the assignment", ^{ choose(-2); });
+    useDefault.checked = ^BOOL{ return picked == nil; };
+    SGModRow *useCurrent = SGActionRow(@"Use current curve", @"Save the Equalizer’s current 15 bands", ^{ choose(-1); });
+    useCurrent.checked = ^BOOL{ return [picked isEqualToString:@"Custom curve"]; };
+    UIViewController *page = [[SGModPage alloc] initWithTitle:SGDSPOutputEQName() intro:@"Choose what the Equalizer plays on this output."
+        sections:@[SGSection(nil, @[useDefault, useCurrent]), SGSection(@"Equalizer presets", presets)] footer:nil];
+    [self.navigationController pushViewController:page animated:YES];
+}
+
+- (UISwipeActionsConfiguration *)tableView:(UITableView *)table trailingSwipeActionsConfigurationForRowAtIndexPath:(NSIndexPath *)path {
+    if (path.section == 0) return nil;
+    NSString *uid = _assignments[(NSUInteger)path.row][@"uid"];
+    UIContextualAction *remove = [UIContextualAction contextualActionWithStyle:UIContextualActionStyleDestructive title:@"Remove"
+        handler:^(UIContextualAction *action, UIView *view, void (^done)(BOOL)) {
+            done(YES);
+            SGDSPOutputEQForget(uid);
+        }];
+    return [UISwipeActionsConfiguration configurationWithActions:@[remove]];
+}
+
+@end
+
+UIViewController *SGDSPOutputEQPage(void) {
+    return [SGDSPOutputEQList new];
 }

@@ -89,6 +89,8 @@ void SGDSPSetString(NSString *key, NSString *value);
 
 // The equalizer's and the compander's gains as numbers (15 and 7 of them), from and to their keys.
 NSArray<NSNumber *> *SGDSPGains(NSString *key);
+// Reads the 15-band gains and switch from the same snapshot when a route preset is in use.
+NSArray<NSNumber *> *SGDSPEqualizerState(BOOL *on);
 void SGDSPSetGains(NSString *key, NSArray<NSNumber *> *gains);
 
 // Every key above back to its value until set; the master switch stays as it is.

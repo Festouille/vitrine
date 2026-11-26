@@ -77,7 +77,7 @@ void SGAutoEqTakeOff(void);
 // off a correction that came on for a remembered one; a correction picked with no output remembered, and a
 // curve of the user's own, stay. Nothing happens while the UID stays the same. The master switch is left as
 // it is: a route change never turns the effects on.
-void SGAutoEqOutputChanged(NSString *uid, NSString *name);
+void SGDSPAudioOutputChanged(NSString *uid, NSString *name);
 // The output playing now, nil before the first call.
 NSString *SGAutoEqOutputUID(void);
 NSString *SGAutoEqOutputName(void);
@@ -87,3 +87,19 @@ BOOL SGAutoEqOutputRemembered(NSString *uid);
 void SGAutoEqForgetOutput(NSString *uid);
 // The remembered outputs, sorted by name: {uid, name, path}.
 NSArray<NSDictionary<NSString *, NSString *> *> *SGAutoEqRememberedOutputs(void);
+
+#pragma mark - a 15-band Equalizer preset per output
+
+#define SGKeyDSPOutputEQEnabled @"spotifyglass.audioOutputEQ.enabled"
+#define SGKeyDSPOutputEQPresets @"spotifyglass.audioOutputEQ.presets"
+#define SGDSPOutputEQChangedNotification @"SGDSPOutputEQChangedNotification"
+
+// The shared route listener updates AutoEq and the 15-band Equalizer independently.
+void SGDSPOutputEQRouteChanged(NSString *uid, NSString *name);
+NSString *SGDSPOutputEQUID(void);
+NSString *SGDSPOutputEQName(void);
+void SGDSPOutputEQSetEnabled(BOOL on);
+void SGDSPOutputEQAssign(NSInteger index);   // -1 saves the current curve
+void SGDSPOutputEQForget(NSString *uid);
+// {uid, name, preset}, sorted by output name. A missing assignment uses the ordinary Equalizer.
+NSArray<NSDictionary<NSString *, NSString *> *> *SGDSPOutputEQAssignments(void);

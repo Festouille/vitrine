@@ -38,6 +38,17 @@ the top of Yours and a tap on it puts the settings back; a swipe delete above th
 it, and the last one leaves the placeholder. Headphones' None turns the Graphic EQ off and clears the headphone,
 and a headphone being applied reads "Applying" to VoiceOver.
 
+EQ per output, from the fourth row in the Audio effects card:
+
+    xcrun simctl launch <udid> com.vojta.audioeffectspageharness look=native master \
+        'output=speaker:iPhone Speaker' select=0.3 toggle=0 select=0.1 select=1.1 eqstate \
+        'output=bluetooth:AirPods Pro' select=0.1 select=1.3 eqstate \
+        'output=speaker:iPhone Speaker' eqstate
+
+This assigns Bass to the speaker and Treble to AirPods Pro. The last route restores Bass and the page lists
+both assignments. Use `look=redesigned` for the other look. Relaunch with `keep` to verify persisted assignments,
+or add `toggle=0 eqstate` to the end to verify the default EQ returns while the assignments stay listed.
+
 What it does not cover: a real finger. The drag is played through the curve's own methods, so whether its
 pan wins over the table's scroll when a finger starts on a handle (and loses anywhere else) is untested
 here; `hit` logs which band a finger going down at and around each handle would take. Nor the document

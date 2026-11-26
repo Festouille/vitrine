@@ -5,7 +5,7 @@
 //     AudioEffectsPage.m          the page: the switch, the status, the effects' cards, their sliders and choices
 //     SGDSPCurveView.m            the equalizer's and the compander's curve, with a handle to drag per band
 //     AudioEffectsLibraryPage.m   a file effect's library (the convolver's, ViPER DDC's, Liveprog's) and the GraphicEQ editor
-//     AudioEffectsPresetsPage.m   Presets and Headphones (AudioEffectsPresets.h)
+//     AudioEffectsPresetsPage.m   Presets, Headphones and EQ per output (AudioEffectsPresets.h)
 //
 // Main thread only.
 #import <UIKit/UIKit.h>
@@ -25,4 +25,5 @@ NSString *SGDSPChosenFile(SGDSPFileKind kind);
 // the headphone in use, "None" while the Graphic EQ holds none.
 UIViewController *SGDSPPresetsPage(void);
 UIViewController *SGDSPHeadphonesPage(void);
+UIViewController *SGDSPOutputEQPage(void);
 NSString *SGDSPHeadphoneSummary(void);
