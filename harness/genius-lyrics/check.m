@@ -306,7 +306,17 @@ static void checkLockScreenLyrics(void) {
     longLine.words[3].start = 1500;
     CHECK([SGLockScreenLyricText(longLine, 1000, &next) isEqualToString:@"abcdefghijkl"] && next == 1140);
     CHECK([SGLockScreenLyricText(longLine, 1200, &next) isEqualToString:@"mnopqrstuvwx ABCDEFGHIJKL"] && next == 1500);
-    puts("lock screen lyrics: timed words, estimates, seeks and fast boundary words held");
+
+    SGKaraokeLine *syllables = SGKaraokeEstimatedLines(@[@1000], @[@"every thing will be all right today"]).firstObject;
+    syllables.timing = SGKaraokeTimingWords;
+    syllables.words[1].joined = YES;
+    CHECK([SGLockScreenLyricText(syllables, syllables.words[1].start, &next) isEqualToString:@"everything"]);
+    CHECK([SGLockScreenLyricText(syllables, syllables.end, &next) isEqualToString:@"will be all right today"]);
+
+    SGKaraokeLine *unspaced = SGKaraokeEstimatedLines(@[@1000], @[[@"春夏秋冬" stringByPaddingToLength:32 withString:@"春夏秋冬" startingAtIndex:0]]).firstObject;
+    unspaced.timing = SGKaraokeTimingWords;
+    CHECK(SGLockScreenLyricText(unspaced, unspaced.end, &next).length == 30 && next == -1);
+    puts("lock screen lyrics: fast boundaries, joined syllables and unspaced text held");
 }
 
 int main(int argc, char **argv) {
