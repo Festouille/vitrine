@@ -61,6 +61,12 @@ void SGRPlayerHoldField(void);
 
 #pragma mark - the cover (PlayerArtwork.x)
 
+#define SGRKeyPlayerSquareArtwork @"spotifyglass.redesign.player.squareArtwork"
+#define SGRKeyPlayerHideArtworkShadow @"spotifyglass.redesign.player.hideArtworkShadow"
+#define SGRKeyPlayerFullSizePausedArtwork @"spotifyglass.redesign.player.fullSizePausedArtwork"
+
+CGFloat SGRPlayerCoverCornerRadius(void);
+void SGRPlayerRefreshArtwork(void);
 // The sideways list of covers behind the player, nil until one has laid out.
 UIView *SGRPlayerCoverList(void);
 // The cover on screen as it is drawn, its paused shrink included, in `host`'s coordinates; CGRectNull
@@ -131,6 +137,7 @@ void SGRPlayerVolumeSliderSet(UISlider *slider);
 BOOL SGRPlayerFollowsCover(void);
 void SGRPlayerSetCoverAccent(UIColor *cover);
 void SGRPlayerPaintCover(UIView *stack);
+void SGRPlayerRepaintAccentImages(UIView *control, UIColor *(^repaint)(UIColor *ink));
 
 // Shuffle and repeat left out of the controls (PlayerControls.x), each on its own switch under Hide on the player, the
 // way the Music app keeps them off its main controls. Off until switched on, read at launch. The buttons go by alpha

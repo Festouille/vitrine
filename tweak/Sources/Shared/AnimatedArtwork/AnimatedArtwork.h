@@ -80,6 +80,7 @@ BOOL SGMotionAppleMusicOn(void);
 // The track's Canvas video as its metadata names it (canvas.url, of a canvas.type that is a video, under either
 // name), or nil.
 NSURL *SGMotionCanvasIn(NSDictionary *metadata);
+void SGMotionResolveCanvas(NSString *uri, NSURL *canvas, void (^done)(NSURL *canvas));
 // The first clip the order finds for the track `uri`, as a local file, or nil, and the key of the source it
 // came from. `canvas` is the track's Canvas video, nil when its metadata names none, and then Spotify's
 // Canvas service is asked for it. Main queue.
@@ -105,6 +106,7 @@ SGModRow *SGMotionSourcesRow(void);
 
 // Any remote video (a Canvas) as a local file, or nil. Main queue.
 void SGMotionFile(NSURL *remote, void (^done)(NSURL *file));
+void SGMotionFileForExport(NSURL *remote, void (^done)(NSURL *file));
 // Where a video the mod makes itself is kept under `key`, among the downloads, which are kept to the
 // newest few. Whether it is there yet is the caller's to check. Any thread.
 NSURL *SGMotionMadeFile(NSString *key);

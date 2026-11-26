@@ -31,7 +31,7 @@ BOOL SGWhatsNewShowing(void);
 // warning, and About notes "likely works" after the second. A new version goes in one list, and the warning's
 // text and About follow.
 #define SGSpotifyMadeFor @"9.1.78"
-#define SGSpotifySupportedVersions @[SGSpotifyMadeFor, @"9.1.88", @"9.1.90"]
+#define SGSpotifySupportedVersions @[SGSpotifyMadeFor, @"9.1.88", @"9.1.90", @"9.2.2"]
 #define SGSpotifyLikelyWorksVersions @[]
 @class SGModRow;
 // SGEeveeSpotifyInjected() is Shared/Lyrics/Lyrics.h's.

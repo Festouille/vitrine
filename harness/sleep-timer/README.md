@@ -4,7 +4,8 @@
 in for the three UIKit headers it imports, `main.m` answers their calls). It checks the fade's curve (1 until
 the last minute, 30 dB down halfway, 60 dB at the end, falling every second), which track ends the album
 (tracks queued by hand and autoplay's, by provider or by the is_queued and autoplay.is_autoplay keys, don't
-count; repeating, the next track having played already does), and the timer in real time: a 2 s timer starts
+count; repeating, the tracks to come playing the ones played over through this one does, a song the playlist holds
+twice coming round mid playlist doesn't), and the timer in real time: a 2 s timer starts
 faded, pauses at its end and gives the gain back a second later; 15 minutes more and Cancel bring the gain
 back at once; End of track pauses half a second before the end, or at once on the next track; End of album
 plays past a track with more of the album to come, fades and pauses on the last one, and pauses at once when
@@ -23,4 +24,4 @@ runs, Spotify's own Fade out forced on and the mod's own timer running each leav
 
     ./build.sh && build/sleep-timer
 
-2026-10-06: all held (77 checks). The gain itself is checked on Spotify's audio chain in harness/speed/.
+2026-11-26: all held (83 checks). The gain itself is checked on Spotify's audio chain in harness/speed/.

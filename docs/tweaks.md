@@ -295,8 +295,8 @@ Shared:
                   and every hook on that view (the redesign's rounding and shadow, the hold to 2x) has nothing to reach.
                   The sleep timer (SleepTimer.m, set from the Live Activity and the redesigned player's ⋯) pauses Spotify at a time, at the end of
                   the track or at the end of the album or playlist, the last track of it found by the tracks to come
-                  that are neither queued by hand nor autoplay's (SPTPlayerTrack's provider), or by the next one
-                  having played already when it repeats. Over the last seconds (the Live Activity page's Fade out: Off,
+                  that are neither queued by hand nor autoplay's (SPTPlayerTrack's provider), or when it repeats by the
+                  tracks to come playing the ones played over through this one (a song the playlist holds twice is not its end). Over the last seconds (the Live Activity page's Fade out: Off,
                   10 s, 30 s, 1 minute or 2 minutes, 30 s unless picked; at the end of a track, over the whole track
                   when it is shorter) it fades the sound 60 dB through a gain of the mod's own, applied by SpeedPitch.x's notify on the music's RemoteIO unit (never the system
                   volume), and puts the gain back a second after the pause. Spotify's own timer, from the player's
@@ -603,7 +603,9 @@ Redesigned:
                   out to a quarter of the row either side of play, the Music app's spacing (issue #162). A Free account gets it too: Spotify's Reinvented Free player mode, whose units none of
                   the hooks reach, declines while the redesign runs, so the track falls to Spotify's other Free mode,
                   built from the units the redesign styles (PlayerFree.x, read from the binary, not yet seen on a Free
-                  account). Animated artwork (PlayerMotion.x)
+                  account). The Player page's Artwork switches keep the full-size cover square, remove its shadow,
+                  or keep it full size when paused. Each is off by default and leaves the mini player alone.
+                  Animated artwork (PlayerMotion.x)
                   runs the clip edge to edge from the top over the color of its last rows drawn on down, with a blur coming in
                   from the seam under the controls and over the whole clip behind the lyrics. The clip and the cover
                   cross over as one comes and the other goes, the clip from its poster frame before the video has
@@ -873,10 +875,14 @@ under the signing and environment warnings: Redesigned UI, Appearance and Tab ba
 Library in the native look), Player, Lyrics, Albums and Artists; Karaoke, Spatial voice (where the iPhone reads headphone
 motion), Audio effects, AutoMix, Live Activity, AirPods gestures and Listening stats; Lock screen, Vibrations and Premium, ads &
 privacy; Labs and All flags; Mod. It is checked in the simulator
-against harness/mod-settings/. The Appearance page has, in the native look, AMOLED (the redesign is always black), then the stored look's Accent color
+against harness/mod-settings/. The Appearance page has, in the native look, AMOLED (the redesign is always black),
+then Album art accent in either look (off until asked for; restart to apply). It takes the accent and Home
+gradient tint from the current cover, leaving the saved colors alone. With no colorful cover, the saved accent
+and the look's usual gradient tint return. In the native look it also turns on the Home wash and keeps its
+gradient strength and height choices. Then the stored look's Accent color
 preset, a pull-down of Spotify, Apple Music and Custom read off the color stored (a color set before the presets
-existed reads as Custom, Apple Music's red as Apple Music), and Accent color, the hex and a swatch of the color in
-effect, which opens the system picker in a sheet that stores only from its checkmark, as Custom. The custom color is
+existed reads as Custom, Apple Music's red as Apple Music), and Accent color, the hex and a swatch of the manual
+color, which opens the system picker in a sheet that stores only from its checkmark, as Custom. The custom color is
 kept aside while a preset is in place, so Custom brings it back. Last come the Font, under either look and on any
 iOS, below 26 too, a page of its own with each choice drawn in itself: Default (Spotify's), San Francisco, SF
 Rounded, New York and SF Mono; More fonts, the families iOS carries of a fixed few (Avenir Next to American

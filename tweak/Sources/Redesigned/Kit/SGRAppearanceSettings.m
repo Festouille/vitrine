@@ -61,7 +61,10 @@ NSArray<SGModRow *> *SGRAppearanceRows(void) {
         });
     });
     colour.swatch = ^UIColor *{ return SGColorRGB(SGRAccentRGB()); };
+    SGModRow *artwork = SGOptionRow(@"Album art accent", @"Use the current cover for the accent and Home gradient. Restart to apply.", SGRKeyArtworkAccent);
+    artwork.changed = ^(BOOL on) { SGOfferRestart(@"Restart Spotify to apply the album art accent setting."); };
     NSMutableArray<SGModRow *> *rows = [@[
+        SGWithSymbol(artwork, @"photo.artframe"),
         SGWithSymbol(menu, @"paintpalette"),
         SGWithSymbol(colour, @"eyedropper"),
         SGWithSymbol(SGOptionRow(@"Plain checkmark", @"A saved song's tick without its circle, in the accent", SGRKeyPlainCheck), @"checkmark"),

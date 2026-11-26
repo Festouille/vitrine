@@ -14,6 +14,8 @@
 
 
 static NSString *const kWarned = @"spotifyglass.signing.warned";
+static NSString *const kExpiryReminderShown = @"spotifyglass.signing.expiryReminderShown";
+static const NSTimeInterval kReminderWindow = 3 * 24 * 60 * 60;
 static BOOL sg_fixPending;
 
 // SecTaskCopyValueForEntitlement is not in the iOS SDK, so it is resolved at runtime like the rest
@@ -112,8 +114,7 @@ void SGCheckSigningOnce(void) {
 #pragma mark - when the signature runs out
 
 // embedded.mobileprovision is a CMS envelope around a plain XML plist, so the plist is cut out by its
-// first "<?xml" and its last "</plist>" rather than taken through a CMS decoder. No profile is a build
-// installed without one (TrollStore, a jailbreak), which never runs out.
+// first "<?xml" and its last "</plist>" rather than taken through a CMS decoder.
 static NSDictionary *profile(void) {
     static NSDictionary *cached;
     static dispatch_once_t once;
@@ -137,21 +138,45 @@ static NSDate *dateIn(NSString *key) {
     return [date isKindOfClass:NSDate.class] ? date : nil;
 }
 
-static NSDate *expiry(void) {
-    return dateIn(@"ExpirationDate");
+static NSDate *certificateExpiry(void) {
+    static NSDate *cached;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        void *security = dlopen("/System/Library/Frameworks/Security.framework/Security", RTLD_LAZY);
+        if (!security) return;
+        int32_t (*createCode)(CFURLRef, uint32_t, CFTypeRef *) = dlsym(security, "SecStaticCodeCreateWithPath");
+        int32_t (*copyInfo)(CFTypeRef, uint32_t, CFDictionaryRef *) = dlsym(security, "SecCodeCopySigningInformation");
+        CFAbsoluteTime (*notValidAfter)(CFTypeRef) = dlsym(security, "SecCertificateNotValidAfter");
+        const CFStringRef *certificatesKey = dlsym(security, "kSecCodeInfoCertificates");
+        if (!createCode || !copyInfo || !notValidAfter || !certificatesKey) return;
+
+        CFTypeRef code = NULL;
+        if (createCode((__bridge CFURLRef)NSBundle.mainBundle.bundleURL, 0, &code) != 0 || !code) return;
+        CFDictionaryRef info = NULL;
+        int32_t status = copyInfo(code, 1 << 1 /* kSecCSSigningInformation */, &info);
+        CFRelease(code);
+        NSDictionary *signing = CFBridgingRelease(info);
+        if (status != 0) return;
+        // The signing chain starts with the actual signing certificate, not every cert the profile allows.
+        id signer = [signing[(__bridge NSString *)*certificatesKey] firstObject];
+        if (!signer) return;
+        CFAbsoluteTime expires = notValidAfter((__bridge CFTypeRef)signer);
+        if (expires != 0) cached = [NSDate dateWithTimeIntervalSinceReferenceDate:expires];
+    });
+    return cached;
 }
 
 // A free Apple ID's profile lasts seven days, a paid account's up to a year; a day over a week allows
 // for the clock the profile was cut by.
 BOOL SGSigningWeekLong(void) {
-    NSDate *created = dateIn(@"CreationDate"), *expires = expiry();
+    NSDate *created = dateIn(@"CreationDate"), *expires = dateIn(@"ExpirationDate");
     return created && expires && [expires timeIntervalSinceDate:created] < 8 * 24 * 60 * 60;
 }
 
 // The row's value has little room, so it is the day; a week-long profile, which runs out at an hour of
 // a day this week, gives the hour under the title.
 SGModRow *SGSigningExpiryRow(void) {
-    NSDate *expires = expiry();
+    NSDate *expires = dateIn(@"ExpirationDate");
     if (!expires) return nil;
     BOOL week = SGSigningWeekLong();
     NSDateFormatter *day = [NSDateFormatter new];
@@ -163,6 +188,60 @@ SGModRow *SGSigningExpiryRow(void) {
                               [NSDateFormatter localizedStringFromDate:expires dateStyle:NSDateFormatterNoStyle
                                                              timeStyle:NSDateFormatterShortStyle]];
     return row;
+}
+
+static BOOL expiryReminderNeedsRetry(void) {
+    if (UIApplication.sharedApplication.applicationState != UIApplicationStateActive ||
+        !SGEnabled(SGKeySigningExpiryReminder)) return NO;
+    NSDate *profileEnd = dateIn(@"ExpirationDate"), *certEnd = certificateExpiry();
+    BOOL certificateFirst = certEnd && (!profileEnd || [certEnd compare:profileEnd] == NSOrderedAscending);
+    NSDate *expires = certificateFirst ? certEnd : profileEnd;
+    NSDate *now = [NSDate date];
+    NSTimeInterval remaining = [expires timeIntervalSinceDate:now];
+    if (!expires || remaining <= 0 || remaining > kReminderWindow) return NO;
+
+    NSUserDefaults *store = NSUserDefaults.standardUserDefaults;
+    NSDictionary *shown = [store dictionaryForKey:kExpiryReminderShown];
+    id shownAt = shown[@"shownAt"];
+    if ([expires isEqual:shown[@"expires"]] && [shownAt isKindOfClass:NSDate.class] &&
+        [NSCalendar.currentCalendar isDate:shownAt inSameDayAsDate:now]) return NO;
+
+    UIViewController *top = SGTopController();
+    if (!top.viewIfLoaded.window || top.isBeingDismissed || top.isBeingPresented ||
+        SGOnboardingShowing() || SGIsAlertController(top)) return YES;
+
+    NSString *item = certificateFirst ? @"signing certificate" : @"provisioning profile";
+    NSString *date = [NSDateFormatter localizedStringFromDate:expires dateStyle:NSDateFormatterMediumStyle
+                                                     timeStyle:NSDateFormatterShortStyle];
+    NSString *message = [NSString stringWithFormat:@"Spotify’s %@ expires on %@. Re-sign and reinstall Spotify before then so it keeps opening.", item, date];
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Spotify signing expires soon"
+                                                                   message:message
+                                                            preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleCancel handler:nil]];
+    [store setObject:@{@"expires": expires, @"shownAt": now} forKey:kExpiryReminderShown];
+    [top presentViewController:alert animated:YES completion:nil];
+    return NO;
+}
+
+static void scheduleExpiryReminder(dispatch_block_t done) {
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 4 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+        if (expiryReminderNeedsRetry()) scheduleExpiryReminder(done);
+        else done();
+    });
+}
+
+void SGWatchSigningExpiry(void) {
+    [NSNotificationCenter.defaultCenter addObserverForName:UIApplicationDidBecomeActiveNotification
+                                                    object:nil
+                                                     queue:nil
+                                                usingBlock:^(NSNotification *note) {
+        static BOOL scheduled;
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (scheduled) return;
+            scheduled = YES;
+            scheduleExpiryReminder(^{ scheduled = NO; });
+        });
+    }];
 }
 
 void SGShowSigningFixIfPending(void) {

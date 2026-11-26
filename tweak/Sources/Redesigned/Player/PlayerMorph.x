@@ -290,7 +290,7 @@ static CGFloat screenRadius(void) {
                 to = CGRectOffset(to, -sheet.origin.x, -sheet.origin.y);
                 self->_cover.frame = CGRectOffset(lerpRect(from, to, t), sheet.origin.x, sheet.origin.y);
                 // The cover's corners are drawn under its paused shrink too.
-                self->_cover.layer.cornerRadius = lerp(from.size.width / 2, SGRRadiusArtwork * SGRPlayerCoverScale() * scale, t);
+                self->_cover.layer.cornerRadius = lerp(from.size.width / 2, SGRPlayerCoverCornerRadius() * SGRPlayerCoverScale() * scale, t);
                 // Over an animated artwork the player's cover is hidden: the flown one fades out on the
                 // way there instead of landing on an empty slot.
                 self->_cover.alpha = SGRPlayerMotionShowing() ? 1 - ramp(0.6, 1, t) : 1;
@@ -342,6 +342,7 @@ static SGRPlayerMorph *morphFor(SPTBarOverlayPresentationTransition *transition,
     return morph;
 }
 
+%group SGRLegacyPlayerMorph
 %hook SPTBarOverlayPresentationTransition
 - (void)setProgress:(double)progress {
     %orig;
@@ -365,6 +366,7 @@ static SGRPlayerMorph *morphFor(SPTBarOverlayPresentationTransition *transition,
     }
     %orig;
 }
+%end
 %end
 
 #pragma mark - 9.1.90
@@ -532,6 +534,11 @@ static void followTransition(id transition, id<UIViewControllerContextTransition
 
 %ctor {
     if (!SGRedesignedUI()) return;
+    Class legacyTransition = NSClassFromString(@"SPTBarOverlayPresentationTransition");
+    if (legacyTransition) {
+        %init(SGRLegacyPlayerMorph);
+    } else {
+        SGRequireClasses(@[@"_TtC19MainUI_TabBarUIImpl24CompactOverlayTransition"]);
+    }
     %init;
-    SGRequireClasses(@[@"SPTBarOverlayPresentationTransition"]);
 }

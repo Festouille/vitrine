@@ -95,6 +95,11 @@ static void canvasFromService(NSString *uri, void (^done)(NSURL *canvas)) {
     }] resume];
 }
 
+void SGMotionResolveCanvas(NSString *uri, NSURL *canvas, void (^done)(NSURL *canvas)) {
+    if (canvas) done(canvas);
+    else canvasFromService(uri, done);
+}
+
 void SGMotionClipFor(NSString *uri, NSURL *canvas, NSString *artist, NSString *album, SGMotionShape shape, CGFloat pixels,
                      void (^done)(NSURL *file, NSString *source)) {
     NSArray<NSString *> *order = SGMotionSourceOrder();
@@ -115,8 +120,7 @@ void SGMotionClipFor(NSString *uri, NSURL *canvas, NSString *artist, NSString *a
             else ask(index + 1);
         };
         if ([source isEqualToString:kCanvas]) {
-            if (canvas) SGMotionFile(canvas, next);
-            else canvasFromService(uri, ^(NSURL *found) {
+            SGMotionResolveCanvas(uri, canvas, ^(NSURL *found) {
                 if (found) SGMotionFile(found, next);
                 else next(nil);
             });

@@ -54,5 +54,19 @@ Library for Albums and Artists in place.
 parser takes a plain XML plist as well as a signed one, so one written by hand will do (copy it in after
 `build.sh`, before `simctl install`).
 
+To check the signing expiry reminder, set that seven-day profile to expire tomorrow and run the first two
+commands with a fresh harness install. The first sees the reminder; the second checks that it stays quiet on
+the same day. Change the profile expiry to a different time tomorrow, reinstall, and run the third command:
+it flips the switch off before the new reminder would have appeared.
+
+    xcrun simctl launch --console-pty <udid> com.vitrine.modsettingsharness dump dump dump dump signing=profile
+    xcrun simctl launch --console-pty <udid> com.vitrine.modsettingsharness dump dump dump dump signing=quiet
+    xcrun simctl launch --console-pty <udid> com.vitrine.modsettingsharness bottom toggle=8.0 dump dump signing=off
+
+On a fresh install with the same fixture, `signing-onboarding` keeps the onboarding gate closed past
+the old 64-second retry limit, then checks for the reminder without a new foreground event.
+
+    xcrun simctl launch --console-pty <udid> com.vitrine.modsettingsharness signing-onboarding
+
 What it does not cover: the pages the rows open, the row the mod adds to Spotify's settings list and side drawer
 in Spotify's real lists (`rows` uses stand-ins of the same names), and iOS below 26, where the switch warns first.

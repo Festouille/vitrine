@@ -349,7 +349,13 @@ static __weak SGRHomeTintView *sg_tintView;
 
 static void paintTint(SGRHomeTintView *tint, BOOL animated) {
     CAGradientLayer *layer = (CAGradientLayer *)tint.layer;
+    NSInteger artwork = SGRArtworkAccentColorRGB();
     UIColor *top = sg_pageTint ?: UIColor.blackColor;
+    if (artwork >= 0) {
+        top = [UIColor colorWithRed:((artwork >> 16) & 0xFF) / 1020.0
+                              green:((artwork >> 8) & 0xFF) / 1020.0
+                               blue:(artwork & 0xFF) / 1020.0 alpha:1];
+    }
     NSArray *colors = @[(id)top.CGColor, (id)[top colorWithAlphaComponent:0].CGColor];
     if ([layer.colors isEqualToArray:colors]) return;
     if (animated && tint.window) {
@@ -364,6 +370,10 @@ static void paintTint(SGRHomeTintView *tint, BOOL animated) {
 void SGRHomeSetPageTint(UIColor *color) {
     if (color == sg_pageTint || [color isEqual:sg_pageTint]) return;
     sg_pageTint = color;
+    if (SGRArtworkAccentColorRGB() < 0) SGRHomeArtworkAccentChanged();
+}
+
+void SGRHomeArtworkAccentChanged(void) {
     if (sg_tintView) paintTint(sg_tintView, YES);
 }
 

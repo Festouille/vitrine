@@ -35,8 +35,11 @@ NSArray<SGModRow *> *SGNativeAppearanceRows(void) {
         });
     });
     colour.swatch = ^UIColor *{ return SGColorRGB(SGAccentRGB()); };
+    SGModRow *artwork = SGOptionRow(@"Album art accent", @"Use the current cover for the accent and Home gradient. Restart to apply.", SGKeyArtworkAccent);
+    artwork.changed = ^(BOOL on) { SGOfferRestart(@"Restart Spotify to apply the album art accent setting."); };
     return @[
         SGWithSymbol(SGOptionRow(@"AMOLED background", nil, SGKeyAmoled), @"moon"),
+        SGWithSymbol(artwork, @"photo.artframe"),
         SGWithSymbol(menu, @"paintpalette"),
         SGWithSymbol(colour, @"eyedropper"),
     ];

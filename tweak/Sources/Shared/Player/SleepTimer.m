@@ -78,20 +78,30 @@ static BOOL isContextTrack(id track) {
     return ![providerOf(track) isEqualToString:@"queue"] && !metadataSays(track, @"is_queued") && !isAutoplay(track);
 }
 
-BOOL SGSleepTimerOnLastOfContext(SPTPlayerState *state) {
-    id future = [state respondsToSelector:@selector(future)] ? state.future : nil;
-    SPTPlayerTrack *next = nil;
-    for (id track in [future isKindOfClass:NSArray.class] ? future : @[]) {
-        if (isContextTrack(track)) { next = track; break; }
+// The URIs of the album's or playlist's own tracks among these, in their order.
+static NSMutableArray<NSString *> *contextURIs(id tracks) {
+    NSMutableArray<NSString *> *uris = [NSMutableArray array];
+    for (id track in [tracks isKindOfClass:NSArray.class] ? tracks : @[]) {
+        if (isContextTrack(track)) [uris addObject:SGURIString([(SPTPlayerTrack *)track URI])];
     }
-    if (!next) return YES;
-    // Repeating, the album comes round again: the next track is this one or one already played.
+    return uris;
+}
+
+BOOL SGSleepTimerOnLastOfContext(SPTPlayerState *state) {
+    NSArray<NSString *> *next = contextURIs([state respondsToSelector:@selector(future)] ? state.future : nil);
+    if (!next.count) return YES;
     if (!state.options.repeatingContext) return NO;
-    NSString *uri = SGURIString(next.URI);
-    if ([uri isEqualToString:SGURIString(state.track.URI)]) return YES;
-    id reverse = [state respondsToSelector:@selector(reverse)] ? state.reverse : nil;
-    for (id track in [reverse isKindOfClass:NSArray.class] ? reverse : @[]) {
-        if ([track isKindOfClass:NSClassFromString(@"SPTPlayerTrack")] && [SGURIString([(SPTPlayerTrack *)track URI]) isEqualToString:uri]) return YES;
+    // Repeating, the album comes round again when the tracks to come play the ones played over, from one of
+    // them on through this one (or for as long as the tracks to come go). The next track alone having played
+    // is not enough: a song the playlist holds twice comes round again mid playlist.
+    NSMutableArray<NSString *> *played = [NSMutableArray arrayWithArray:
+        contextURIs([state respondsToSelector:@selector(reverse)] ? state.reverse : nil).reverseObjectEnumerator.allObjects];
+    NSString *current = SGURIString(state.track.URI);
+    if (current) [played addObject:current];
+    for (NSUInteger from = 0; from < played.count; from++) {
+        NSUInteger same = 0;
+        while (same < next.count && from + same < played.count && [next[same] isEqualToString:played[from + same]]) same++;
+        if (same > 0 && (same == next.count || from + same == played.count)) return YES;
     }
     return NO;
 }

@@ -22,16 +22,19 @@ CGRect SGRNowPlayingCardFrameIn(UIView *host, CGFloat *radius) {
 CGRect SGRNowPlayingArtworkFrameIn(UIView *host) {
     return sg_barArt.window ? [host convertRect:sg_barArt.bounds fromView:sg_barArt] : CGRectNull;
 }
+CGRect SGRNowPlayingStripFrameIn(UIView *host) { return CGRectNull; }
+CGFloat SGRNowPlayingStripHeight(void) { return 0; }
+void SGRTabBarStandInDropped(UIView *standIn) {}
 CGRect SGRPlayerCoverFrameIn(UIView *host) {
     return sg_cover.window ? [host convertRect:sg_cover.bounds fromView:sg_cover] : CGRectNull;
 }
 void SGRPlayerSetCoverHidden(BOOL hidden) { sg_cover.alpha = hidden ? 0 : 1; }
 // A playing cover at full size, and no animated artwork over it (PlayerMotion.x).
 CGFloat SGRPlayerCoverScale(void) { return 1; }
+CGFloat SGRPlayerCoverCornerRadius(void) { return 12; }
 BOOL SGRPlayerMotionShowing(void) { return NO; }
 id SGRPlayerField(void) { return nil; }
 UIImage *SGRNowPlayingArtwork(NSString **uri, NSString **identity) { return sg_art; }
-const CGFloat SGRRadiusArtwork = 12;
 BOOL SGRReduceMotion(void) { return NO; }
 BOOL SGRedesignedUI(void) { return YES; }
 void SGRequireClasses(NSArray *names) {}
@@ -46,7 +49,7 @@ void SGRequireClasses(NSArray *names) {}
 
 @interface SPTBarOverlayPresentationTransition : NSObject
 @property (nonatomic, strong) SGHarnessContext *transitioningContext;
-@property (nonatomic, strong) UIView *overlayView, *barSnapshotView, *bottomBarView;
+@property (nonatomic, strong) UIView *overlayView, *barSnapshotView, *bottomBarView, *tabBarSnapshotView;
 @property (nonatomic) CGRect barFrame;
 @property (nonatomic) double progress;
 @property (nonatomic) BOOL presenting;

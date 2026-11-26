@@ -1,5 +1,6 @@
 #import "Core/SGCore.h"
 #import "Shared/AppIcon/AppIcon.h"
+#import "Shared/AnimatedArtwork/SaveCanvas.h"
 #import "Shared/Fonts/Fonts.h"
 #import "Shared/LyricsTranslation/LyricsTranslation.h"
 #import "Redesigned/Player/Player.h"
@@ -10,6 +11,7 @@
 #import "Shared/Gestures/Gestures.h"
 #import "Shared/Lyrics/Lyrics.h"
 #import "Shared/LyricsMeanings/Meanings.h"
+#import "Shared/Player/ABLoop.h"
 #import "Shared/Player/HoldSpeed.h"
 #import "Shared/Player/PlayerSettings.h"
 #import "Shared/Sing/Sing.h"
@@ -145,6 +147,7 @@ UIViewController *SGPlayerSettingsPage(void) {
     // AirPods gestures, the lock screen widget and Vibrations have rows of their own on Mod Settings' main page.
     NSMutableArray<SGModSection *> *sections = [NSMutableArray arrayWithObject:SGSection(nil, @[
         SGWithTile(SGPageRow(@"Gestures", ^UIViewController *{ return SGGesturesSettingsPage(); }), @"hand.tap", UIColor.systemBlueColor),
+        SGOptionRow(@"Mini player gestures", @"Swipe left for next, right for previous. Press and hold for playback actions.", SGKeyMiniPlayerGestures),
         SGWithTile(blocked, @"person.crop.circle.badge.xmark", UIColor.systemRedColor),
     ])];
     [sections addObject:SGHoldSpeedSection()];
@@ -164,6 +167,10 @@ UIViewController *SGPlayerSettingsPage(void) {
         : @[SGHideRow(@"Shuffle", nil, SGRKeyPlayerHideShuffle), SGHideRow(@"Repeat", nil, SGRKeyPlayerHideRepeat), video, tilt];
     [sections addObject:SGSection(native ? nil : @"Hide on the player", hidden)];
 
+    [sections addObject:SGSection(@"Playback", @[
+        SGOptionRow(@"A–B Loop", @"Repeat part of a track from the Now Playing menu", SGKeyABLoop),
+    ])];
+
     [sections addObject:SGNotedSection(@"Lossless", @[
         SGOptionRow(@"Lossless files", @"Your own FLACs in place of Spotify's stream", SGKeyLossless),
     ], @"Put FLAC or ALAC files in Files › Spotify › Lossless. A file plays when its title and length match the song "
@@ -173,6 +180,9 @@ UIViewController *SGPlayerSettingsPage(void) {
 
     // The redesign's page leads with a card of its player and the background's control, the background's
     // rows and the Mini player section under it.
+    [sections addObject:SGSection(@"Artwork", @[
+        SGOptionRow(@"Save Canvas", @"Share or save a track’s Spotify Canvas video from the Now Playing menu", SGKeySaveCanvas),
+    ])];
     if (!native) return SGRPlayerSettingsPage(sections);
     return [[SGModPage alloc] initWithTitle:@"Player" intro:SGRestartNote sections:sections footer:nil];
 }
