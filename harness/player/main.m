@@ -1034,14 +1034,23 @@ static UIView *motionView(void) {
                 after(1, ^{
                     [self expect:fabs(SGRHarnessConnectValue() - 0.64) < 0.001 && [row().accessibilityValue isEqualToString:@"64%"]
                             step:@"route changes during drag" detail:row().accessibilityValue];
-                    SGRHarnessConnectRoute(nil, NO, 0);
-                    after(0.25, ^{
-                        NSString *system = [NSString stringWithFormat:@"%d%%",
-                                            (int)round(AVAudioSession.sharedInstance.outputVolume * 100)];
-                        [self expect:isLocal() && [row().accessibilityValue isEqualToString:system]
-                                step:@"returns to the iPhone" detail:row().accessibilityValue];
-                        NSLog(@"[harness] connect checks: %lu of %lu right -- %@", (unsigned long)(self->_checks - self->_failures),
-                              (unsigned long)self->_checks, self->_failures ? @"FAIL" : @"PASS");
+                    SGRHarnessConnectReport(0.005);
+                    NSUInteger beforeMute = SGRHarnessConnectWrites();
+                    after(0.2, ^{ [row() accessibilityDecrement]; });
+                    after(1, ^{
+                        [self expect:SGRHarnessConnectWrites() == beforeMute + 1 && SGRHarnessConnectValue() == 0
+                                step:@"near-zero volume can be muted"
+                              detail:[NSString stringWithFormat:@"%lu writes, volume %.3f",
+                                      (unsigned long)(SGRHarnessConnectWrites() - beforeMute), SGRHarnessConnectValue()]];
+                        SGRHarnessConnectRoute(nil, NO, 0);
+                        after(0.25, ^{
+                            NSString *system = [NSString stringWithFormat:@"%d%%",
+                                                (int)round(AVAudioSession.sharedInstance.outputVolume * 100)];
+                            [self expect:isLocal() && [row().accessibilityValue isEqualToString:system]
+                                    step:@"returns to the iPhone" detail:row().accessibilityValue];
+                            NSLog(@"[harness] connect checks: %lu of %lu right -- %@", (unsigned long)(self->_checks - self->_failures),
+                                  (unsigned long)self->_checks, self->_failures ? @"FAIL" : @"PASS");
+                        });
                     });
                 });
             });

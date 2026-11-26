@@ -29,7 +29,7 @@ come late, out of order, or not at all.
 - `connect` runs the real redesigned volume row and its hooks over mock Spotify Connect services.
   It checks unsupported devices and uninitialized volume, external updates and mute, VoiceOver with
   a dropped write, a touch drag, a speaker mute after an acknowledged write, a route switch during
-  a drag, and the return to system volume.
+  a drag, muting from just above zero, and the return to system volume.
   The log ends with `connect checks: n of m right -- PASS` or `FAIL`. Capture the local row at 1 s
   and the remote row at 3 s. Set `SIMCTL_CHILD_HARNESS_CONNECT_SETTINGS=1` to show the Controls
   section with Volume on and Connect speaker volume at its default (off).

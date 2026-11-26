@@ -161,7 +161,7 @@ static void remember(id object, BOOL isVolume) {
 static void send(NSString *route, BOOL retry) {
     double previous;
     if (![SGRConnectVolumeRoute(&previous) isEqualToString:route]) return;
-    if (fabs(previous - sg_target) < 0.01) {
+    if (previous == sg_target || (retry && fabs(previous - sg_target) < 0.01)) {
         sg_settled = YES;
         return;
     }
