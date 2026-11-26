@@ -114,6 +114,7 @@ static void translate(NSString *track) {
 }
 
 NSNotificationName const SGKaraokeLinesKeptNotification = @"spotifyglass.karaoke.linesKept";
+NSNotificationName const SGKaraokeLinesInvalidatedNotification = @"spotifyglass.karaoke.linesInvalidated";
 
 // Main queue only.
 static void announce(NSString *track) {
@@ -595,6 +596,9 @@ static BOOL linesShown(void) {
             [sg_requested removeObject:track];
             [sg_asking removeObject:track];
             [sg_losses removeObjectForKey:track];
+            if (note.object) {
+                [NSNotificationCenter.defaultCenter postNotificationName:SGKaraokeLinesInvalidatedNotification object:track];
+            }
         }
         NSString *playing = SGKaraokePlayingTrack();
         if (!refreshes(playing)) return;
