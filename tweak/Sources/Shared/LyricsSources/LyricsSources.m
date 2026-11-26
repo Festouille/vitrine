@@ -603,7 +603,7 @@ static void closeAutoSelectWindow(SGLyricsWalk *walk) {
     if (!settledWait.count) return;
     [sg_settledWaiting removeObjectForKey:trackID];
     id kept = sg_kept[trackID];
-    SGLyricsResult *result = (kept && kept != NSNull.null) ? kept : nil;
+    SGLyricsResult *result = (kept && kept != NSNull.null) ? kept : walk.delivered;
     for (void (^done)(SGLyricsResult *) in settledWait) done(result);
 }
 
