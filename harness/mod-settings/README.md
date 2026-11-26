@@ -78,13 +78,15 @@ uninstalling. The real Player settings section, shared player observer and repea
 Spotify player. The redesigned page's preview and styling are stubbed, but its shared Playback rows are real.
 Each `repeat-check` asserts the reported mode and how many repeat commands the player received.
 
-    xcrun simctl launch --console <udid> com.vitrine.modsettingsharness remember-repeat=0 repeat-start=off repeat-check=off,0 remember-repeat=toggle remember-repeat=1 repeat-set=track repeat-check=track,1
+    xcrun simctl launch --console <udid> com.vitrine.modsettingsharness remember-repeat=0 repeat-start=context repeat-check=context,0 remember-repeat=toggle remember-repeat=1
+    xcrun simctl launch --console <udid> com.vitrine.modsettingsharness remember-repeat=1 repeat-start=off repeat-check=context,1 repeat-set=track repeat-check=track,2
     xcrun simctl launch --console <udid> com.vitrine.modsettingsharness redesign remember-repeat=1 repeat-start=off,restricted repeat-check=off,2 repeat-report=off repeat-check=off,2 repeat-context=off repeat-check=track,4 repeat-next=off repeat-check=track,6
     xcrun simctl launch --console <udid> com.vitrine.modsettingsharness remember-repeat=1 repeat-start=off repeat-check=track,2 repeat-set=off repeat-set-context=context repeat-check=context,4
     xcrun simctl launch --console <udid> com.vitrine.modsettingsharness redesign remember-repeat=1 repeat-start=off repeat-check=context,1 repeat-set=off repeat-check=off,2
     xcrun simctl launch --console <udid> com.vitrine.modsettingsharness remember-repeat=1 repeat-start=track repeat-check=off,2 remember-repeat=toggle remember-repeat=0
     xcrun simctl launch --console <udid> com.vitrine.modsettingsharness redesign remember-repeat=0 repeat-start=track repeat-check=track,0
 
-The second launch rejects the restore in its first context, retries on a different context playing
-the same track, then restores again when the next track in that context resets repeat. Capture the real
-switch and the mock player's reported mode with `xcrun simctl io <udid> screenshot shot.png` after any check.
+The first two launches check that enabling the switch captures the current mode without another repeat command.
+The restricted launch rejects the restore in its first context, retries on a different context playing the same
+track, then restores again when the next track in that context resets repeat. Capture the real switch and the mock
+player's reported mode with `xcrun simctl io <udid> screenshot shot.png` after any check.

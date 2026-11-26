@@ -168,9 +168,11 @@ UIViewController *SGPlayerSettingsPage(void) {
         : @[SGHideRow(@"Shuffle", nil, SGRKeyPlayerHideShuffle), SGHideRow(@"Repeat", nil, SGRKeyPlayerHideRepeat), video, tilt];
     [sections addObject:SGSection(native ? nil : @"Hide on the player", hidden)];
 
+    SGModRow *rememberRepeat = SGOptionRow(@"Remember repeat mode", @"Keep your repeat setting across tracks and launches", SGKeyRememberRepeatMode);
+    rememberRepeat.changed = ^(BOOL on) { SGRepeatModeSettingChanged(on); };
     [sections addObject:SGSection(@"Playback", @[
         SGOptionRow(@"A–B Loop", @"Repeat part of a track from the Now Playing menu", SGKeyABLoop),
-        SGOptionRow(@"Remember repeat mode", @"Restore your last repeat setting when Spotify starts", SGKeyRememberRepeatMode),
+        rememberRepeat,
     ])];
 
     [sections addObject:SGNotedSection(@"Lossless", @[
