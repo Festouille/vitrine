@@ -23,6 +23,16 @@ jobs:
   build:
     runs-on: macos-latest
     steps:
+      # Mask before passing the URL as env; the runner logs the step's environment before it runs.
+      - name: Validate and mask IPA URL
+        shell: bash
+        run: |
+          if ! ipa_url="$(jq -er '.inputs.ipa_url | strings | select(test("\\Ahttps?://[^[:space:][:cntrl:]]+\\z"))' "$GITHUB_EVENT_PATH")"; then
+            echo "::error::Expected an HTTP(S) IPA URL without unencoded whitespace"
+            exit 1
+          fi
+          printf '::add-mask::%s\n' "${ipa_url//%/%25}"
+
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
@@ -48,11 +58,6 @@ jobs:
         env:
           IPA_URL: ${{ inputs.ipa_url }}
         run: |
-          if ! [[ "$IPA_URL" =~ ^https?://[^[:space:][:cntrl:]]+$ ]]; then
-            echo "::error::Expected an HTTP(S) IPA URL without unencoded whitespace"
-            exit 1
-          fi
-          printf '::add-mask::%s\n' "${IPA_URL//%/%25}"
           mkdir -p ipa
           if ! curl --disable --fail --silent --location --globoff --proto '=http,https' \
             --proto-redir '=http,https' --output ipa/spotify.ipa -- "$IPA_URL"; then

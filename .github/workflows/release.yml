@@ -6,6 +6,10 @@ on:
   push:
     branches: [main]
 
+concurrency:
+  group: release-main
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -20,4 +24,16 @@ jobs:
       contents: write
       pull-requests: write
     steps:
+      # Release Please acts on main, not the triggering SHA; skip reruns of stale commits.
+      - name: Check verified commit is still at the tip of main
+        id: head
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          main_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')"
+          if [ "$main_sha" = "$GITHUB_SHA" ]; then
+            echo "current=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: googleapis/release-please-action@v4
+        if: steps.head.outputs.current == 'true'
