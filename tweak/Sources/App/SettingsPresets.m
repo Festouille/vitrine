@@ -244,7 +244,10 @@ SGModRow *SGSettingsPresetsRow(void) {
     _restartPill = [UIButton buttonWithType:UIButtonTypeSystem];
     UIButtonConfiguration *configuration = UIButtonConfiguration.tintedButtonConfiguration;
     configuration.cornerStyle = UIButtonConfigurationCornerStyleCapsule;
-    configuration.baseForegroundColor = SGAccentMark();
+    UIColor *darkMark = SGAccentMark();
+    configuration.baseForegroundColor = [UIColor colorWithDynamicProvider:^UIColor *(UITraitCollection *traits) {
+        return traits.userInterfaceStyle == UIUserInterfaceStyleLight ? UIColor.blackColor : darkMark;
+    }];
     _restartPill.configuration = configuration;
     [_restartPill addTarget:self action:@selector(showRestartChanges) forControlEvents:UIControlEventTouchUpInside];
     [_restartHeader addSubview:_restartPill];

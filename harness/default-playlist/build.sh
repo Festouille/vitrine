@@ -9,6 +9,7 @@ xcrun -sdk iphonesimulator clang -target arm64-apple-ios17.0-simulator -fobjc-ar
     -I"$SRC" -Wall -Werror -Wno-deprecated-declarations \
     "$HERE/main.m" "$HERE/../scene.m" "$SRC/Shared/DefaultPlaylist/DefaultPlaylist.m" \
     "$SRC"/Settings/{SGPage,SGPageStyle,SGModPage,SGGlowSwitch}.m \
+    "$SRC"/Settings/{SGLocalize,SGStrings_fr,SGStrings_es,SGStrings_tr}.m \
     "$SRC"/Core/{SGLog,SGPrefs,SGViewTree,SGGlass,SGLegacyGlass,SGGlassTouch,SGFlagForce,SGUIMode}.m \
     -framework UIKit -framework QuartzCore -framework CoreGraphics -framework Foundation \
     -o "$APP/DefaultPlaylistHarness"
