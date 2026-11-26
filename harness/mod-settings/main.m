@@ -1,6 +1,6 @@
 // Mod Settings' main page as App/ModSettings.x builds it, opened the way holding Home opens it
 // (SGOpenModSettings), with the real App/Pages.m behind its Redesigned UI switch and the real Settings/
-// framework; stubs.m stands in for every page a row opens. The launch line sets the look up and then plays
+// framework, with stand-ins for Spotify runtime features. The launch line sets the look up and then plays
 // actions, one every 0.9 s from 1 s in; screenshot after.
 //
 //     THEOS=$HOME/theos ./build.sh && xcrun simctl install <udid> build/ModSettingsHarness.app
@@ -170,6 +170,15 @@ static UIViewController *gatedPage(void) {
     } else if ([verb isEqualToString:@"search-count"]) {
         NSAssert([table numberOfRowsInSection:0] == value.integerValue, @"Unexpected number of settings search results");
         NSLog(@"[harness] gated settings search matched %@ rows as expected", value);
+    } else if ([verb isEqualToString:@"search-result"]) {
+        BOOL found = NO;
+        for (NSInteger row = 0; row < [table numberOfRowsInSection:0]; row++) {
+            NSIndexPath *path = [NSIndexPath indexPathForRow:row inSection:0];
+            UITableViewCell *cell = [table.dataSource tableView:table cellForRowAtIndexPath:path];
+            found |= [[(UIListContentConfiguration *)cell.contentConfiguration text] isEqualToString:value];
+        }
+        NSAssert(found, @"Missing settings search result: %@", value);
+        NSLog(@"[harness] settings search found %@", value);
     } else if ([verb isEqualToString:@"localized"]) {
         NSAssert([SGL(@"Appearance") isEqualToString:value], @"Unexpected settings translation");
         NSAssert(SGL(nil) == nil && [SGL(@"") isEqualToString:@""], @"Missing text did not stay empty");

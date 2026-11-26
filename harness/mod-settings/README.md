@@ -20,6 +20,9 @@ To check localized search and English fallbacks, launch with
 `lang=fr localized=Apparence search "query=Traduire les réglages du mod" search-count=1`. Use `localized=Appearance` with
 no language override to check the default, or launch with `redesign lang=fr dump` for the redesigned root.
 
+`lang=fr search "query=player switch to video" "search-result=Passer à la vidéo"` checks that an English
+page and row query still finds the translated row.
+
 `search "query=home gradient" "pick=Show gradient" jumped` checks the search jump and Back path in the
 native look. `preset-check` checks the JSON allowlist, invalid values, and removal of a reverted change
 from the pending restart list.
