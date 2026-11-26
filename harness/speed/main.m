@@ -88,6 +88,8 @@ typedef struct {
 // Shared/Player/PlayerState.x: no player state for SGSetPlayerSpeed to start the mod's clock from (the mock has
 // no track), so the speed checks see the units alone.
 SPTPlayerState *SGPlayerState(void) { return nil; }
+@protocol SGPlayerStateObserver;
+void SGAddPlayerStateObserver(id<SGPlayerStateObserver> observer) {}
 
 static OSStatus decoder(void *refCon, AudioUnitRenderActionFlags *flags, const AudioTimeStamp *timestamp, UInt32 bus,
                         UInt32 frames, AudioBufferList *data) {

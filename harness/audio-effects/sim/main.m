@@ -29,6 +29,8 @@ static const float kAmplitude = 0.25f;
 @end
 // Shared/Player/PlayerState.x: no state for SGSetPlayerSpeed to start the mod's clock from.
 SPTPlayerState *SGPlayerState(void) { return nil; }
+@protocol SGPlayerStateObserver;
+void SGAddPlayerStateObserver(id<SGPlayerStateObserver> observer) {}
 
 static atomic_bool sg_mute;
 static atomic_uint_fast64_t sg_phase;

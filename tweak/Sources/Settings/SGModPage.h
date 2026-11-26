@@ -80,10 +80,15 @@
 - (void)revealRowOnAppearance:(SGModRow *)row;
 // Rows draw their symbol on a colored tile; off, the default, they show none. Mod Settings' main page has them.
 @property (nonatomic) BOOL tiles;
+// Opt in only on pages whose colors have been checked in both appearances.
+@property (nonatomic) BOOL usesSettingsTheme;
 @end
 
 // The intro of every page whose switches the hooks read at launch.
 extern NSString *const SGRestartNote;
+extern NSString *const SGKeySettingsThemes;
+extern NSString *const SGKeySettingsTheme;
+SGModSection *SGSettingsThemeSection(void); // nil below iOS 17
 
 SGModRow *SGSwitchRow(NSString *title, NSString *subtitle, NSString *key);   // on until switched off
 SGModRow *SGHideRow(NSString *title, NSString *subtitle, NSString *key);     // off until switched on
