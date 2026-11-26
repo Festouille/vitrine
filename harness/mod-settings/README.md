@@ -15,6 +15,14 @@ Make a simulator of your own (`xcrun simctl create`) and address it by UDID. `ma
 (`redesign`, `warning`, `keep`) and the actions: `toggle=<section>.<row>` flips a switch the way a tap does,
 `cancel` closes the alert it brings up, `bottom` scrolls to the end, and `dump` logs the rows of every section.
 
+`search "query=home gradient" "pick=Show gradient" jumped` checks the search jump and Back path in the
+native look. `preset-check` checks the JSON allowlist, invalid values, and removal of a reverted change
+from the pending restart list.
+
+For a gated subpage, run `search-gate=0 search "query=Library detail switch" search-count=0`, then
+relaunch with `search-gate=1 search "query=Library detail switch" search-count=1`. The child control
+should only be searchable with its prerequisite on.
+
 `gated` pushes a page of `SGModPage` itself: a switch over ten rows, then a section with a heading and a note
 whose twelve rows show only while the switch is on, then a row that `later` lets come by itself. `layout` logs
 the scroll offset and each section's rows, heading and note heights; `top` scrolls back up.
@@ -53,7 +61,7 @@ it flips the switch off before the new reminder would have appeared.
 
     xcrun simctl launch --console-pty <udid> com.vitrine.modsettingsharness dump dump dump dump signing=profile
     xcrun simctl launch --console-pty <udid> com.vitrine.modsettingsharness dump dump dump dump signing=quiet
-    xcrun simctl launch --console-pty <udid> com.vitrine.modsettingsharness bottom toggle=7.0 dump dump signing=off
+    xcrun simctl launch --console-pty <udid> com.vitrine.modsettingsharness bottom toggle=8.0 dump dump signing=off
 
 On a fresh install with the same fixture, `signing-onboarding` keeps the onboarding gate closed past
 the old 64-second retry limit, then checks for the reminder without a new foreground event.

@@ -75,9 +75,9 @@ static UIImage *sg_coverSmall;
 static __weak UIImageView *sg_coverView;
 
 static void showCover(UIImage *cover) {
-    if (!cover || cover == sg_cover) return;
+    if (cover == sg_cover) return;
     sg_cover = cover;
-    sg_coverSmall = SGBackdropSample(cover);
+    sg_coverSmall = cover ? SGBackdropSample(cover) : nil;
     UIImageView *view = sg_coverView;
     if (!view) return;
     [UIView transitionWithView:view duration:0.3 options:UIViewAnimationOptionTransitionCrossDissolve animations:^{

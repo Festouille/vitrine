@@ -16,6 +16,7 @@ static BOOL isSetting(NSString *key) {
                               @"spotifyglass.sponsorblock.skipCount", @"spotifyglass.sponsorblock.timeSaved",
                               @"spotifyglass.update.", @"spotifyglass.signing.", @"spotifyglass.onboarding.",
                               @"spotifyglass.navbar.stock", @"spotifyglass.redesign.navbar.stock",
+                              @"spotifyglass.redesign.untested.starting",
                               @"spotifyglass.automix.saved", @"spotifyglass.lossless.savedQuality",
                               @"spotifyglass.liveActivity.startedAt"]) {
         if ([key hasPrefix:local]) return NO;
@@ -122,14 +123,22 @@ static NSDictionary *fromChroma(NSDictionary *settings) {
     NSSet<NSString *> *dropped = [NSSet setWithArray:@[@"spotifyglass.redesign.menuNumbers", @"spotifyglass.eevee.warned",
                                                        @"spotifyglass.spotifyversion.warned", @"spotifyglass.lockscreen.lyricsartwork"]];
     NSMutableDictionary *ours = [NSMutableDictionary dictionary];
-    for (NSString *key in settings) {
+    for (id rawKey in settings) {
+        if (![rawKey isKindOfClass:NSString.class]) return nil;
+        NSString *key = rawKey;
         id value = settings[key];
         if ([dropped containsObject:key]) continue;
         if ([key isEqualToString:@"spotifyglass.redesign.player.backdrop"]) {
+            if (![value isKindOfClass:NSNumber.class]) return nil;
             ours[@"spotifyglass.redesign.player.background"] = @([value integerValue] == 1 ? SGRPlayerBackgroundAnimated : SGRPlayerBackgroundFluid);
-        } else if ([key isEqualToString:@"spotifyglass.redesign.player.artworksources"] && [value isKindOfClass:NSArray.class]) {
+        } else if ([key isEqualToString:@"spotifyglass.redesign.player.artworksources"]) {
+            if (![value isKindOfClass:NSArray.class]) return nil;
             NSMutableArray *sources = [NSMutableArray array];
-            for (NSString *source in value) [sources addObject:[source isEqual:@"spotify"] ? @"canvas" : source];
+            for (id source in (NSArray *)value) {
+                if (![source isKindOfClass:NSString.class]) return nil;
+                NSString *name = source;
+                [sources addObject:[name isEqualToString:@"spotify"] ? @"canvas" : name];
+            }
             ours[@"spotifyglass.motion.sources"] = sources;
         } else {
             ours[renamed[key] ?: key] = value;
@@ -138,25 +147,46 @@ static NSDictionary *fromChroma(NSDictionary *settings) {
     return ours;
 }
 
-static void importSettings(NSDictionary *settings) {
+// Validate the entire file before removing or writing any preferences.
+static NSDictionary *validatedSettings(NSDictionary *settings, NSDictionary *stored) {
+    if (![settings isKindOfClass:NSDictionary.class]) return nil;
+    NSDictionary *normalized = fromChroma(settings);
+    if (!normalized) return nil;
+    NSSet<NSString *> *boolKeys = [NSSet setWithArray:@[SGKeyStock, SGKeyRedesign, SGKeyRedesignUntested]];
+    NSMutableDictionary *validated = [NSMutableDictionary dictionaryWithCapacity:normalized.count];
+    for (NSString *key in normalized) {
+        if (![key hasPrefix:@"spotifyglass."]) return nil;
+        if (!isSetting(key)) continue;
+        id value = normalized[key];
+        Class valueKind = kindOf(value);
+        if (!valueKind) return nil;
+        if (![NSPropertyListSerialization propertyList:value isValidForFormat:NSPropertyListBinaryFormat_v1_0]) return nil;
+        if ([boolKeys containsObject:key] && valueKind != NSNumber.class) return nil;
+        id current = stored[key];
+        if (current && kindOf(current) != valueKind) return nil;
+        validated[key] = value;
+    }
+    return validated;
+}
+
+static BOOL importSettings(NSDictionary *settings) {
     NSUserDefaults *store = NSUserDefaults.standardUserDefaults;
-    settings = fromChroma(settings);
     NSDictionary *stored = storedDefaults();
+    NSDictionary *validated = validatedSettings(settings, stored);
+    if (!validated) {
+        SGLog(@"import: rejected invalid settings file");
+        return NO;
+    }
     for (NSString *key in stored) {
         if (isSetting(key)) [store removeObjectForKey:key];
     }
-    NSUInteger skipped = 0;
-    for (NSString *key in settings) {
-        id value = settings[key];
-        id current = stored[key];
-        BOOL fits = isSetting(key)
-            && [NSPropertyListSerialization propertyList:value isValidForFormat:NSPropertyListBinaryFormat_v1_0]
-            && (!current || kindOf(current) == kindOf(value));
-        if (fits) [store setObject:value forKey:key];
-        else skipped++;
-    }
-    SGLog(@"import: set %lu keys, skipped %lu", (unsigned long)(settings.count - skipped), (unsigned long)skipped);
+    [validated enumerateKeysAndObjectsUsingBlock:^(NSString *key, id value, BOOL *stop) {
+        [store setObject:value forKey:key];
+    }];
+    SGPrefsChanged();
+    SGLog(@"import: set %lu keys", (unsigned long)validated.count);
     SGRestartSpotify();
+    return YES;
 }
 
 @interface SGSettingsPicker : NSObject <UIDocumentPickerDelegate>
@@ -165,17 +195,23 @@ static void importSettings(NSDictionary *settings) {
 @implementation SGSettingsPicker
 
 - (void)documentPicker:(UIDocumentPickerViewController *)picker didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
-    NSData *data = [NSData dataWithContentsOfURL:urls.firstObject];
+    NSData *data = urls.firstObject ? [NSData dataWithContentsOfURL:urls.firstObject] : nil;
     id file = data ? [NSJSONSerialization JSONObjectWithData:data options:0 error:nil] : nil;
     NSDictionary *settings = [file isKindOfClass:NSDictionary.class] ? file[@"settings"] : nil;
     if (![settings isKindOfClass:NSDictionary.class]) {
         showAlert(@"Not a settings file", @"Pick a file made by Export settings.", nil);
         return;
     }
+    if (!validatedSettings(settings, storedDefaults())) {
+        showAlert(@"Invalid settings file", @"This file has unsupported or invalid values. Your settings were not changed.", nil);
+        return;
+    }
     NSString *mod = [file[@"mod"] isKindOfClass:NSString.class] ? file[@"mod"] : @"unknown";
     NSString *message = [NSString stringWithFormat:@"Your settings are replaced by the file's, exported from version %@. Anything it does not have goes back to its default, and Spotify restarts.", mod];
     showAlert(@"Import settings?", message, [UIAlertAction actionWithTitle:@"Import and restart" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *action) {
-        importSettings(settings);
+        if (!importSettings(settings)) {
+            showAlert(@"Invalid settings file", @"This file has unsupported or invalid values. Your settings were not changed.", nil);
+        }
     }]);
 }
 

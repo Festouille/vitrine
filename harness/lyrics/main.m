@@ -401,6 +401,18 @@ static void checkDelay(SGRKaraokeView *karaoke, dispatch_block_t then) {
     });
 }
 
+static void checkTimingRefresh(SGRKaraokeView *karaoke) {
+    if (![karaoke respondsToSelector:NSSelectorFromString(@"lyricsInvalidated:")]) return;
+    NSString *track = SGKaraokePlayingTrack();
+    NSArray<SGKaraokeLine *> *old = [karaoke valueForKey:@"lines"];
+    SGKaraokeLine *first = old.firstObject;
+    NSArray *shifted = @[timed(first.start + 500, SGKaraokeLineText(first), nil)];
+    SGKaraokeKeepLines(track, shifted);
+    [NSNotificationCenter.defaultCenter postNotificationName:@"spotifyglass.karaoke.linesInvalidated" object:track];
+    ((void (*)(id, SEL))objc_msgSend)(karaoke, NSSelectorFromString(@"tick"));
+    expect(first && [karaoke valueForKey:@"lines"] == shifted, @"reused lyrics view takes revised timing on the same track");
+}
+
 // Scrolled by hand, the page's room grows (the controls go) and the scroll goes on up: the lines made for
 // the view meanwhile keep the room between them that the lines already there have.
 static void checkBrowse(SGRKaraokeView *karaoke, UIView *host, dispatch_block_t then) {
@@ -522,6 +534,7 @@ static void runChecks(SGRKaraokeView *karaoke, UIView *host) {
             checkBrowse(karaoke, host, ^{
                 checkGlide(karaoke, ^{
                     checkDelay(karaoke, ^{
+                        checkTimingRefresh(karaoke);
                         printf("%d failed\n", sg_failures);
                         fflush(stdout);
                         exit(sg_failures);

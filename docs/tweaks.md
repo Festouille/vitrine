@@ -289,10 +289,11 @@ Shared:
                   (VideoSwitch.x, spotifyglass.hide.videoSwitch), by its identifier in FloatingElementsUnit.
                   Full screen cover hidden (spotifyglass.hide.fullScreenCover) stops a tap on the cover from opening
                   Spotify's full screen cover, under either look: each look's handleTap hook on CoverArtTiltView
-                  (PlayerGestures.x) returns before Spotify's, as it does while Gestures is on. Spotify's own flag
+                  (PlayerGestures.x) returns before Spotify's. With Gestures on, the native cover waits for the
+                  double tap to fail; the redesigned cover still ignores single taps. Spotify's own flag
                   (cover_art_tilt_enabled) is left alone: with it off the cover is built without CoverArtTiltView,
                   and every hook on that view (the redesign's rounding and shadow, the hold to 2x) has nothing to reach.
-                  The sleep timer (SleepTimer.m, set from the Live Activity) pauses Spotify at a time, at the end of
+                  The sleep timer (SleepTimer.m, set from the Live Activity and the redesigned player's ⋯) pauses Spotify at a time, at the end of
                   the track or at the end of the album or playlist, the last track of it found by the tracks to come
                   that are neither queued by hand nor autoplay's (SPTPlayerTrack's provider), or by the next one
                   having played already when it repeats. Over the last seconds (the Live Activity page's Fade out: Off,
@@ -507,8 +508,10 @@ Native:
                   on either side of the cover that plays at 2x until the finger lifts (PlayerGestures.x), the list's pull
                   held off while the progress bar is scrubbed (PlayerScrub.x), the Queue & devices flags. The scrub and
                   the cover's room are checked in the simulator against harness/native-player/
-    Lyrics/       the full screen lyrics page on glass, and a tap on the lyrics' footer opening the pages a credit
-                  links to (LyricsPage.x)
+    Lyrics/       the full screen lyrics page on glass: tap a timed line to seek, hold a line to copy or share it,
+                  or tap the footer to open the pages a credit links to (LyricsPage.x). The local-file viewer has
+                  the same line actions. In Mod Settings → Lyrics → Imported LRC files, tap a file to move its
+                  timed lyrics earlier or later without editing the file.
     LocalFiles/   a lyrics button on the player's footer for a local file with an LRC file linked to it, a fifth of the
                   way in from the leading edge, which opens a page of the lines on black that follows the song
                   (LocalLyrics.h lists its files); the file's metadata says has_lyrics. Checked in the simulator
@@ -587,8 +590,10 @@ Redesigned:
     Player/       the redesigned full screen player (Player.h lists its files); its more button opens the system
                   menu (ContextMenu/), Spotify's rows and then Speed, Pitch & Reverb, which opens the sliders and
                   Pitch follows speed in a popover from the ⋯ (SpeedPitchMenu.x; below iOS 26 its background is the ⋯ menu's
-                  glass, PlayerPanelGlass.m), and the backgrounds it can switch
-                  to (PlayerMenu.m), and a hold on either side of the
+                  glass, PlayerPanelGlass.m), the backgrounds it can switch to and, with the Player page's Sleep timer
+                  switch on (spotifyglass.redesign.player.sleepTimer, off unless set), a Sleep Timer submenu that sets
+                  the mod's own timer, 15, 30 or 45 minutes, an hour, End of Track or End of Album or Playlist, with
+                  Add 15 Minutes and Turn Off Timer while one runs (PlayerMenu.m), and a hold on either side of the
                   cover plays at 2x until the finger lifts (PlayerArtwork.x), an octave higher while Pitch follows
                   speed is on. Hide on the player's Shuffle and Repeat (spotifyglass.redesign.player.hideShuffle,
                   .hideRepeat, read at launch) take those buttons off the controls by alpha in their slots, as the
@@ -631,7 +636,8 @@ Redesigned:
                   fades a few seconds after the last touch and the lines take the whole safe area until a tap where
                   the rest was or a scroll back; set
                   to Keep the title, only the controls under the title row and the lyrics' own button fade and the
-                  lines grow down into their room): lines sung over each other lit together, the stack moving on
+                  lines grow down into their room): tap a timed line to seek, or hold a line to copy, share,
+                  or explain it when a meaning exists; lines sung over each other lit together, the stack moving on
                   once the first is sung out; an instrumental break of 7 s or more held by three dots
                   that breathe and fill over its length on a Core Animation timeline laid against the song's clock; and
                   a line's pronunciation (under the words it spells) and translation, switched on from a glass button in
@@ -841,6 +847,17 @@ through `dispatch_async` and a semaphore with a timeout, waited on from the serv
 the simulator by harness/driver/.
 
 ## Mod Settings
+
+Search Mod Settings matches visible settings by name, description or page in the selected look. A result
+opens its containing page and highlights the real control without toggling it. Dedicated editors, such as
+All flags, are found by name and keep their own search or controls.
+
+Minimal player and Clean Home change the selected look's player or Home controls. Stock returns to the
+native look and restores the controls those presets manage; resetting unrelated settings is a separate action
+under Mod. Import preset accepts a pasted JSON object of preference keys and Boolean values, optionally
+under a `settings` property. Unsupported entries, including ad and Premium spoofing preferences, are
+ignored. Each preset and import previews the changed controls before writing. The restart pill lists pending
+changes for the tracked controls; undoing a change before restarting removes it from the list.
 
 Mod Settings, opened by holding Home on the tab bar or from the first row of the side drawer and the
 last row of Spotify's Settings, looks like the system Settings app in its dark appearance under either look:

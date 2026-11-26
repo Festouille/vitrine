@@ -87,7 +87,7 @@ static void followCover(UIImage *image, NSString *identity) {
 static void showArtwork(SGRArtworkField *field, BOOL animated) {
     NSString *identity = nil;
     UIImage *image = SGRNowPlayingArtwork(NULL, &identity);
-    if (field && image) [field setArtwork:image identity:identity animated:animated];
+    [field setArtwork:image identity:identity animated:animated];
     followCover(image, identity);
 }
 

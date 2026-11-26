@@ -10,7 +10,7 @@
 #import "Core/SGCore.h"
 #import "About.h"
 
-NSString *const SGUpdateURL = @"https://api.github.com/repos/My-Name-Is-Jeff/vitrine/releases?per_page=100";
+NSString *const SGUpdateURL = @"https://api.github.com/repos/Festouille/vitrine/releases?per_page=100";
 NSString *const SGUpdateCheckedNotification = @"spotifyglass.update.checked.notification";
 
 static NSString *const kChecked = @"spotifyglass.update.checked";
@@ -247,13 +247,15 @@ static void ask(NSString *url, NSData *body, void (^done)(NSArray<NSDictionary *
         request.HTTPBody = body;
         [request setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
     }
-    NSURLSessionDataTask *task = [[NSURLSession sessionWithConfiguration:configuration]
+    NSURLSession *session = [NSURLSession sessionWithConfiguration:configuration];
+    NSURLSessionDataTask *task = [session
         dataTaskWithRequest:request
           completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
         NSInteger status = [response isKindOfClass:NSHTTPURLResponse.class] ? ((NSHTTPURLResponse *)response).statusCode : 0;
         done(status == 200 ? SGUpdateReleasesFrom(data) : nil, status, error);
     }];
     [task resume];
+    [session finishTasksAndInvalidate];
 }
 
 void SGCheckForUpdate(BOOL force) {

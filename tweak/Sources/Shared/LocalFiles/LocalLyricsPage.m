@@ -47,7 +47,7 @@ static NSString *playingLocalFile(void) {
     [super viewDidLoad];
     _footer = SGNote(@"Import for current track links the file to the local file playing, whatever its tags say. "
                       "Import LRC… keeps a file for any track whose title and artist match its [ti:] and [ar:] tags, "
-                      "or its name as \"Artist - Title\". Swipe left on a file to delete it.");
+                      "or its name as \"Artist - Title\". Tap a file to adjust its timing, or swipe left to delete it.");
     self.tableView.tableFooterView = _footer;
 }
 
@@ -112,17 +112,50 @@ static NSString *playingLocalFile(void) {
         SGFillCell(cell, @"No imported files", nil, SGGrey(), nil);
         return cell;
     }
-    SGFillCell(cell, _files[(NSUInteger)path.row], nil, nil, nil);
+    NSString *name = _files[(NSUInteger)path.row];
+    NSInteger offset = SGImportedLRCOffset(name);
+    NSString *detail = offset ? [NSString stringWithFormat:@"Timing offset: %+ld ms", (long)offset] : @"Timing offset: 0 ms";
+    SGFillCell(cell, name, detail, nil, nil);
     return cell;
 }
 
 - (BOOL)tableView:(UITableView *)table shouldHighlightRowAtIndexPath:(NSIndexPath *)path {
-    return path.section == 1 && (path.row == SGLRCImportByName || playingLocalFile());
+    return path.section == 0 ? _files.count > 0 : (path.row == SGLRCImportByName || playingLocalFile());
+}
+
+- (void)editOffsetFor:(NSString *)name {
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"LRC Timing Offset"
+        message:@"Enter milliseconds. Use a negative value for earlier lyrics, a positive value for later lyrics, or 0 to reset. This affects timed lines only."
+        preferredStyle:UIAlertControllerStyleAlert];
+    [alert addTextFieldWithConfigurationHandler:^(UITextField *field) {
+        field.keyboardType = UIKeyboardTypeNumbersAndPunctuation;
+        field.text = [NSString stringWithFormat:@"%ld", (long)SGImportedLRCOffset(name)];
+        field.accessibilityLabel = @"Timing offset in milliseconds";
+    }];
+    UITextField *field = alert.textFields.firstObject;
+    [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Save" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+        NSScanner *scanner = [NSScanner scannerWithString:field.text ?: @""];
+        NSInteger offset;
+        if (![scanner scanInteger:&offset] || !scanner.isAtEnd || offset < -SGImportedLRCOffsetLimit || offset > SGImportedLRCOffsetLimit) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                showAlert(self, @"Invalid timing offset", @"Enter a whole number between −60000 and 60000 milliseconds.");
+            });
+            return;
+        }
+        SGSetImportedLRCOffset(name, offset);
+        [self reloadFiles];
+    }]];
+    SGPresentDark(alert);
+    [self presentViewController:alert animated:YES completion:nil];
 }
 
 - (void)tableView:(UITableView *)table didSelectRowAtIndexPath:(NSIndexPath *)path {
     [table deselectRowAtIndexPath:path animated:YES];
-    if (path.section != 1) return;
+    if (path.section == 0) {
+        if ((NSUInteger)path.row < _files.count) [self editOffsetFor:_files[(NSUInteger)path.row]];
+        return;
+    }
     _linkTo = path.row == SGLRCImportForTrack ? playingLocalFile() : nil;
     if (path.row == SGLRCImportForTrack && !_linkTo) return;
     // .lrc is nobody's registered type, so Files offers any file and the name is checked after.

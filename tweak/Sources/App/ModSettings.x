@@ -36,6 +36,8 @@
 #import "Redesigned/Album/Album.h"
 #import "Redesigned/Artist/Artist.h"
 #import "Pages.h"
+#import "SettingsPresets.h"
+#import "SettingsSearch.h"
 
 static const CGFloat kRowHeight = 56;
 static char kRowKey, kInsetKey;
@@ -61,6 +63,7 @@ static UIViewController *modSettingsPage(void) {
     // The rows of one look are asked again as Redesigned UI is flipped, so the page shows what the restart brings.
     BOOL (^redesigned)(void) = ^BOOL { return SGRedesignedUIStored(); };
     BOOL (^native)(void) = ^BOOL { return !SGRedesignedUIStored(); };
+    __block __weak SGModPage *root;
 
     // A newer Vitrine Addon inside this Vitrine than the one installed: at the top, while it is so. Only the add-on's own
     // answer from SpringBoard makes it so, so only a jailbroken phone with the add-on shows it (SGHapticRelay.h).
@@ -75,6 +78,7 @@ static UIViewController *modSettingsPage(void) {
         pageRow(@"Appearance", @"paintpalette.fill", UIColor.systemPurpleColor, ^UIViewController *{ return SGAppearancePage(); }),
         pageRow(@"Tab bar", @"rectangle.bottomthird.inset.filled", UIColor.systemGrayColor, ^UIViewController *{ return SGNavbarPage(); }),
     ], SGRestartNote)];
+    [sections addObject:SGSection(nil, @[SGSettingsSearchRow(^SGModPage *{ return root; }), SGSettingsPresetsRow()])];
 
     // Home & Library holds only the native look's switches; the redesign has its album and artist pages instead.
     SGModRow *albums = pageRow(@"Albums", @"square.stack.fill", SGColorRGB(0x34C759), ^UIViewController *{ return SGRAlbumSettingsPage(); });
@@ -135,7 +139,8 @@ static UIViewController *modSettingsPage(void) {
             mod,
         ]),
     ]];
-    SGModPage *page = [[SGModPage alloc] initWithTitle:@"Vitrine" intro:nil sections:sections footer:nil];
+    SGModPage *page = [[SGModSettingsPage alloc] initWithTitle:@"Vitrine" intro:nil sections:sections footer:nil];
+    root = page;
     page.tiles = YES;
     return page;
 }
@@ -330,6 +335,7 @@ static void attachDrawerRow(UICollectionView *list) {
 %end
 
 %ctor {
+    SGRememberLaunchSettings();
     sg_drawerList = NSClassFromString(kDrawerList);
     %init;
     SGRequireClasses(@[@"_TtC21Settings_PlatformImpl26SettingsListViewController", @"_TtC23SideDrawer_ListPageImpl18ListViewController"]);

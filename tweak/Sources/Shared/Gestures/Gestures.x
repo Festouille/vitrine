@@ -105,8 +105,8 @@ static NSUInteger tapsAbove(UIView *host) {
     return count;
 }
 
-void SGGestureAttach(UIView *host) {
-    if (!host || !SGFlag(SGKeyGestures, NO)) return;
+UITapGestureRecognizer *SGGestureAttach(UIView *host) {
+    if (!host || !SGFlag(SGKeyGestures, NO)) return nil;
     UITapGestureRecognizer *tap = objc_getAssociatedObject(host, &kTapKey);
     if (!tap) {
         tap = [[UITapGestureRecognizer alloc] initWithTarget:target() action:@selector(doubleTapped:)];
@@ -116,9 +116,10 @@ void SGGestureAttach(UIView *host) {
     }
     NSNumber *seen = objc_getAssociatedObject(host, &kSeenKey);
     NSUInteger now = tapsAbove(host);
-    if (seen.unsignedIntegerValue == now) return;
+    if (seen.unsignedIntegerValue == now) return tap;
     objc_setAssociatedObject(host, &kSeenKey, @(now), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     yieldSingleTaps(host, tap);
+    return tap;
 }
 
 #pragma mark - hooks

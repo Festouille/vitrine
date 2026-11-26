@@ -22,8 +22,8 @@
 //     PlayerVisualiser.m the Visualizer background: a calm spectrum of the song in the cover's colors, read
 //                        through SGRSpectrum.m from the audio effects' tap on Spotify's output
 //     PlayerMenu.m       the more button's system menu: Share, Add to playlist and Add to queue on top, then
-//                        speed, pitch and reverb, the backgrounds it can switch to, and Spotify's other rows
-//                        under More (Redesigned/ContextMenu)
+//                        speed, pitch and reverb, the backgrounds it can switch to, the sleep timer, and
+//                        Spotify's other rows under More (Redesigned/ContextMenu)
 //     PlayerSettings.m   the Player page in Mod Settings, led by a showcase of the player
 //     PlayerFree.x       a Spotify Free account given the player mode these units belong to
 //
@@ -147,6 +147,12 @@ BOOL SGRPlayerSpotifyIcons(void);
 // Spotify's Encore glyph `name` (an SPTEncoreIcon class method: "lyrics", "queue") centered in `button` in place of its
 // symbol, which is hidden; kept on the button, so a second call hands back the same view. Nil if Spotify has none.
 UIView *SGRPlayerEncoreGlyphIn(SGRGlyphButton *button, NSString *name);
+
+// Sleep Timer in the ⋯ menu (PlayerMenu.m): the mod's own timer (Shared/Player/SleepTimer.h), set to 15, 30 or 45
+// minutes, an hour, the end of the track or the end of the album or playlist, and turned off or given 15 minutes more
+// while it runs. Off until switched on, read each time the menu opens. Spotify's own Sleep timer stays under More.
+#define SGRKeyPlayerSleepTimer @"spotifyglass.redesign.player.sleepTimer"
+BOOL SGRPlayerSleepTimerMenuOn(void);
 
 // The lyrics turn sideways with the phone onto a landscape screen of their own (PlayerLandscape.x). On
 // until switched off. Shown or put away by hand for the harness.

@@ -257,11 +257,22 @@ const NSTimeInterval SGRFieldHoldLimit = 1.0;
 }
 
 - (void)setArtwork:(UIImage *)image identity:(NSString *)identity animated:(BOOL)animated {
-    if (!image || image == _image || (identity && [identity isEqualToString:_identity])) return;
+    if (image == _image || (image && identity && [identity isEqualToString:_identity])) return;
     _image = image;
     _identity = [identity copy];
-    if (_fluid) [_fluidLayer setArtwork:image animated:animated && self.window != nil];
+    if (_fluid || !image) [_fluidLayer setArtwork:image animated:animated && self.window != nil];
     NSUInteger generation = ++_generation;
+    if (!image) {
+        _read = NO;
+        [_backdrop removeAnimationForKey:@"contents"];
+        _backdrop.contents = nil;
+        _backdrop.hidden = YES;
+        _flow.hidden = YES;
+        [_solid removeAnimationForKey:@"backgroundColor"];
+        [self applyColor:SGRNeutralField() animated:NO];
+        [self updateMotion];
+        return;
+    }
     SGRPaletteRequest request = {CGSizeZero, NO, YES, _flows, _mainColor};
     if (_showsBackdrop && !_flows && !_fluid) request.backdropSize = CGSizeMake(self.bounds.size.width > 0 ? self.bounds.size.width : 402, [self backdropHeightNow]);
     __weak SGRArtworkField *weakSelf = self;

@@ -61,7 +61,10 @@ static BOOL anyButtonSwitch(void) {
     }
     if (!any || !albumPageOf(self)) return;
     for (UIView *action in self.subviews) {
-        if (buttonHidden(action)) action.hidden = YES;
+        if (!buttonHidden(action)) continue;
+        action.alpha = 0;
+        action.userInteractionEnabled = NO;
+        action.accessibilityElementsHidden = YES;
     }
 }
 %end
