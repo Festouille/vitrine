@@ -1,8 +1,7 @@
 // Player redesign: a volume slider under the controls, as the Music app has. The row draws its own pill: it grows while
 // held, its glyphs move out, a drag anywhere on the row moves the volume by the finger's travel, and VoiceOver steps it.
-// Under it sits a hidden MPVolumeView whose slider the row reads and moves, so it is the system's volume: the hardware
-// buttons move it. A Connect device's own volume reaches Spotify, not iOS, so the row does not show it. No route
-// button: the footer's Connect glyph is the route.
+// Under it sits a hidden MPVolumeView for the system volume. With Connect speaker volume on, the row uses Spotify's
+// volume for a supported remote device instead. The footer's Connect glyph still opens the route picker.
 //
 // It sits in Spotify's bottom stack, outside its arranged views, between the controls and the footer row, so the
 // lyrics fade it with the rest of the stack (PlayerLyrics.x) and its touches stay inside the stack. The footer's
@@ -16,7 +15,9 @@
 #import <objc/runtime.h>
 #import "Core/SGCore.h"
 #import "Redesigned/Kit/SGRKit.h"
+#import "Settings/SGLocalize.h"
 #import "Player.h"
+#import "PlayerConnectVolume.h"
 
 // The row's height (the touch area) and the glyphs' point size and gap to the track.
 static const CGFloat kRowHeight = 32, kGlyphSize = 13, kGlyphGap = 10;
@@ -30,10 +31,14 @@ static const CGFloat kFillRest = 0.65, kFillHeld = 1, kEmpty = 0.24, kGlyphRest 
 
 static char kSessionContext;
 
-static UIImageView *glyph(NSString *symbol) {
+static UIImage *glyphImage(NSString *symbol) {
     UIImageSymbolConfiguration *configuration =
         [UIImageSymbolConfiguration configurationWithPointSize:kGlyphSize weight:UIImageSymbolWeightSemibold];
-    UIImageView *view = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:symbol withConfiguration:configuration]];
+    return [UIImage systemImageNamed:symbol withConfiguration:configuration];
+}
+
+static UIImageView *glyph(NSString *symbol) {
+    UIImageView *view = [[UIImageView alloc] initWithImage:glyphImage(symbol)];
     view.tintColor = UIColor.whiteColor;
     view.alpha = kGlyphRest;
     view.contentMode = UIViewContentModeCenter;
@@ -68,8 +73,9 @@ static UIImageView *glyph(NSString *symbol) {
     UIView *_track, *_fill;
     UIImageView *_quiet, *_loud;
     CGFloat _value, _startValue, _startX, _trackMin, _trackMax;
-    BOOL _held;
-    CFTimeInterval _lastPush;
+    BOOL _held, _dragInterrupted, _dragChanged;
+    NSString *_connectRoute;
+    CFTimeInterval _lastPush, _lastConnectPush;
     NSHashTable<UIGestureRecognizer *> *_suspended;
 }
 
@@ -105,6 +111,10 @@ static UIImageView *glyph(NSString *symbol) {
                                        context:&kSessionContext];
     [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(refreshFromSystem)
                                                name:UIApplicationDidBecomeActiveNotification object:nil];
+    if (SGRPlayerConnectVolumeOn()) {
+        [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(refreshFromConnect)
+                                                   name:SGRConnectVolumeDidChangeNotification object:nil];
+    }
 
     self.isAccessibilityElement = YES;
     self.accessibilityLabel = @"Volume";
@@ -154,25 +164,64 @@ static UIImageView *glyph(NSString *symbol) {
 // The session's volume, not the slider's: a volume view made at launch holds 0 in its slider until it has asked the
 // system, which it does with no setValue: the row then stood empty until touched (the session said 0.6, the slider 0).
 - (void)refreshFromSystem {
+    if ([self refreshFromConnect]) return;
     [self refreshTo:AVAudioSession.sharedInstance.outputVolume];
 }
 
 - (void)refreshTo:(CGFloat)system {
     // Not while the finger is on it, nor just after it let go: the system settles on its own steps a moment later.
-    if (_held || CACurrentMediaTime() - _lastPush < 0.6) return;
+    if (_connectRoute || _held || CACurrentMediaTime() - _lastPush < 0.6) return;
     if (fabs(system - _value) > 0.002) [self setValue:system fromUser:NO];
+}
+
+- (BOOL)refreshFromConnect {
+    if (!SGRPlayerConnectVolumeOn()) return NO;
+    double value;
+    NSString *route = SGRConnectVolumeRoute(&value);
+    BOOL changed = _connectRoute != route && ![_connectRoute isEqualToString:route];
+    if (changed) {
+        _connectRoute = route;
+        _lastConnectPush = 0;
+        if (_held) {
+            _dragInterrupted = YES;
+            [self setHeld:NO];
+        }
+        self.accessibilityLabel = route ? SGL(@"Connect speaker volume") : @"Volume";
+        UIImage *speaker = route ? glyphImage(@"hifispeaker.fill") : nil;
+        UIColor *tint = route ? SGRAccent() : UIColor.whiteColor;
+        for (UIImageView *glyphView in @[_quiet, _loud]) {
+            UIImage *image = speaker ?: glyphImage(glyphView == _quiet ? @"speaker.fill" : @"speaker.wave.3.fill");
+            void (^updateGlyph)(void) = ^{ glyphView.image = image; glyphView.tintColor = tint; };
+            if (self.window && !UIAccessibilityIsReduceMotionEnabled()) {
+                UIViewAnimationOptions options = UIViewAnimationOptionTransitionCrossDissolve | UIViewAnimationOptionAllowUserInteraction;
+                [UIView transitionWithView:glyphView duration:0.15 options:options animations:updateGlyph completion:nil];
+            } else updateGlyph();
+        }
+        SGRConnectVolumeRowVisible(self, route && self.window);
+        [self setValue:route ? value : AVAudioSession.sharedInstance.outputVolume fromUser:NO];
+    } else if (route && !_held && CACurrentMediaTime() - _lastConnectPush >= 0.8 && fabs(value - _value) > 0.002) {
+        [self setValue:value fromUser:NO];
+    }
+    return route != nil;
 }
 
 // The KVO the system sends as it settles falls inside the guard above, so the row reads it once the guard has passed,
 // from the slider it moved.
 - (void)refreshAfterPush {
     __weak SGRVolumeRow *weakSelf = self;
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.65 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        [weakSelf systemSliderSet];
+    BOOL remote = _connectRoute != nil;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)((remote ? 0.9 : 0.65) * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        if (remote) [weakSelf refreshFromConnect];
+        else [weakSelf systemSliderSet];
     });
 }
 
 - (void)pushVolume {
+    if (_connectRoute) {
+        if (SGRConnectSetVolume(_connectRoute, _value, !_held)) _lastConnectPush = CACurrentMediaTime();
+        else [self refreshFromConnect];
+        return;
+    }
     UISlider *slider = [self systemSlider];
     if (!slider) return;
     _lastPush = CACurrentMediaTime();
@@ -238,10 +287,12 @@ static UIImageView *glyph(NSString *symbol) {
     if (!self.window) {
         // A lock or a call can take the row off screen mid-drag, and then end or cancel tracking may not come.
         [self setHeld:NO];
+        SGRConnectVolumeRowVisible(self, NO);
         return;
     }
     [self systemSlider];
     [self refreshFromSystem];
+    if (_connectRoute) SGRConnectVolumeRowVisible(self, YES);
 }
 
 // Prevent the player from stealing volume swipe gesture.
@@ -297,6 +348,8 @@ static UIImageView *glyph(NSString *symbol) {
 }
 
 - (BOOL)beginTrackingWithTouch:(UITouch *)touch withEvent:(UIEvent *)event {
+    [self refreshFromConnect];
+    _dragInterrupted = _dragChanged = NO;
     _startX = [touch locationInView:self].x;
     _startValue = _value;
     [self setHeld:YES];
@@ -305,21 +358,34 @@ static UIImageView *glyph(NSString *symbol) {
 
 // Relative to where the finger came down: the value moves by the finger's travel over the track's length.
 - (BOOL)continueTrackingWithTouch:(UITouch *)touch withEvent:(UIEvent *)event {
+    [self refreshFromConnect];
+    if (_dragInterrupted) return NO;
     CGFloat span = MAX(1, _trackMax - _trackMin);
+    _dragChanged = YES;
     [self setValue:_startValue + ([touch locationInView:self].x - _startX) / span fromUser:YES];
     return YES;
 }
 
-- (void)endTrackingWithTouch:(UITouch *)touch withEvent:(UIEvent *)event { [self setHeld:NO]; }
-- (void)cancelTrackingWithEvent:(UIEvent *)event { [self setHeld:NO]; }
+- (void)finishTracking {
+    if (_held && _dragChanged && _connectRoute) {
+        if (SGRConnectSetVolume(_connectRoute, _value, YES)) _lastConnectPush = CACurrentMediaTime();
+        else [self refreshFromConnect];
+    }
+    [self setHeld:NO];
+}
+
+- (void)endTrackingWithTouch:(UITouch *)touch withEvent:(UIEvent *)event { [self finishTracking]; }
+- (void)cancelTrackingWithEvent:(UIEvent *)event { [self finishTracking]; }
 
 - (NSString *)accessibilityValue { return [NSString stringWithFormat:@"%d%%", (int)round(_value * 100)]; }
 - (void)accessibilityIncrement {
+    [self refreshFromConnect];
     [self setValue:_value + 0.0625 fromUser:YES];
     [self refreshAfterPush];
 }
 
 - (void)accessibilityDecrement {
+    [self refreshFromConnect];
     [self setValue:_value - 0.0625 fromUser:YES];
     [self refreshAfterPush];
 }

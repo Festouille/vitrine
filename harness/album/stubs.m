@@ -1,6 +1,8 @@
 // What the harness does not compile: the accent hook (SGRAccent.x) and the repaint hook (SGRRepaint.x).
 #import <UIKit/UIKit.h>
 UIColor *SGRAccentColor(void) { return nil; }
+__weak UIView *sgr_sheetChromeRoot = nil;
+void SGRWatchSheetPaint(UIView *root) {}
 __weak UIView *sgr_nowPlayingRoot = nil;
 NSHashTable<UIView *> *sgr_nowPlayingPainted = nil;
 __weak UIView *sgr_lyricsCardRoot = nil;
