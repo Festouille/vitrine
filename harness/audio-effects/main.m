@@ -368,7 +368,7 @@ static void checkOutput(Audio song) {
         SGDSPEngineSetOutput(engine, 12, thresholds[t], 60);
         SGDSPEngineRestart(engine);
         Audio loud = copyAudio(song);
-        loud.frames = (size_t)kRate * 20;
+        loud.frames = MIN(loud.frames, (size_t)kRate * 20);
         run(engine, loud, kPatternMixed);
         float peak = 0, ceiling = (float)pow(10, thresholds[t] / 20);
         bool fine = finiteAndBounded(loud, ceiling * 1.000001f, &peak);
@@ -1200,6 +1200,11 @@ int main(int argc, const char *argv[]) {
         malloc_logger = countAllocation;
 #endif
         Audio song = decode(@(argv[1]), kRate, stressOnly ? 12 : 60);
+        if (song.frames < (size_t)kRate * 5) {
+            printf("the song must decode to at least 5 s\n");
+            freeAudio(song);
+            return 2;
+        }
         printf("song: %.1f s at %.0f Hz\n", song.frames / kRate, kRate);
         makeRoom();
         if (stressOnly) {

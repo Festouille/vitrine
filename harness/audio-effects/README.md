@@ -26,6 +26,8 @@ and 471 in turn, 512, and a mix down to single frames), and each check prints a 
   `malloc_logger`, so Apple's reverb unit is counted too); rate changes, a reset, a thread changing settings while
   another processes; the cost of each effect per 1024-frame block. WAVs go to the out dir.
 
+Supply a song with at least five seconds of decodable audio.
+
     ./build.sh && build/audio-effects <song> <out dir>
     ./build.sh thread && build/audio-effects-thread <song> <out dir>
     ./build.sh address && build/audio-effects-address <song> <out dir>
