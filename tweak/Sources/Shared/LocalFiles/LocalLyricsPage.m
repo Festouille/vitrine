@@ -1,6 +1,5 @@
-// Imported LRC files, on the Lyrics page beside the sources: the files kept (a swipe deletes one), Import
-// for current track…, which links the file to the local file playing, and Import LRC…, matched by title
-// and artist. Both open Files and copy the file in.
+// Imported lyrics, on the Lyrics page beside the sources. The file picker copies in an LRC for matching
+// by name, or links a file to the track playing.
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 #import "Core/SGCore.h"
 #import "Settings/SGPage.h"
@@ -12,6 +11,7 @@
 typedef NS_ENUM(NSInteger, SGLRCImportRow) {
     SGLRCImportForTrack,
     SGLRCImportByName,
+    SGLRCImportOverride,
     SGLRCImportRowCount,
 };
 
@@ -33,13 +33,13 @@ static NSString *playingLocalFile(void) {
 @implementation SGImportedLRCFilesPage {
     NSArray<NSString *> *_files;
     UIView *_footer;
-    // The local file playing when Files opened for Import for current track, nil for Import LRC….
-    NSString *_linkTo;
+    NSString *_linkTo, *_trackTitle;
+    BOOL _override;
 }
 
 - (instancetype)init {
     if (!(self = [super initWithStyle:UITableViewStyleInsetGrouped])) return nil;
-    self.title = @"Imported LRC files";
+    self.title = @"Imported lyrics";
     return self;
 }
 
@@ -47,7 +47,8 @@ static NSString *playingLocalFile(void) {
     [super viewDidLoad];
     _footer = SGNote(@"Import for current track links the file to the local file playing, whatever its tags say. "
                       "Import LRC… keeps a file for any track whose title and artist match its [ti:] and [ar:] tags, "
-                      "or its name as \"Artist - Title\". Tap a file to adjust its timing, or swipe left to delete it.");
+                      "or its name as \"Artist - Title\". Use Assign TTML or LRC… to override online lyrics for the track playing. "
+                      "Swipe left to delete a file and remove its assignment.");
     self.tableView.tableFooterView = _footer;
 }
 
@@ -63,7 +64,7 @@ static NSString *playingLocalFile(void) {
 
 - (void)viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
-    _files = SGImportedLRCFiles();
+    _files = [SGImportedLRCFiles() arrayByAddingObjectsFromArray:SGImportedTrackLyricsFiles()];
     [self.tableView reloadData];
 }
 
@@ -72,7 +73,8 @@ static NSString *playingLocalFile(void) {
 }
 
 - (NSInteger)tableView:(UITableView *)table numberOfRowsInSection:(NSInteger)section {
-    return section == 0 ? MAX((NSInteger)_files.count, 1) : SGLRCImportRowCount;
+    return section == 0 ? MAX((NSInteger)_files.count, 1)
+        : (SGFlag(SGKeyTrackLyricsImport, NO) ? SGLRCImportRowCount : SGLRCImportOverride);
 }
 
 - (UIView *)tableView:(UITableView *)table viewForHeaderInSection:(NSInteger)section {
@@ -94,7 +96,16 @@ static NSString *playingLocalFile(void) {
 - (UITableViewCell *)tableView:(UITableView *)table cellForRowAtIndexPath:(NSIndexPath *)path {
     if (path.section == 1) {
         UITableViewCell *cell = SGDequeueCell(table, @"import");
-        if (path.row == SGLRCImportByName) {
+        if (path.row == SGLRCImportOverride) {
+            SPTPlayerTrack *track = SGPlayerState().track;
+            NSString *uri = SGURIString(track.URI);
+            BOOL canAssign = SGCanImportTrackLyrics(uri);
+            NSString *linked = SGTrackLyricsLinkedTo(uri);
+            NSString *detail = linked ? [NSString stringWithFormat:@"%@ · %@", track.trackTitle ?: @"Current track", linked.lastPathComponent]
+                : track.trackTitle ?: @"Start playing a song first";
+            SGFillCell(cell, @"Assign TTML or LRC…", canAssign ? detail : @"Start playing a song first",
+                       canAssign ? nil : SGGrey(), @"music.note");
+        } else if (path.row == SGLRCImportByName) {
             SGFillCell(cell, @"Import LRC…", @"Matched by title and artist", nil, @"square.and.arrow.down");
         } else {
             NSString *uri = playingLocalFile();
@@ -102,7 +113,7 @@ static NSString *playingLocalFile(void) {
             SGFillCell(cell, @"Import for current track…", uri ? title : @"Start playing a local track first",
                        uri ? nil : SGGrey(), @"music.note");
         }
-        BOOL enabled = path.row == SGLRCImportByName || playingLocalFile();
+        BOOL enabled = [self tableView:table shouldHighlightRowAtIndexPath:path];
         cell.selectionStyle = enabled ? UITableViewCellSelectionStyleDefault : UITableViewCellSelectionStyleNone;
         cell.accessibilityTraits = enabled ? UIAccessibilityTraitButton : UIAccessibilityTraitButton | UIAccessibilityTraitNotEnabled;
         return cell;
@@ -113,14 +124,22 @@ static NSString *playingLocalFile(void) {
         return cell;
     }
     NSString *name = _files[(NSUInteger)path.row];
+    if (name.pathComponents.count > 1) {
+        SGFillCell(cell, name.lastPathComponent, @"Track import", nil, nil);
+        cell.selectionStyle = UITableViewCellSelectionStyleNone;
+        return cell;
+    }
     NSInteger offset = SGImportedLRCOffset(name);
     NSString *detail = offset ? [NSString stringWithFormat:@"Timing offset: %+ld ms", (long)offset] : @"Timing offset: 0 ms";
     SGFillCell(cell, name, detail, nil, nil);
+    cell.selectionStyle = UITableViewCellSelectionStyleDefault;
     return cell;
 }
 
 - (BOOL)tableView:(UITableView *)table shouldHighlightRowAtIndexPath:(NSIndexPath *)path {
-    return path.section == 0 ? _files.count > 0 : (path.row == SGLRCImportByName || playingLocalFile());
+    if (path.section == 0) return _files.count && _files[(NSUInteger)path.row].pathComponents.count == 1;
+    if (path.row == SGLRCImportOverride) return SGCanImportTrackLyrics(SGURIString(SGPlayerState().track.URI));
+    return path.row == SGLRCImportByName || playingLocalFile();
 }
 
 - (void)editOffsetFor:(NSString *)name {
@@ -153,11 +172,14 @@ static NSString *playingLocalFile(void) {
 - (void)tableView:(UITableView *)table didSelectRowAtIndexPath:(NSIndexPath *)path {
     [table deselectRowAtIndexPath:path animated:YES];
     if (path.section == 0) {
-        if ((NSUInteger)path.row < _files.count) [self editOffsetFor:_files[(NSUInteger)path.row]];
+        if ([self tableView:table shouldHighlightRowAtIndexPath:path]) [self editOffsetFor:_files[(NSUInteger)path.row]];
         return;
     }
-    _linkTo = path.row == SGLRCImportForTrack ? playingLocalFile() : nil;
-    if (path.row == SGLRCImportForTrack && !_linkTo) return;
+    if (![self tableView:table shouldHighlightRowAtIndexPath:path]) return;
+    _override = path.row == SGLRCImportOverride;
+    SPTPlayerTrack *track = SGPlayerState().track;
+    _trackTitle = _override ? track.trackTitle : nil;
+    _linkTo = _override ? SGURIString(track.URI) : path.row == SGLRCImportForTrack ? playingLocalFile() : nil;
     // .lrc is nobody's registered type, so Files offers any file and the name is checked after.
     UIDocumentPickerViewController *picker = [[UIDocumentPickerViewController alloc] initForOpeningContentTypes:@[UTTypeData] asCopy:YES];
     picker.delegate = self;
@@ -179,28 +201,28 @@ static NSString *playingLocalFile(void) {
 }
 
 - (void)reloadFiles {
-    _files = SGImportedLRCFiles();
-    [self.tableView reloadSections:[NSIndexSet indexSetWithIndex:0] withRowAnimation:UITableViewRowAnimationFade];
+    _files = [SGImportedLRCFiles() arrayByAddingObjectsFromArray:SGImportedTrackLyricsFiles()];
+    [self.tableView reloadData];
 }
 
 - (void)documentPicker:(UIDocumentPickerViewController *)picker didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     NSURL *url = urls.firstObject;
     if (!url) return;
-    if (![url.pathExtension.lowercaseString isEqualToString:@"lrc"]) {
+    if (!_override && ![url.pathExtension.lowercaseString isEqualToString:@"lrc"]) {
         showAlert(self, @"Not an LRC file", @"Pick a file whose name ends in .lrc.");
         return;
     }
     NSError *error = nil;
-    NSString *name = SGImportLRC(url, _linkTo, &error);
+    NSString *name = _override ? SGImportTrackLyrics(url, _linkTo, &error) : SGImportLRC(url, _linkTo, &error);
     if (!name) {
         showAlert(self, @"Could not import the file", error.localizedDescription);
         return;
     }
     [self reloadFiles];
     if (_linkTo) {
-        NSString *title = SGLocalFileInfo(_linkTo)[@"title"];
-        showAlert(self, @"Lyrics linked", [NSString stringWithFormat:@"%@ now gives the lyrics for %@.", name,
-                                                                     title ? [NSString stringWithFormat:@"\"%@\"", title] : @"this local file"]);
+        NSString *title = _override ? _trackTitle : SGLocalFileInfo(_linkTo)[@"title"];
+        showAlert(self, @"Lyrics linked", [NSString stringWithFormat:@"%@ now gives the lyrics for %@.", name.lastPathComponent,
+                                                                     title ? [NSString stringWithFormat:@"\"%@\"", title] : @"this track"]);
     }
 }
 

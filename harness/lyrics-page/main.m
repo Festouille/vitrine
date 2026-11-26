@@ -11,6 +11,8 @@
 #import "Redesigned/Lyrics/LyricsLook.h"
 #import "Redesigned/Lyrics/SGRKaraokeView.h"
 
+UIViewController *SGHarnessImportPage(NSString *scenario);
+
 static int sg_failures;
 
 static void expect(BOOL ok, NSString *what) {
@@ -105,10 +107,11 @@ static void runChecks(UIViewController *page) {
 @implementation SGHarnessDelegate
 - (BOOL)application:(UIApplication *)app didFinishLaunchingWithOptions:(NSDictionary *)options {
     NSUserDefaults *args = NSUserDefaults.standardUserDefaults;
+    NSString *scenario = [args stringForKey:@"import"];
     [args removeObjectForKey:SGRKeyLyricsLook];   // each launch starts from its own arguments
     if ([args objectForKey:@"preset"]) SGRSetLyricsLook(SGRLyricsLookPreset((NSUInteger)[args integerForKey:@"preset"]), nil);
     SGModSection *stand = SGSection(@"Sources", @[SGSwitchRow(@"Lyrics for every track", @"Even where Spotify has none", @"harness.everyTrack")]);
-    UIViewController *page = SGRLyricsSettingsPage(@"Lyrics", SGRestartNote, @[stand]);
+    UIViewController *page = scenario ? SGHarnessImportPage(scenario) : SGRLyricsSettingsPage(@"Lyrics", SGRestartNote, @[stand]);
     UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:page];
     nav.navigationBar.prefersLargeTitles = NO;
     nav.overrideUserInterfaceStyle = UIUserInterfaceStyleDark;

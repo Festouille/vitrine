@@ -5,25 +5,69 @@
 // wrong answer.
 #import <UIKit/UIKit.h>
 #import "Shared/Lyrics/Lyrics.h"
+#import "Shared/AnimatedArtwork/AnimatedArtwork.h"
+#import "Shared/LocalFiles/LocalLyrics.h"
 #import "Shared/LyricsSources/LyricsSources.h"
 #import "Shared/LyricsTranslation/LyricsTranslation.h"
+#import "Shared/Player/PlayerState.h"
+
+static NSString *sg_language;
+static SGLyricsResult *sg_import;
+static void (^sg_reply)(NSDictionary<NSString *, NSString *> *);
 
 // What the files reach outside what is checked here; none of it is called.
 @implementation SGLyricsResult
 @end
+@implementation SGLyricsQuery
+@end
 void SGLyricsNoteReply(NSURLResponse *response, NSError *error) {}
 SGLyricsResult *SGLyricsPlainResult(NSArray<NSString *> *rows) { return nil; }
-NSString *SGLyricsTranslationLanguage(void) { return nil; }
+NSString *SGLyricsTranslationLanguage(void) { return sg_language; }
 SGModRow *SGStatActionRow(NSString *t, NSString *s, NSString *(^v)(void), void (^a)(void)) { return nil; }
 SGModRow *SGOptionRow(NSString *t, NSString *s, NSString *k) { return nil; }
 SGModRow *SGSwitchRow(NSString *t, NSString *s, NSString *k) { return nil; }
-id SGKaraokeTrackFor(NSString *trackID) { return nil; }
 UIViewController *SGTopController(void) { return nil; }
 SGModRow *SGMenuRow(NSString *t, NSArray<NSString *> *c, NSString *(^v)(void), void (^ch)(NSInteger)) { return nil; }
 void SGPresentDark(UIViewController *controller) {}
 BOOL SGFlag(NSString *key, BOOL fallback) {
     id v = [NSUserDefaults.standardUserDefaults objectForKey:key];
     return v ? [v boolValue] : fallback;
+}
+BOOL SGHidden(NSString *key) { return SGFlag(key, NO); }
+NSInteger SGInt(NSString *key, NSInteger fallback) { return fallback; }
+BOOL SGRedesignedUI(void) { return YES; }
+BOOL SGNativeUI(void) { return NO; }
+void SGRequireClasses(NSArray<NSString *> *names) {}
+void SGAddPlayerStateObserver(id<SGPlayerStateObserver> observer) {}
+SGLockArtwork SGLockScreenArtwork(void) { return 0; }
+BOOL SGLockCoverLyricsWanted(void) { return NO; }
+BOOL SGLockCoverLyricsPicked(void) { return NO; }
+double SGSingHeldLead(void) { return 0; }
+double SGSingLeadOf(SPTPlayerState *state) { return 0; }
+NSString *const SGLyricsOwnRequestKey = @"own";
+BOOL SGLyricsEnabled(void) { return NO; }
+BOOL SGLyricsReplyFailed(NSURLResponse *response, NSError *error) { return YES; }
+void SGLyricsFetch(NSString *track, void (^done)(SGLyricsResult *)) { done(nil); }
+void SGLyricsPrefetch(NSString *track) {}
+void SGLyricsSetCredit(NSString *track, NSString *credit) {}
+NSString *SGLyricsCreditFor(NSString *track) { return nil; }
+NSString *SGLyricsChosenSource(NSString *track) { return nil; }
+id SGLyricsKeptAnswer(NSString *track) { return nil; }
+SGLyricsQuery *SGLyricsQueryFor(NSString *track) { return nil; }
+NSArray<NSString *> *SGLyricsOrder(void) { return @[]; }
+void SGLyricsKeepChosen(NSString *track, SGLyricsResult *result) {}
+void SGLyricsRestoreKept(NSString *track, id kept) {}
+NSArray<NSString *> *SGLyricsForgetImportedAnswers(void) { return @[]; }
+SGLyricsProvider *SGLyricsProviderFor(NSString *key) { return nil; }
+SGLyricsResult *SGImportedLRCFor(NSString *track, NSString *title, NSString *artist) { return nil; }
+NSString *const SGImportedLRCKey = @"importedLRC";
+NSNotificationName const SGImportedLRCDidChangeNotification = @"importedLRC";
+NSNotificationName const SGTrackLyricsDidChangeNotification = @"trackImport";
+SGLyricsAsk SGImportedLRCAsk = ^(SGLyricsQuery *query, void (^done)(SGLyricsResult *)) { done(nil); };
+SGLyricsResult *SGTrackLyricsOverride(NSString *track) { return sg_import; }
+NSString *SGTrackLyricsLinkedTo(NSString *track) { return sg_import ? @"test.ttml" : nil; }
+void SGMusixmatchTranslations(NSString *track, NSString *language, void (^done)(NSDictionary<NSString *, NSString *> *)) {
+    sg_reply = [done copy];
 }
 
 #define CHECK(cond) do { if (!(cond)) { fprintf(stderr, "FAILED line %d: %s\n", __LINE__, #cond); exit(1); } } while (0)
@@ -61,6 +105,42 @@ int main(void) {
         CHECK(translated[1] == lines[1] && !translated[1].translation);  // no match: the same line
         CHECK([translated[2].translation isEqualToString:@"Nothing"]);   // a translation of its own stays
         CHECK(!SGMusixmatchTranslatedLines(lines, @{@"nothing here": @"x"}));
+
+        NSString *track = @"0123456789012345678901";
+        sg_import = [SGLyricsResult new];
+        SGKaraokeLine *wordTimed = [lines[0] copy];
+        wordTimed.timing = SGKaraokeTimingWords;
+        sg_import.karaokeLines = @[wordTimed, lines[1]];
+        SGKaraokeRequestLyrics(track);
+        CHECK(!sg_reply);
+        sg_language = @"en";
+        SGKaraokeRequestLyrics(track);
+        CHECK(sg_reply && SGKaraokeLinesForTrack(track) == sg_import.karaokeLines);
+        sg_reply(byLine);
+        NSArray<SGKaraokeLine *> *assigned = SGKaraokeLinesForTrack(track);
+        CHECK([assigned[0].translation isEqualToString:@"Where is love?"] && assigned[0] != wordTimed);
+        CHECK(!wordTimed.translation && assigned[0].timing == SGKaraokeTimingWords && assigned[0].words == wordTimed.words);
+        sg_reply = nil;
+        SGKaraokeRequestLyrics(track);
+        CHECK(!sg_reply && SGKaraokeLinesForTrack(track) == assigned);
+        __block NSUInteger invalidations = 0;
+        id observer = [NSNotificationCenter.defaultCenter addObserverForName:SGKaraokeLinesInvalidatedNotification object:track
+            queue:nil usingBlock:^(NSNotification *note) { invalidations++; }];
+        sg_language = @"es";
+        SGKaraokeRefreshImportedTranslation(track);
+        CHECK(invalidations == 1 && sg_reply && SGKaraokeLinesForTrack(track) == sg_import.karaokeLines);
+        sg_reply(@{SGMusixmatchLineKey(@"ou est L'AMOUR"): @"¿Dónde está el amor?"});
+        CHECK([SGKaraokeLinesForTrack(track)[0].translation isEqualToString:@"¿Dónde está el amor?"]);
+        sg_reply = nil;
+        sg_language = nil;
+        SGKaraokeRefreshImportedTranslation(track);
+        CHECK(invalidations == 2 && !sg_reply);
+        CHECK(SGKaraokeLinesForTrack(track) == sg_import.karaokeLines);
+        [NSNotificationCenter.defaultCenter removeObserver:observer];
+        sg_import = nil;
+        CHECK(!SGKaraokeLinesForTrack(track));
+        puts("lyrics translation: assigned karaoke lyrics receive matching community translations");
+        puts("lyrics translation: changing the language refreshes the playing track's assignment");
 
         // Gemini's language by the whole tag, so the script survives.
         NSLocale *english = [NSLocale localeWithLocaleIdentifier:@"en"];

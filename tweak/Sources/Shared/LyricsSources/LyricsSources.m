@@ -685,6 +685,8 @@ NSString *SGLyricsTranslationLanguage(void) {
 }
 
 NSString *SGLyricsCreditFor(NSString *trackID) {
+    NSString *imported = SGTrackLyricsOverride(trackID).provider;
+    if (imported) return imported;
     setUp();
     @synchronized (sg_credits) { return trackID ? sg_credits[trackID] : nil; }
 }

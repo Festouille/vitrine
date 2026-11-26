@@ -4,6 +4,7 @@
 #import "Core/SGCore.h"
 #import "LyricsSources.h"
 #import "Shared/AdBlock/Protobuf.h"
+#import "Shared/LocalFiles/LocalLyrics.h"
 #import "Headers/SPTPlayer.h"
 #import <os/lock.h>
 
@@ -50,6 +51,7 @@ typedef NS_ENUM(NSInteger, SGLyricsTaskKind) {
 
 static char kStateKey, kAnswerKey;
 static NSData *sg_sectionTemplate;
+static BOOL sg_useSources;
 static os_unfair_lock sg_templateLock = OS_UNFAIR_LOCK_INIT;
 
 #pragma mark - reading requests
@@ -82,6 +84,10 @@ static NSString *trackOf(SPTPlayerTrack *track) {
     id uri = track.URI;
     NSString *text = [uri isKindOfClass:NSURL.class] ? [uri absoluteString] : [uri description];
     return [text hasPrefix:kTrackPrefix] && text.length > kTrackPrefix.length ? [text substringFromIndex:kTrackPrefix.length] : nil;
+}
+
+static BOOL importsForNativePage(NSString *track) {
+    return SGNativeUI() && SGTrackLyricsLinkedTo(track) != nil;
 }
 
 static NSURL *urlOf(NSURLSessionTask *task) {
@@ -165,6 +171,8 @@ static NSString *timingName(NSArray<SGKaraokeLine *> *lines) {
 // Which lines Spotify's page and the lyrics view get, the view's kept and credited. The body returned
 // is the page's when the sources' lines replace Spotify's, nil when they do not.
 static NSData *decide(NSString *track, SGLyricsResult *chain, NSData *spotifyBody, BOOL donor, NSData *colours) {
+    SGLyricsResult *imported = SGNativeUI() ? SGTrackLyricsOverride(track) : nil;
+    if (imported.texts.count) return pageBody(imported, colours);
     NSArray<SGKaraokeLine *> *spotifyLines = spotifyBody ? SGKaraokeLinesFromBody(spotifyBody) : nil;
     if (!spotifyLines.count) spotifyLines = nil;
     SGKaraokeTiming spotifyTiming = SGKaraokeLinesTiming(spotifyLines);
@@ -317,7 +325,7 @@ static SGLyricsTaskState *classify(NSURLSessionTask *task, NSURLResponse *respon
     state.status = [response isKindOfClass:NSHTTPURLResponse.class] ? ((NSHTTPURLResponse *)response).statusCode : 0;
     NSString *cardTrack = cards ? cardListTrack(urlOf(task)) : nil;
     if (cardTrack) {
-        if (state.status != 200) return nil;
+        if (!sg_useSources || state.status != 200) return nil;
         state.kind = SGLyricsTaskCardList;
         state.track = cardTrack;
         state.body = [NSMutableData data];
@@ -328,6 +336,7 @@ static SGLyricsTaskState *classify(NSURLSessionTask *task, NSURLResponse *respon
     state.donor = track != nil;
     if (!track) track = lyricsTrack(original.URL) ?: lyricsTrack(current.URL);
     if (!track) return nil;
+    if (!sg_useSources && !SGTrackLyricsLinkedTo(track)) return nil;
     state.track = track;
     SGLog(@"lyrics: Spotify answered %ld for %@%@", (long)state.status, track, state.donor ? @" through the donor" : @"");
     if (state.status == 200 && !state.donor) {
@@ -346,7 +355,7 @@ static SGLyricsTaskState *classify(NSURLSessionTask *task, NSURLResponse *respon
 // turned into "no lyrics", and the donor's own lines must never show.
 static void answerDonor(NSURLSessionDataTask *task, SGLyricsTaskState *state, SGLyricsResult *chain,
                         NSURLResponse *response, SGDisposition handler, SGForwardResponse forward) {
-    if (chain.texts.count) {
+    if (chain.texts.count || importsForNativePage(state.track)) {
         @synchronized (state) {
             state.chain = chain;
             state.body = [NSMutableData data];
@@ -436,9 +445,11 @@ static void receivedResponse(id delegate, NSURLSession *session, NSURLSessionDat
         forward(response, handler);
         return;
     }
-    SGLyricsFetch(state.track, ^(SGLyricsResult *chain) {
+    void (^answer)(SGLyricsResult *) = ^(SGLyricsResult *chain) {
         answerHeld(delegate, session, task, state, chain, response, handler, forward);
-    });
+    };
+    if (sg_useSources && !importsForNativePage(state.track)) SGLyricsFetch(state.track, answer);
+    else dispatch_async(dispatch_get_main_queue(), ^{ answer(nil); });
 }
 
 static BOOL forwardsData(NSURLSessionTask *task, NSData *data) {
@@ -466,11 +477,13 @@ static void finishSpotify(id delegate, NSURLSession *session, NSURLSessionDataTa
         forward(nil);
         return;
     }
-    SGLyricsFetch(state.track, ^(SGLyricsResult *chain) {
+    void (^answer)(SGLyricsResult *) = ^(SGLyricsResult *chain) {
         NSData *page = decide(state.track, chain, body, NO, coloursIn(body));
         give(delegate, session, task, state, page ?: body);
         forward(nil);
-    });
+    };
+    if (sg_useSources && !importsForNativePage(state.track)) SGLyricsFetch(state.track, answer);
+    else answer(nil);
 }
 
 // Main queue.
@@ -478,7 +491,7 @@ static void finishDonor(id delegate, NSURLSession *session, NSURLSessionDataTask
                         NSData *body, NSError *error, SGForwardEnd forward) {
     SGLyricsResult *chain;
     @synchronized (state) { chain = state.chain; }
-    if (error || !chain) {
+    if (error) {
         forward(error);
         return;
     }
@@ -618,9 +631,10 @@ static void completed(id delegate, NSURLSession *session, NSURLSessionTask *task
 
 %ctor {
     SGLyricsMigrateLegacyKeys();
-    if (!SGLyricsEnabled()) return;
+    sg_useSources = SGLyricsEnabled();
+    if (!sg_useSources && (!SGNativeUI() || SGLyricsStandAsideForEevee())) return;
     %init(SGLyricsReplies);
-    BOOL everyTrack = SGEnabled(SGKeyLyricsAllTracks);
+    BOOL everyTrack = sg_useSources && SGEnabled(SGKeyLyricsAllTracks);
     if (everyTrack) {
         // The generator gives a class that only inherits the method an override of its own, which would
         // put a second hook in front of NSURLSession's.

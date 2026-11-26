@@ -158,6 +158,7 @@ static void show(NSString *trackID, NSString *credit, NSArray<SGKaraokeLine *> *
 }
 
 void SGLyricsChooseSource(NSString *trackID, NSString *key) {
+    if (SGTrackLyricsLinkedTo(trackID)) return;
     id result = sg_asks[trackID].answers[key];
     if (![result isKindOfClass:SGLyricsResult.class]) return;
     SGLyricsResult *lyrics = result;

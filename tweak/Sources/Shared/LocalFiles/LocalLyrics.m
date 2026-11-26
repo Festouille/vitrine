@@ -13,9 +13,12 @@
 
 NSString *const SGImportedLRCKey = @"importedLRC";
 NSNotificationName const SGImportedLRCDidChangeNotification = @"spotifyglass.localFiles.lrcDidChange";
+NSNotificationName const SGTrackLyricsDidChangeNotification = @"spotifyglass.lyrics.trackImportDidChange";
 
 static NSString *const kErrorDomain = @"spotifyglass.lrc";
 static NSString *const kCredit = @"Imported LRC";
+static NSString *const kTrackPrefix = @"spotify:track:";
+static NSString *const kTrackImports = @"Tracks";
 // A sheet of lyrics is a few kilobytes; anything near this is not one.
 static const NSUInteger kMostBytes = 1024 * 1024;
 
@@ -32,13 +35,23 @@ static NSString *directory(void) {
     return path;
 }
 
-NSArray<NSString *> *SGImportedLRCFiles(void) {
+static BOOL isTTML(NSString *name) {
+    return [name.pathExtension.lowercaseString isEqualToString:@"ttml"];
+}
+
+static NSArray<NSString *> *filesIn(NSString *subdirectory) {
     NSMutableArray<NSString *> *names = [NSMutableArray array];
-    for (NSString *name in [NSFileManager.defaultManager contentsOfDirectoryAtPath:directory() error:nil]) {
-        if ([name.pathExtension.lowercaseString isEqualToString:@"lrc"]) [names addObject:name];
+    NSString *path = subdirectory ? [directory() stringByAppendingPathComponent:subdirectory] : directory();
+    for (NSString *name in [NSFileManager.defaultManager contentsOfDirectoryAtPath:path error:nil]) {
+        if ([name.pathExtension.lowercaseString isEqualToString:@"lrc"] || (subdirectory && isTTML(name))) {
+            [names addObject:subdirectory ? [subdirectory stringByAppendingPathComponent:name] : name];
+        }
     }
     return [names sortedArrayUsingSelector:@selector(localizedStandardCompare:)];
 }
+
+NSArray<NSString *> *SGImportedLRCFiles(void) { return filesIn(nil); }
+NSArray<NSString *> *SGImportedTrackLyricsFiles(void) { return filesIn(kTrackImports); }
 
 #pragma mark - the links
 
@@ -82,6 +95,38 @@ NSString *SGImportedLRCLinkedTo(NSString *uri) {
     return [name isKindOfClass:NSString.class] ? name : nil;
 }
 
+static BOOL isTrackID(NSString *trackID) {
+    static NSCharacterSet *invalid;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        invalid = [[NSCharacterSet characterSetWithCharactersInString:@"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"] invertedSet];
+    });
+    return trackID.length == 22 && [trackID rangeOfCharacterFromSet:invalid].location == NSNotFound;
+}
+
+BOOL SGCanImportTrackLyrics(NSString *uri) {
+    return SGFlag(SGKeyTrackLyricsImport, NO) && (SGLocalFileIs(uri)
+        || ([uri hasPrefix:kTrackPrefix] && isTrackID([uri substringFromIndex:kTrackPrefix.length])));
+}
+
+// Prefix the assignment keys so disabling the switch restores any existing local-file links.
+static NSString *assignmentKey(NSString *track) {
+    if (!track.length) return nil;
+    NSString *key = bareURI(track);
+    if (!key) {
+        key = [track hasPrefix:kTrackPrefix] ? [track substringFromIndex:kTrackPrefix.length] : track;
+        if (!isTrackID(key)) return nil;
+    }
+    return [@"override:" stringByAppendingString:key];
+}
+
+NSString *SGTrackLyricsLinkedTo(NSString *track) {
+    if (!SGFlag(SGKeyTrackLyricsImport, NO)) return nil;
+    NSString *key = assignmentKey(track);
+    id name = key ? allLinks()[key] : nil;
+    return [name isKindOfClass:NSString.class] ? name : nil;
+}
+
 NSInteger SGImportedLRCOffset(NSString *name) {
     if (!name.length) return 0;
     id value = [NSUserDefaults.standardUserDefaults dictionaryForKey:SGKeyImportedLRCOffsets][name];
@@ -116,6 +161,7 @@ void SGSetImportedLRCOffset(NSString *name, NSInteger offset) {
 @property (nonatomic, copy) NSArray<NSArray *> *stamped;
 @property (nonatomic) NSInteger fileOffset;
 @property (nonatomic) BOOL synced;
+@property (nonatomic, strong) SGLyricsResult *overrideResult;
 @end
 
 @implementation SGLRCSheet
@@ -205,6 +251,23 @@ static SGLRCSheet *sheetFrom(NSString *lrc) {
 // Read once each; an import or a delete starts over.
 static NSMutableDictionary<NSString *, SGLRCSheet *> *sg_sheets;
 
+static SGLRCSheet *sheetForText(NSString *text, NSString *name) {
+    if (!isTTML(name)) return sheetFrom(text);
+    if ([text hasPrefix:@"<?xml "]) {
+        NSRange declaration = [text rangeOfString:@"?>"];
+        if (declaration.location != NSNotFound) text = [text substringFromIndex:NSMaxRange(declaration)];
+    }
+    SGLRCSheet *sheet = [SGLRCSheet new];
+    sheet.lines = SGKaraokeInTimeOrder(SGTTMLLines(text));
+    sheet.synced = SGKaraokeLinesTiming(sheet.lines) != SGKaraokeTimingNone;
+    NSArray<NSNumber *> *starts;
+    NSArray<NSString *> *texts;
+    SGLyricsPageLines(sheet.lines, &starts, &texts);
+    sheet.starts = starts;
+    sheet.texts = texts;
+    return sheet;
+}
+
 static SGLRCSheet *sheetNamed(NSString *name) {
     static dispatch_once_t once;
     dispatch_once(&once, ^{ sg_sheets = [NSMutableDictionary dictionary]; });
@@ -213,7 +276,7 @@ static SGLRCSheet *sheetNamed(NSString *name) {
         if (kept) return kept;
     }
     NSString *text = [NSString stringWithContentsOfFile:[directory() stringByAppendingPathComponent:name] encoding:NSUTF8StringEncoding error:nil];
-    SGLRCSheet *sheet = text ? sheetFrom(text) : nil;
+    SGLRCSheet *sheet = text ? sheetForText(text, name) : nil;
     if (!sheet) return nil;
     @synchronized (sg_sheets) { sg_sheets[name] = sheet; }
     return sheet;
@@ -297,9 +360,10 @@ static void localNames(NSString *trackID, NSString **title, NSMutableArray<NSStr
 static SGLyricsResult *resultOf(SGLRCSheet *sheet, NSString *name, NSString *title, NSString *artist) {
     if (!sheet.lines.count) return nil;
     SGLyricsResult *result = [SGLyricsResult new];
-    result.provider = kCredit;
+    result.provider = isTTML(name) ? @"Imported TTML" : kCredit;
     result.synced = sheet.synced;
     result.karaokeLines = sheet.lines;
+    result.wordTimed = SGKaraokeLinesTiming(sheet.lines) == SGKaraokeTimingWords;
     result.starts = sheet.starts;
     result.texts = sheet.texts;
     NSInteger correction = sheet.synced ? SGImportedLRCOffset(name) : 0;
@@ -314,6 +378,16 @@ static SGLyricsResult *resultOf(SGLRCSheet *sheet, NSString *name, NSString *tit
     result.title = sheet.title ?: title;
     result.artist = sheet.artist ?: artist;
     return result;
+}
+
+SGLyricsResult *SGTrackLyricsOverride(NSString *track) {
+    NSString *name = SGTrackLyricsLinkedTo(track);
+    SGLRCSheet *sheet = name ? sheetNamed(name) : nil;
+    if (!sheet) return nil;
+    @synchronized (sheet) {
+        if (!sheet.overrideResult) sheet.overrideResult = resultOf(sheet, name, nil, nil);
+        return sheet.overrideResult;
+    }
 }
 
 SGLyricsResult *SGImportedLRCFor(NSString *trackID, NSString *title, NSString *artist) {
@@ -358,21 +432,24 @@ static void changed(void) {
 }
 
 // The name it came with, "/" made safe, and " (2)", " (3)" and on when one by that name is kept.
-static NSString *freeName(NSString *given) {
+static NSString *freeName(NSString *given, NSString *subdirectory) {
     NSString *name = [given stringByReplacingOccurrencesOfString:@"/" withString:@"-"];
     NSString *base = name.stringByDeletingPathExtension, *extension = name.pathExtension;
     if (!base.length || [base hasPrefix:@"."]) base = [@"Lyrics" stringByAppendingString:base];
     name = [base stringByAppendingPathExtension:extension];
-    for (NSUInteger n = 2; [NSFileManager.defaultManager fileExistsAtPath:[directory() stringByAppendingPathComponent:name]]; n++) {
+    NSString *folder = subdirectory ? [directory() stringByAppendingPathComponent:subdirectory] : directory();
+    for (NSUInteger n = 2; [NSFileManager.defaultManager fileExistsAtPath:[folder stringByAppendingPathComponent:name]]; n++) {
         name = [[NSString stringWithFormat:@"%@ (%lu)", base, (unsigned long)n] stringByAppendingPathExtension:extension];
     }
-    return name;
+    return subdirectory ? [subdirectory stringByAppendingPathComponent:name] : name;
 }
 
-NSString *SGImportLRC(NSURL *url, NSString *uri, NSError **error) {
+static NSString *importFile(NSURL *url, NSString *uri, BOOL override, NSError **error) {
     BOOL scoped = [url startAccessingSecurityScopedResource];
     NSError *readError = nil;
-    NSData *data = [NSData dataWithContentsOfURL:url options:0 error:&readError];
+    NSFileHandle *file = [NSFileHandle fileHandleForReadingFromURL:url error:&readError];
+    NSData *data = [file readDataUpToLength:kMostBytes + 1 error:&readError];
+    [file closeFile];
     if (scoped) [url stopAccessingSecurityScopedResource];
     NSString *reason = nil, *text = nil;
     if (!data) reason = readError.localizedDescription ?: @"The file could not be read.";
@@ -382,35 +459,59 @@ NSString *SGImportLRC(NSURL *url, NSString *uri, NSError **error) {
         text = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding]
             ?: [[NSString alloc] initWithData:data encoding:NSUTF16StringEncoding];
         if (!text) reason = @"The file is not UTF-8 or UTF-16 text.";
-        else if (![text containsString:@"]"]) reason = @"The file has no LRC tags or timestamps.";
+        else if (!isTTML(url.lastPathComponent) && ![text containsString:@"]"]) reason = @"The file has no LRC tags or timestamps.";
+        else if (override && !sheetForText(text, url.lastPathComponent).lines.count) reason = @"The file has no readable lyric lines.";
     }
     if (reason) {
         if (error) *error = refusal(reason);
         return nil;
     }
-    BOOL first = SGImportedLRCFiles().count == 0;
-    NSString *name = freeName(url.lastPathComponent);
+    BOOL first = !override && SGImportedLRCFiles().count == 0;
+    NSString *name = freeName(url.lastPathComponent, override ? kTrackImports : nil);
     NSError *writeError = nil;
-    [NSFileManager.defaultManager createDirectoryAtPath:directory() withIntermediateDirectories:YES attributes:nil error:&writeError];
-    if (![text writeToFile:[directory() stringByAppendingPathComponent:name] atomically:YES encoding:NSUTF8StringEncoding error:&writeError]) {
+    NSString *destination = [directory() stringByAppendingPathComponent:name];
+    if (![NSFileManager.defaultManager createDirectoryAtPath:destination.stringByDeletingLastPathComponent withIntermediateDirectories:YES attributes:nil error:&writeError]
+        || ![text writeToFile:destination atomically:YES encoding:NSUTF8StringEncoding error:&writeError]) {
         SGLog(@"lrc: %@ not written: %@", name, writeError);
         if (error) *error = writeError;
         return nil;
     }
-    NSString *bare = bareURI(uri);
-    if (bare) {
+    NSString *key = override ? assignmentKey(uri) : bareURI(uri);
+    if (key) {
         NSMutableDictionary *links = [allLinks() mutableCopy];
-        links[bare] = name;
+        links[key] = name;
         storeLinks(links);
     }
-    if (first || bare) moveToTop();
-    SGLog(@"lrc: imported %@%@", name, bare ? [@" for " stringByAppendingString:bare] : @"");
-    changed();
+    if (override) {
+        NSString *track = [uri hasPrefix:kTrackPrefix] ? [uri substringFromIndex:kTrackPrefix.length] : nil;
+        [NSNotificationCenter.defaultCenter postNotificationName:SGTrackLyricsDidChangeNotification object:track];
+    } else {
+        if (first || key) moveToTop();
+        SGLog(@"lrc: imported %@%@", name, key ? [@" for " stringByAppendingString:key] : @"");
+        changed();
+    }
     return name;
 }
 
+NSString *SGImportLRC(NSURL *url, NSString *uri, NSError **error) {
+    return importFile(url, uri, NO, error);
+}
+
+NSString *SGImportTrackLyrics(NSURL *url, NSString *uri, NSError **error) {
+    if (!SGCanImportTrackLyrics(uri)) {
+        if (error) *error = refusal(@"Turn on Import lyrics for any track and start playing a Spotify song or local file first.");
+        return nil;
+    }
+    if (!isTTML(url.lastPathComponent) && ![url.pathExtension.lowercaseString isEqualToString:@"lrc"]) {
+        if (error) *error = refusal(@"Pick a file whose name ends in .ttml or .lrc.");
+        return nil;
+    }
+    return importFile(url, uri, YES, error);
+}
+
 BOOL SGDeleteImportedLRC(NSString *name) {
-    if (!name.length || name.pathComponents.count != 1) return NO;
+    BOOL override = [SGImportedTrackLyricsFiles() containsObject:name];
+    if (!override && (!name.length || name.pathComponents.count != 1 || ![name.pathExtension.lowercaseString isEqualToString:@"lrc"])) return NO;
     NSError *error = nil;
     if (![NSFileManager.defaultManager removeItemAtPath:[directory() stringByAppendingPathComponent:name] error:&error]) {
         SGLog(@"lrc: %@ not deleted: %@", name, error);
@@ -420,6 +521,9 @@ BOOL SGDeleteImportedLRC(NSString *name) {
     [links removeObjectsForKeys:[links allKeysForObject:name]];
     storeLinks(links);
     storeOffset(name, 0);
-    changed();
+    if (override) {
+        forgetSheets();
+        [NSNotificationCenter.defaultCenter postNotificationName:SGTrackLyricsDidChangeNotification object:nil];
+    } else changed();
     return YES;
 }

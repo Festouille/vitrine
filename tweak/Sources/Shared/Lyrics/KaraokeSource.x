@@ -46,6 +46,7 @@ static NSString *sg_lastSeenID;   // the player makes a new track object on ever
 static BOOL sg_ownSources;   // a source of the mod's answers the color-lyrics request, not Spotify
 static BOOL sg_prefetchLocalLyrics;
 static char kBodyKey;
+static char kImportedTranslationKey;
 
 static NSString *trackInURL(NSURL *url) {
     NSString *path = url.path;
@@ -102,15 +103,23 @@ static SPTPlayerTrack *upNextIn(SPTPlayerState *state) {
 // translations, so the native look asks for none. The translated lines are copies kept in place of the
 // lines: the lyrics view measures lines off the main thread, and a new array is what tells it to look.
 // Musixmatch answers at once once it has answered, so lines kept again take the translations straight away.
-static void translate(NSString *track) {
+static void translate(NSString *track, NSArray<SGKaraokeLine *> *imported) {
     NSString *language = SGRedesignedUI() ? SGLyricsTranslationLanguage() : nil;
-    if (!language || SGKaraokeHasTranslations(sg_lyrics[track])) return;
+    if (!language || SGKaraokeHasTranslations(imported ?: sg_lyrics[track])) return;
+    NSDictionary *cached = imported ? objc_getAssociatedObject(imported, &kImportedTranslationKey) : nil;
+    if (cached[language]) return;
     SGMusixmatchTranslations(track, language, ^(NSDictionary<NSString *, NSString *> *byLine) {
         // Whatever is kept by now, which may be Spotify's timed lines in place of the plain ones asked for.
-        NSArray<SGKaraokeLine *> *kept = sg_lyrics[track];
+        NSArray<SGKaraokeLine *> *kept = imported ?: sg_lyrics[track];
         if (!byLine || SGKaraokeHasTranslations(kept)) return;
         NSArray<SGKaraokeLine *> *translated = SGMusixmatchTranslatedLines(kept, byLine);
-        if (translated) sg_lyrics[track] = translated;
+        if (!translated) return;
+        if (imported) {
+            if (![language isEqualToString:SGLyricsTranslationLanguage()]) return;
+            objc_setAssociatedObject(imported, &kImportedTranslationKey, @{language: translated}, OBJC_ASSOCIATION_RETAIN);
+        } else {
+            sg_lyrics[track] = translated;
+        }
     });
 }
 
@@ -142,7 +151,7 @@ static void keep(NSString *track, NSArray<SGKaraokeLine *> *lines) {
         }
     }
     sg_lyrics[track] = SGKaraokeInTimeOrder(lines);
-    if (lines.count) translate(track);
+    if (lines.count) translate(track, nil);
     announce(track);
 }
 
@@ -182,13 +191,19 @@ static void completed(NSURLSessionTask *task, NSError *error) {
     NSArray<SGKaraokeLine *> *lines = SGKaraokeLinesFromBody(body);
     SGLog(@"karaoke: lyrics for %@, %lu bytes, %lu synced lines", track, (unsigned long)body.length, (unsigned long)lines.count);
     dispatch_async(dispatch_get_main_queue(), ^{
+        if (SGNativeUI() && SGTrackLyricsLinkedTo(track)) return;
         SGKaraokeKeepPageLines(track, lines);
         if (lines) keep(track, lines);
     });
 }
 
 NSArray<SGKaraokeLine *> *SGKaraokeLinesForTrack(NSString *trackID) {
-    return trackID ? sg_lyrics[trackID] : nil;
+    if (!trackID) return nil;
+    NSArray<SGKaraokeLine *> *imported = SGTrackLyricsOverride(trackID).karaokeLines;
+    if (!imported) return sg_lyrics[trackID];
+    NSDictionary *cached = objc_getAssociatedObject(imported, &kImportedTranslationKey);
+    NSString *language = cached ? SGLyricsTranslationLanguage() : nil;
+    return (language ? cached[language] : nil) ?: imported;
 }
 
 // Main queue only. The track stays asked for through the pause, so the readers asking on every tick
@@ -357,7 +372,13 @@ static BOOL askLrcLib(NSString *trackID, void (^done)(SGLyricsResult *lyrics)) {
 
 // Main queue only.
 static void requestLyrics(NSString *trackID, BOOL allowRemote) {
-    if (!trackID || sg_lyrics[trackID] || [sg_requested containsObject:trackID]) return;
+    if (!trackID) return;
+    NSArray<SGKaraokeLine *> *assigned = SGTrackLyricsOverride(trackID).karaokeLines;
+    if (assigned) {
+        translate(trackID, assigned);
+        return;
+    }
+    if (sg_lyrics[trackID] || [sg_requested containsObject:trackID]) return;
     // spclient has nothing for a local file, which only the sources can name. A file of the user's own,
     // linked to it or matching its names, comes before every source.
     BOOL local = SGLocalFileIs(trackID);
@@ -409,6 +430,14 @@ static void requestLyrics(NSString *trackID, BOOL allowRemote) {
 
 void SGKaraokeRequestLyrics(NSString *trackID) {
     requestLyrics(trackID, YES);
+}
+
+void SGKaraokeRefreshImportedTranslation(NSString *trackID) {
+    if (!trackID) return;
+    NSArray<SGKaraokeLine *> *assigned = SGTrackLyricsOverride(trackID).karaokeLines;
+    if (!assigned) return;
+    [NSNotificationCenter.defaultCenter postNotificationName:SGKaraokeLinesInvalidatedNotification object:trackID];
+    translate(trackID, assigned);
 }
 
 id SGKaraokePlayer(void) {
@@ -502,6 +531,9 @@ static void prefetch(SPTPlayerTrack *track, NSString *trackID, SPTPlayerState *s
     // the main queue's.
     BOOL local = SGLocalFileIs(trackID);
     if (local && sg_prefetchLocalLyrics) dispatch_async(dispatch_get_main_queue(), ^{ SGKaraokeRequestLyrics(trackID); });
+    else if (SGRedesignedUI() && SGTrackLyricsLinkedTo(trackID)) {
+        dispatch_async(dispatch_get_main_queue(), ^{ requestLyrics(trackID, NO); });
+    }
     if (!sg_ownSources) return;
     if (!local) SGLyricsPrefetch(trackID);
     SPTPlayerTrack *next = upNextIn(state);
@@ -590,6 +622,14 @@ static BOOL linesShown(void) {
     sg_losses = [NSMutableDictionary dictionary];
     sg_looking = [NSMutableSet set];
     sg_ownSources = SGLyricsEnabled();
+    [NSNotificationCenter.defaultCenter addObserverForName:SGTrackLyricsDidChangeNotification object:nil queue:nil
+                                                usingBlock:^(NSNotification *note) {
+        NSString *playing = SGKaraokePlayingTrack();
+        if (!playing || (note.object && ![note.object isEqual:playing])) return;
+        [NSNotificationCenter.defaultCenter postNotificationName:SGKaraokeLinesInvalidatedNotification object:playing];
+        if (linesShown() || sg_prefetchLocalLyrics) SGKaraokeRequestLyrics(playing);
+        announce(playing);
+    }];
     // A rename gives the file playing a new lyrics key at once, with no new state from the player to
     // bring it here, so the new key is asked for now; the redesign's lyrics view shows what comes in.
     // Posted on the main thread.

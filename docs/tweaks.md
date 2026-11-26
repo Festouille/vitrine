@@ -249,12 +249,17 @@ Shared:
                   with no source switched on, of LRCLIB alone, which then gets the file's title, artist, album and
                   length. A rename gives a new key (a cover alone does not), asked for at once while the file plays.
                   A miss is asked again a few times, in case it was a lost request. The user's own .lrc files
-                  (LocalLyrics.m), imported from Files on the Imported LRC files page under Lyrics' sources and kept
+                  (LocalLyrics.m), imported from Files on the Imported lyrics page under Lyrics' sources and kept
                   as UTF-8 in Documents/Vitrine/Lyrics, come before any source: a file linked to the local file
                   playing (Import for current track) is its lyrics whatever its tags say, and any other is matched by
                   [ti:] and [ar:], or a name of "Artist - Title", folded; an import or a delete has the engine forget
                   what it kept for local files and ask again. SGImportedLRCAsk is the same as a source for the
                   order, which moves it on top at the first import and at every link once LyricsSources lists it.
+                  With Import lyrics for any track on, Assign TTML or LRC links a copy from Files to the track
+                  playing, by Spotify ID or local URI rather than by tags. These copies sit in the Tracks
+                  subdirectory and take precedence over online lyrics and source choices. TTML keeps its word
+                  timing and duet and backing vocals in the redesign. Turning the switch off keeps the copies
+                  and restores normal source selection.
                   Where Spotify's player shows its placeholder for a local file, the file's own cover is found
                   (LocalCover.m) in the image fields of its metadata or, while the titles and artists agree, in the
                   system's now playing artwork, which the lock screen shows; the native look puts it into the front
@@ -521,11 +526,11 @@ Native:
                   the cover's room are checked in the simulator against harness/native-player/
     Lyrics/       the full screen lyrics page on glass: tap a timed line to seek, hold a line to copy or share it,
                   or tap the footer to open the pages a credit links to (LyricsPage.x). The local-file viewer has
-                  the same line actions. In Mod Settings → Lyrics → Imported LRC files, tap a file to move its
+                  the same line actions. In Mod Settings → Lyrics → Imported lyrics, tap a matched LRC file to move its
                   timed lyrics earlier or later without editing the file.
-    LocalFiles/   a lyrics button on the player's footer for a local file with an LRC file linked to it, a fifth of the
+    LocalFiles/   a lyrics button on the player's footer for a track with an explicitly linked file, a fifth of the
                   way in from the leading edge, which opens a page of the lines on black that follows the song
-                  (LocalLyrics.h lists its files); the file's metadata says has_lyrics. Checked in the simulator
+                  (LocalLyrics.h lists its files); a local file linked to an LRC also says has_lyrics. Checked in the simulator
                   against harness/local-files/lyrics/. And the file's own cover where the player shows
                   Spotify's placeholder (LocalCover.x)
     Home/         the Home gradient, Home's sections and pills hidden (HomeDeclutter.x), the Home & Library page
