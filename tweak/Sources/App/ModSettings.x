@@ -27,6 +27,7 @@
 #import "Shared/AudioEffects/AudioEffectsPage.h"
 #import "Shared/Player/PlayerShortcuts.h"
 #import "Shared/AutoMix/AutoMix.h"
+#import "Shared/CarPlay/CarPlay.h"
 #import "Shared/LiveActivity/LiveActivity.h"
 #import "Shared/ListeningStats/ListeningStats.h"
 #import "Shared/StreamCounts/StreamCounts.h"
@@ -127,7 +128,10 @@ static UIViewController *modSettingsPage(void) {
         SGModRow *liveActivity = pageRow(@"Live Activity", @"iphone", UIColor.systemOrangeColor, ^UIViewController *{ return SGLiveActivitySettingsPage(); });
         [features addObject:liveActivity];
     }
+    SGModRow *carPlay = pageRow(@"CarPlay", @"car.fill", UIColor.systemTealColor, ^UIViewController *{ return SGCarPlaySettingsPage(); });
+    carPlay.value = ^NSString *{ return SGCarPlaySummary(); };
     [features addObjectsFromArray:@[
+        carPlay,
         pageRow(@"AirPods gestures", @"airpods", UIColor.systemCyanColor, ^UIViewController *{ return SGHeadGesturesSettingsPage(); }),
         pageRow(@"Listening stats", @"chart.bar.fill", UIColor.systemBlueColor, ^UIViewController *{ return SGListeningStatsPage(); }),
     ]];
