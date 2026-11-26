@@ -1,9 +1,16 @@
 #import "Core/SGCore.h"
 #import "Settings/SGModPage.h"
 #import "NowPlayingBar.h"
+#import "Native/Player/NowPlaying.h"
 
 UIViewController *SGNowPlayingBarSettingsPage(void) {
-    return [[SGModPage alloc] initWithTitle:@"Now playing bar" intro:SGRestartNote sections:@[
+    return [[SGModPage alloc] initWithTitle:@"Now playing bar"
+                                    intro:@"Hide the device button and Spotify's flags apply after you restart Spotify."
+                                 sections:@[
+        SGNotedSection(nil, @[
+            SGOptionRow(@"Apple Music style polish", nil, SGKeyPlayerAMPolish),
+        ], @"Adds press feedback to the mini player, smooths the handoff to and from the full player, "
+           @"and follows the animated cover's colors behind the controls when available."),
         SGSection(nil, @[
             SGHideRow(@"Hide the device button", nil, SGHideBarConnect),
         ]),

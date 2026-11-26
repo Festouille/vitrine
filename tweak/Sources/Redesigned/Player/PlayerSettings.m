@@ -369,6 +369,12 @@ UIViewController *SGRPlayerSettingsPage(NSArray *more) {
         SGNotedSection(nil, fluid, @"Brightness above 100% can make white text harder to read. A paused song holds the "
                                    @"background still. Animated and Visualizer use these where they show Fluid."),
         SGSection(@"Artwork", artwork),
+        SGNotedSection(@"Player", @[
+            SGOptionRow(@"Apple Music style polish", nil, SGRKeyPlayerAMPolish),
+            SGOptionRow(@"Audio quality bar", nil, SGRKeyPlayerQualityBar),
+        ], @"Apple Music style polish adds press feedback to the mini player, smooths the handoff to and from "
+           @"the full player, and follows the animated cover's colors behind the controls when available. "
+           @"The audio quality bar shows the current playback quality at the top of the player when it is known."),
         SGNotedSection(@"Controls", @[SGSwitchRow(@"Volume", nil, SGRKeyPlayerVolume),
                                       SGOptionRow(@"Follow the cover", nil, SGRKeyPlayerFollowsCover),
                                       SGOptionRow(@"Spotify's icons", @"Lyrics, device, queue and the AI DJ's button", SGRKeyPlayerSpotifyIcons),

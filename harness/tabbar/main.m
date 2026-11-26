@@ -6,6 +6,8 @@
 #import "Core/SGUIMode.h"
 #import "Core/SGViewTree.h"
 #import "Shared/Gestures/Gestures.h"
+#import "Native/Player/NowPlaying.h"
+#import "Redesigned/Player/Player.h"
 
 #pragma mark - Spotify's classes, by the names the hooks look for
 
@@ -148,7 +150,8 @@ static SPTNowPlayingPlaybackControllerImplementation *sgPlayback;
     play.frame = CGRectMake(330, 12, 32, 32);
     play.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin;
     [card addSubview:play];
-    if ([NSProcessInfo.processInfo.arguments containsObject:@"gestures"]) {
+    if ([NSProcessInfo.processInfo.arguments containsObject:@"gestures"] ||
+        [NSProcessInfo.processInfo.arguments containsObject:@"press"]) {
         play.translatesAutoresizingMaskIntoConstraints = NO;
         [NSLayoutConstraint activateConstraints:@[
             [play.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-16],
@@ -823,6 +826,71 @@ static void testMiniPlayerGestures(UIViewController *presenter, UIView *barRoot,
     });
 }
 
+static void testMiniPlayerPress(UIView *barRoot) {
+    BOOL redesigned = SGRedesignedUI();
+    NSString *key = redesigned ? SGRKeyPlayerAMPolish : SGKeyPlayerAMPolish;
+    NSString *scaleKey = redesigned ? @"sgr.barPressScale" : @"sg.barPressScale";
+    NSString *lightName = redesigned ? @"sgr.barPressLight" : @"sg.barPressLight";
+    SGSetEnabled(key, NO);
+    static char cardKey;
+    UIView *card = SGFindIdentifier(barRoot, @"SPTNowPlayingBar", &cardKey);
+    NSCAssert(card.window, @"Mini player must be visible");
+    UIWindow *window = card.window;
+    CGPoint point = [card convertPoint:CGPointMake(CGRectGetMidX(card.bounds), CGRectGetMidY(card.bounds)) toView:window];
+    __block UIButton *button;
+    SGForEachView(card, ^(UIView *view) {
+        if ([view isKindOfClass:UIButton.class]) button = (UIButton *)view;
+    });
+    NSCAssert(button, @"Mini player must have a play button");
+    CGPoint play = [button convertPoint:CGPointMake(CGRectGetMidX(button.bounds), CGRectGetMidY(button.bounds)) toView:window];
+    CALayer *(^light)(void) = ^CALayer *{
+        for (CALayer *layer in card.layer.sublayers) if ([layer.name isEqualToString:lightName]) return layer;
+        return nil;
+    };
+
+    SGHarnessHold(window, point, 0.35);
+    after(0.2, ^{
+        NSCAssert(!light() && ![card.layer animationForKey:scaleKey], @"Disabled polish must not affect the mini player");
+    });
+    after(0.55, ^{
+        SGSetEnabled(key, YES);
+        SGHarnessHold(window, play, 0.35);
+    });
+    after(0.75, ^{
+        NSCAssert(!light() && ![card.layer animationForKey:scaleKey], @"Child controls must not press the mini player");
+    });
+    after(1.1, ^{
+        NSCAssert(sgPlayTaps == 1, @"The play button must still receive its tap");
+        SGHarnessDrag(window, point, CGPointMake(point.x - 60, point.y), 0.30);
+    });
+    after(1.9, ^{
+        CGFloat scale = [[card.layer.presentationLayer valueForKeyPath:@"transform.scale"] doubleValue];
+        NSCAssert(light() && light().presentationLayer.opacity < 0.01 && fabs(scale - 1) < 0.005,
+                  @"A drag must release the mini player (scale %.3f, highlight %@)", scale, light().presentationLayer);
+        sgCardTaps = 0;
+        SGHarnessTap(window, point);
+    });
+    after(2.6, ^{
+        NSCAssert(sgCardTaps == 1, @"The original mini player tap must still open the player");
+        NSTimeInterval hold = MAX(1, [NSProcessInfo.processInfo.environment[@"HARNESS_PRESS_HOLD"] doubleValue]);
+        SGHarnessHold(window, point, hold);
+        after(0.30, ^{
+            CALayer *shown = light().presentationLayer;
+            CGFloat scale = [[card.layer.presentationLayer valueForKeyPath:@"transform.scale"] doubleValue];
+            CGFloat expected = UIAccessibilityIsReduceMotionEnabled() ? 1 : 0.97;
+            NSCAssert(fabs(scale - expected) < 0.005 && shown.opacity > 0.07,
+                      @"Held mini player must highlight and scale to %.2f (got %.3f, light %.3f)", expected, scale, shown.opacity);
+            NSLog(@"[harness] press held: scale %.3f, highlight %.3f", scale, shown.opacity);
+        });
+        after(hold + 0.65, ^{
+            CGFloat scale = [[card.layer.presentationLayer valueForKeyPath:@"transform.scale"] doubleValue];
+            NSCAssert(fabs(scale - 1) < 0.005 && light().presentationLayer.opacity < 0.01,
+                      @"Released mini player must be normal");
+            NSLog(@"[harness] press released: mini player polish PASS (%@)", redesigned ? @"redesigned" : @"native");
+        });
+    });
+}
+
 - (void)scene:(UIScene *)scene willConnectToSession:(UISceneSession *)session options:(UISceneConnectionOptions *)options {
     self.window = [[UIWindow alloc] initWithWindowScene:(UIWindowScene *)scene];
     self.window.overrideUserInterfaceStyle = UIUserInterfaceStyleDark;
@@ -834,6 +902,10 @@ static void testMiniPlayerGestures(UIViewController *presenter, UIView *barRoot,
     // `away` one there from the start sliding away at 1.5 s, `cycle` in at 1.5 s and out at 4.5 s.
     NSArray<NSString *> *args = NSProcessInfo.processInfo.arguments;
     NSString *mode = args.count > 1 ? args[1] : @"none";
+    if ([mode isEqualToString:@"press"]) {
+        after(0.5, ^{ testMiniPlayerPress(chrome.npb); });
+        return;
+    }
     if ([mode isEqualToString:@"gestures"]) {
         [UIView setAnimationsEnabled:NO];
         if ([args containsObject:@"sheet"]) {
