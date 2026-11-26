@@ -22,7 +22,10 @@ static void expect(BOOL ok, const char *name) {
     printf("%s %s\n", ok ? "PASS" : "FAIL", name); fflush(stdout);
     if (!ok) ++failures;
 }
-static void check(OSStatus status, const char *name) { expect(status == noErr, name); }
+static void check(OSStatus status, const char *name) {
+    if (status != noErr) printf("%s: OSStatus %d\n", name, (int)status);
+    expect(status == noErr, name);
+}
 @interface SPTPlayerState : NSObject
 @property(nonatomic) double positionAsOfTimestamp;
 @property(nonatomic,strong) NSDate *timestamp;
@@ -189,6 +192,15 @@ static void directTests(void) {
     SGPCMReplacementCancel();
 }
 static void realTests(void) {
+    if (getenv("HANDOFF_REMOTEIO_CONTROL")) {
+        [AVAudioSession.sharedInstance setCategory:AVAudioSessionCategoryPlayback error:nil];
+        [AVAudioSession.sharedInstance setActive:YES error:nil];
+        AudioUnit control = make(kAudioUnitType_Output, kAudioUnitSubType_RemoteIO);
+        printf("CONTROL RemoteIO initialize: OSStatus %d\n", (int)AudioUnitInitialize(control));
+        printf("CONTROL RemoteIO start: OSStatus %d\n", (int)AudioOutputUnitStart(control));
+        AudioComponentInstanceDispose(control);
+        exit(0);
+    }
     SGPlayerSetSourceSelector(selector);
     setup();
     later(0.5,^{
