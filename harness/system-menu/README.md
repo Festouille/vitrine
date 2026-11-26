@@ -27,6 +27,10 @@ Queue), Speed, Pitch & Reverb, Show Animated Artwork and More are in it and none
 then that Spotify's ⋯ action ran once, from code, after the menu was up, that Speed and pitch was told the
 sheet is the player's, and that the sheet is in the mod's window under the app's, unseen, with the menu still up.
 
+- `shortcuts`: applies the Bass preset through Quick EQ and checks that bypass retains the curve and leaves
+  Audio Effects on; distinguishes an empty queue from missing queue data. `shortcuts-view` leaves Quick EQ open,
+  `shortcuts-next` checks and leaves the three-track read-only preview open, and `shortcuts-off` leaves the
+  top-level menu open and verifies that neither shortcut appears.
 - `arrow`: the mod's ⋯ sits exactly over Spotify's in the window, above its glass circle and glyph, with the ⋯'s
   label for VoiceOver; a finger on the down arrow runs Spotify's arrow action, reaches nothing of the mod's and
   opens no menu; a finger on the ⋯ then sends the mod's button its touch down and opens the menu, and the press
