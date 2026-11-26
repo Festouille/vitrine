@@ -69,6 +69,8 @@ sheet is the player's, and that the sheet is in the mod's window under the app's
 - `canvas-video`: Save Canvas appears for a Spotify Canvas video and opens the share sheet for a mock local file.
   `canvas-service` exercises the same menu and share path for a video resolved asynchronously by the service.
   It is absent in `canvas-none`, `canvas-still` and `canvas-off`; `canvas-view` leaves the menu open.
+- `abloop`: opens A–B Loop, sets both markers and verifies seeking, stale reports, and reset on track change.
+  `abloop-off` checks that the menu item is absent with the switch off; `abloop-view` leaves the submenu open.
 - `sleeptimer`: with the Player page's Sleep timer switch on, the mod's Sleep Timer is in the menu reading Off; its
   submenu has 15, 30 and 45 minutes, 1 hour, End of Track and End of Album or Playlist and no Turn Off Timer; 30
   Minutes sets the mod's timer to 30 minutes and the sheet goes. Every other scenario runs with the switch off.

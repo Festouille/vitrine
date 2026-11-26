@@ -16,6 +16,7 @@
 // The item says under its name what is not as Spotify plays it, so the menu reads as a settings summary.
 #import "Core/SGCore.h"
 #import "Redesigned/ContextMenu/ContextMenu.h"
+#import "Shared/Player/ABLoop.h"
 #import "Shared/Player/PlayerState.h"
 #import "Shared/Player/SleepTimer.h"
 #import "Shared/Player/SpeedPitch.h"
@@ -300,6 +301,8 @@ static NSArray<UIMenuElement *> *playerItems(BOOL dj) {
     if (canvas) [items addObject:canvas];
     UIMenuElement *sleep = sleepTimerMenu([sheetKind() isEqualToString:@"episode"], dj);
     if (sleep) [items addObject:sleep];
+    UIMenu *loop = dj ? nil : SGABLoopMenu();
+    if (loop) [items addObject:loop];
     return items;
 }
 

@@ -20,6 +20,7 @@
 #import "Shared/AnimatedArtwork/AnimatedArtwork.h"
 #import "Shared/AnimatedArtwork/SaveCanvas.h"
 #import "Shared/LyricsSources/LyricsSources.h"
+#import "Shared/Player/ABLoop.h"
 #import "Shared/Player/PlayerState.h"
 #import "Shared/Player/SleepTimer.h"
 
@@ -126,8 +127,6 @@ void SGRPlayerMenuSetBackground(NSInteger kind) { sg_background = kind; SGPlayer
 
 static SGCanvasMockState *sg_canvasState;
 static NSURL *sg_canvasRequested;
-SPTPlayerState *SGPlayerState(void) { return (id)sg_canvasState; }
-NSString *SGURIString(id uri) { return [uri isKindOfClass:NSString.class] ? uri : nil; }
 void SGMotionFile(NSURL *remote, void (^done)(NSURL *file)) { done(nil); }
 void SGMotionFileForExport(NSURL *remote, void (^done)(NSURL *file)) {
     sg_canvasRequested = remote;
@@ -169,6 +168,38 @@ void SGSpclientHeaders(void (^use)(NSDictionary<NSString *, NSString *> *)) {
 NSData *SGMotionCanvasAsk(NSString *uri) { return [uri dataUsingEncoding:NSUTF8StringEncoding]; }
 NSString *SGMotionCanvasInReply(NSData *reply) { return [[NSString alloc] initWithData:reply encoding:NSUTF8StringEncoding]; }
 void SGMotionAlbumCover(NSString *artist, NSString *album, SGMotionShape shape, CGFloat pixels, void (^done)(NSURL *file)) {}
+
+@interface SGLoopMockTrack : NSObject
+@property (nonatomic, copy) NSString *URI;
+@end
+@implementation SGLoopMockTrack
+@end
+
+@interface SGLoopMockState : NSObject
+@property (nonatomic, strong) SGLoopMockTrack *track;
+@property (nonatomic) double position, positionAsOfTimestamp, duration;
+@property (nonatomic) BOOL isPlaying, isPaused, isLoading;
+@end
+@implementation SGLoopMockState
+@end
+
+static SGLoopMockState *sg_loopState;
+static id<SGPlayerStateObserver> sg_loopObserver;
+static NSUInteger sg_seekCount;
+static double sg_seekTarget;
+@interface SGLoopMockPlayer : NSObject
+@end
+@implementation SGLoopMockPlayer
+- (void)seekTo:(double)position {
+    sg_seekCount++;
+    sg_seekTarget = position;
+}
+@end
+
+SPTPlayerState *SGPlayerState(void) { return sg_loopState ? (id)sg_loopState : (id)sg_canvasState; }
+NSString *SGURIString(id uri) { return [uri isKindOfClass:NSString.class] ? uri : nil; }
+void SGAddPlayerStateObserver(id<SGPlayerStateObserver> observer) { sg_loopObserver = observer; }
+id SGPlayer(void) { return [SGLoopMockPlayer new]; }
 UIView *SGRPinnedMoreRecentButton(void) { return nil; }
 @class SGRMirrorButton;
 void (*SGRPinnedMoreHook)(SGRMirrorButton *button);
@@ -179,9 +210,11 @@ void SGRAnimate(NSInteger motion, void (^animations)(void), void (^completion)(B
 
 // Every action and submenu the menu makes, by its title, so the harness can pick or open one.
 static NSMutableDictionary<NSString *, UIMenuElement *> *sg_elements;
+static UIActionHandler sg_loopMarkEnd;
 static IMP sg_actionWithTitle, sg_menuWithTitle;
 static UIAction *recordAction(id self, SEL _cmd, NSString *title, UIImage *image, NSString *identifier, UIActionHandler handler) {
     UIAction *action = ((UIAction *(*)(id, SEL, NSString *, UIImage *, NSString *, UIActionHandler))sg_actionWithTitle)(self, _cmd, title, image, identifier, handler);
+    if ([title isEqualToString:@"Set End (B)"]) sg_loopMarkEnd = [handler copy];
     if (title) sg_elements[title] = action;
     return action;
 }
@@ -647,6 +680,14 @@ static NSArray<NSString *> *quickTitles(void) {
         else if (is(@"canvas-still")) sg_canvasState.track.metadata = @{@"canvas.type": @"IMAGE", @"canvas.url": @"https://example.com/still.jpg"};
         else if (!is(@"canvas-service")) sg_canvasState.track.metadata = @{@"canvas.type": @"VIDEO", @"canvas.url": @"https://canvaz.scdn.co/test.mp4"};
     }
+    if (is(@"abloop") || is(@"abloop-view") || is(@"abloop-off")) {
+        sg_loopState = [SGLoopMockState new];
+        sg_loopState.track = [SGLoopMockTrack new];
+        sg_loopState.track.URI = @"spotify:track:first";
+        sg_loopState.position = 12;
+        sg_loopState.duration = 180;
+        sg_loopState.isPlaying = YES;
+    }
 
     if ([run isEqualToString:@"arrow"]) {
         // The header's other button keeps its own touches: a finger on the down arrow runs Spotify's action and
@@ -1007,6 +1048,47 @@ static NSArray<NSString *> *quickTitles(void) {
         });
         return;
     }
+    if (is(@"abloop-off")) {
+        check(!menuShows(@"A–B Loop"), @"A–B Loop is absent while its switch is off");
+        finish();
+        return;
+    }
+    if (is(@"abloop") || is(@"abloop-view")) {
+        check(menuShows(@"A–B Loop"), @"the enabled A–B Loop is in Now Playing");
+        pick(@"A–B Loop");
+        waitFor(^BOOL { return menuShows(@"Set Start (A)"); }, 3, ^{
+            check(menuShowsAll(@[@"Set Start (A)", @"Set End (B)"]), @"the loop submenu shows both markers");
+            check([(UIAction *)sg_elements[@"Set End (B)"] attributes] & UIMenuElementAttributesDisabled,
+                  @"End is disabled before Start");
+            if (is(@"abloop-view")) return;
+            pick(@"Set Start (A)");
+            sg_loopState.position = 30;
+            UIMenu *marked = SGABLoopMenu();
+            UIAction *end = (UIAction *)marked.children[1];
+            check(!(end.attributes & UIMenuElementAttributesDisabled), @"End is enabled after setting Start and advancing");
+            sg_loopMarkEnd(end);
+            after(0.2, ^{
+                check(sg_seekCount == 1 && sg_seekTarget == 12, @"crossing End seeks once to Start while the position is stale");
+                sg_loopState.position = 12;
+                after(0.15, ^{
+                    sg_loopState.position = 31;
+                    after(0.15, ^{
+                        check(sg_seekCount == 2 && sg_seekTarget == 12, @"the loop rearms after playback returns to Start");
+                        sg_loopState.track.URI = @"spotify:track:second";
+                        [sg_loopObserver playerStateDidChange:(id)sg_loopState];
+                        sg_loopState.track.URI = @"spotify:track:first";
+                        [sg_loopObserver playerStateDidChange:(id)sg_loopState];
+                        after(0.15, ^{
+                            check([SGABLoopMenu().subtitle isEqualToString:@"Off"] && sg_seekCount == 2,
+                                  @"a track change clears the loop, even after returning to the original track");
+                            finish();
+                        });
+                    });
+                });
+            });
+        });
+        return;
+    }
     if ([run isEqualToString:@"animated"]) {
         pick(@"Show Animated Artwork");
         check(sg_animated, @"Show Animated Artwork switched it on");
@@ -1049,6 +1131,7 @@ __attribute__((constructor(101))) static void sgr_harnessDefaults(void) {
     if (is(@"sleeptimer")) [defaults setBool:YES forKey:@"spotifyglass.redesign.player.sleepTimer"];
     else [defaults removeObjectForKey:@"spotifyglass.redesign.player.sleepTimer"];
     [defaults setBool:[scenario() hasPrefix:@"canvas"] && !is(@"canvas-off") forKey:SGKeySaveCanvas];
+    [defaults setBool:is(@"abloop") || is(@"abloop-view") forKey:SGKeyABLoop];
     sg_elements = [NSMutableDictionary dictionary];
     Method make = class_getClassMethod(UIAction.class, @selector(actionWithTitle:image:identifier:handler:));
     sg_actionWithTitle = method_setImplementation(make, (IMP)recordAction);
