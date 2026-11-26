@@ -27,6 +27,7 @@
 #import "Shared/AutoMix/AutoMix.h"
 #import "Shared/LiveActivity/LiveActivity.h"
 #import "Shared/ListeningStats/ListeningStats.h"
+#import "Shared/StreamCounts/StreamCounts.h"
 #import "Shared/HeadGestures/HeadGestures.h"
 #import "Shared/HidePodcasts/HidePodcasts.h"
 #import "Shared/Player/PlayerSettings.h"
@@ -122,6 +123,10 @@ static UIViewController *modSettingsPage(void) {
         pageRow(@"Listening stats", @"chart.bar.fill", UIColor.systemBlueColor, ^UIViewController *{ return SGListeningStatsPage(); }),
     ]];
     [sections addObject:SGSection(nil, features)];
+    [sections addObject:SGNotedSection(nil, @[
+        SGWithTile(SGOptionRow(@"Stream counts", @"Show Spotify’s total streams on album and playlist tracks", SGKeyStreamCounts),
+                   @"number", UIColor.systemBlueColor),
+    ], SGRestartNote)];
 
     SGModRow *mod = pageRow(@"Mod", @"info.circle", SGColorRGB(0x7D7D81), ^UIViewController *{ return SGAboutPage(); });
     mod.value = ^NSString *{ return @(SG_VERSION); };

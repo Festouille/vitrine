@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleExecutable</key><string>StreamCounts</string>
+<key>CFBundleIdentifier</key><string>org.vitrine.stream-counts</string>
+<key>CFBundleName</key><string>Stream Counts</string>
+<key>CFBundleVersion</key><string>1</string>
+<key>CFBundleShortVersionString</key><string>1.0</string>
+<key>UIUserInterfaceStyle</key><string>Dark</string>
+<key>UILaunchScreen</key><dict/>
+<key>UIApplicationSceneManifest</key><dict>
+  <key>UISceneConfigurations</key><dict>
+    <key>UIWindowSceneSessionRoleApplication</key><array><dict>
+      <key>UISceneConfigurationName</key><string>Default</string>
+      <key>UISceneDelegateClassName</key><string>SGRHarnessScene</string>
+    </dict></array>
+  </dict>
+</dict></dict></plist>
