@@ -10,6 +10,95 @@
 #import "Headers/SPTPlayer.h"
 #import "Shared/Player/PlayerState.h"
 
+@interface SGRHarnessConnectEntity : NSObject
+@property (nonatomic) BOOL isVolumeSupported;
+@property (nonatomic, copy) NSString *connectStateIdentifier;
+@end
+@implementation SGRHarnessConnectEntity
+@end
+
+@protocol SPTConnectVolumeObserver <NSObject>
+- (void)connectVolumeDidChangeToValue:(double)value;
+- (void)remoteMediaSessionVolumeDidChangeToValue:(double)value;
+- (void)groupedDeviceVolumeDidChangeToValue:(double)value groupDeviceIdentifier:(NSString *)identifier;
+@end
+
+@protocol SPTConnectAggregatorStateObserver <NSObject>
+- (void)aggregator:(id)aggregator didUpdateAggregatorState:(id)state;
+@end
+
+@interface _TtC20Connect_VolumeUXImpl27RemoteVolumePopupController : NSObject
+@property (nonatomic) NSUInteger count;
+- (void)remoteMediaSessionVolumeDidChangeToValue:(double)value;
+@end
+@implementation _TtC20Connect_VolumeUXImpl27RemoteVolumePopupController
+- (void)remoteMediaSessionVolumeDidChangeToValue:(double)value { self.count++; }
+@end
+
+@interface _TtC18Connect_VolumeImpl10VolumeImpl : NSObject
+@property (nonatomic) double connectVolume;
+@property (nonatomic) NSUInteger writes;
+@property (nonatomic, weak) id<SPTConnectVolumeObserver> observer;
+@property (nonatomic, strong) _TtC20Connect_VolumeUXImpl27RemoteVolumePopupController *popup;
+@end
+@implementation _TtC18Connect_VolumeImpl10VolumeImpl
+- (void)add:(id)observer {
+    if ([observer conformsToProtocol:@protocol(SPTConnectVolumeObserver)]) self.observer = observer;
+}
+- (void)remove:(id)observer { if (self.observer == observer) self.observer = nil; }
+- (BOOL)setVolume:(double)value assumingPreviousVolume:(double)previous reason:(NSString *)reason {
+    self.writes++;
+    if (self.writes == 1 || previous != self.connectVolume) return NO;
+    self.connectVolume = value;
+    [self.popup remoteMediaSessionVolumeDidChangeToValue:value];
+    [self.observer connectVolumeDidChangeToValue:value];
+    return YES;
+}
+@end
+
+@interface _TtC22Connect_AggregatorImpl24ConnectAggregatorManager : NSObject
+@property (nonatomic) BOOL isPlayingRemotely;
+@property (nonatomic, strong) SGRHarnessConnectEntity *activeConnectEntity;
+@property (nonatomic, weak) id<SPTConnectAggregatorStateObserver> observer;
+@end
+@implementation _TtC22Connect_AggregatorImpl24ConnectAggregatorManager
+- (void)addStateObserver:(id)observer {
+    if ([observer conformsToProtocol:@protocol(SPTConnectAggregatorStateObserver)]) self.observer = observer;
+}
+- (void)removeStateObserver:(id)observer { if (self.observer == observer) self.observer = nil; }
+@end
+
+static _TtC18Connect_VolumeImpl10VolumeImpl *sg_connectVolume;
+static _TtC22Connect_AggregatorImpl24ConnectAggregatorManager *sg_connectAggregator;
+
+void SGRHarnessConnectStart(void) {
+    sg_connectVolume = [_TtC18Connect_VolumeImpl10VolumeImpl new];
+    sg_connectVolume.popup = [_TtC20Connect_VolumeUXImpl27RemoteVolumePopupController new];
+    sg_connectAggregator = [_TtC22Connect_AggregatorImpl24ConnectAggregatorManager new];
+    [sg_connectVolume add:[NSObject new]];
+    [sg_connectAggregator addStateObserver:[NSObject new]];
+}
+
+void SGRHarnessConnectRoute(NSString *identifier, BOOL supported, double value) {
+    sg_connectVolume.connectVolume = value;
+    sg_connectAggregator.isPlayingRemotely = identifier != nil;
+    SGRHarnessConnectEntity *entity = identifier ? [SGRHarnessConnectEntity new] : nil;
+    entity.connectStateIdentifier = identifier;
+    entity.isVolumeSupported = supported;
+    sg_connectAggregator.activeConnectEntity = entity;
+    [sg_connectAggregator.observer aggregator:sg_connectAggregator didUpdateAggregatorState:nil];
+}
+
+void SGRHarnessConnectReport(double value) {
+    sg_connectVolume.connectVolume = value;
+    [sg_connectVolume.popup remoteMediaSessionVolumeDidChangeToValue:value];
+    [sg_connectVolume.observer connectVolumeDidChangeToValue:value];
+}
+
+double SGRHarnessConnectValue(void) { return sg_connectVolume.connectVolume; }
+NSUInteger SGRHarnessConnectWrites(void) { return sg_connectVolume.writes; }
+NSUInteger SGRHarnessConnectPopups(void) { return sg_connectVolume.popup.count; }
+
 #pragma mark - SGRAccent.x, SGRRepaint.x
 
 UIColor *SGRAccentColor(void) { return nil; }

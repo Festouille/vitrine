@@ -31,6 +31,7 @@ spotifyglass_CFLAGS := -fobjc-arc -ISources -DSG_VERSION=\"$(SG_VERSION)\"
 SG_DRIVER ?= 0
 spotifyglass_CFLAGS += -DSG_DRIVER=$(SG_DRIVER)
 spotifyglass_FRAMEWORKS := UIKit QuartzCore UniformTypeIdentifiers MediaPlayer CoreImage AudioToolbox AVFoundation CoreHaptics Accelerate CoreMotion CoreML CoreText OSLog Speech NaturalLanguage
+spotifyglass_WEAK_FRAMEWORKS := CarPlay
 # zlib unpacks KuGou's KRC lyrics (Shared/LyricsSources/KuGou.m).
 spotifyglass_LIBRARIES := z
 # Runtime swizzling instead of Substrate so the dylib has no extra dependency inside the IPA.
