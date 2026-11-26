@@ -620,6 +620,9 @@ Redesigned:
                   built from the units the redesign styles (PlayerFree.x, read from the binary, not yet seen on a Free
                   account). The Player page's Artwork switches keep the full-size cover square, remove its shadow,
                   or keep it full size when paused. Each is off by default and leaves the mini player alone.
+                  The Volume slider uses the iPhone's volume by default (PlayerVolume.m). Turn on Connect speaker
+                  volume and restart Spotify to use that slider for a supported remote device instead
+                  (PlayerConnectVolume.x). Native retains Spotify's own device picker and volume controls.
                   Animated artwork (PlayerMotion.x)
                   runs the clip edge to edge from the top over the color of its last rows drawn on down, with a blur coming in
                   from the seam under the controls and over the whole clip behind the lyrics. The clip and the cover

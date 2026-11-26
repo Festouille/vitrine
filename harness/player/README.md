@@ -26,6 +26,12 @@ come late, out of order, or not at all.
 `HARNESS_SCENARIO` picks what the harness does:
 
 - `lyrics` (default) opens the lyrics at 2 s, closes them at 6 and opens them again at 10.
+- `connect` runs the real redesigned volume row and its hooks over mock Spotify Connect services.
+  It checks unsupported devices and uninitialized volume, external updates and mute, VoiceOver with
+  a dropped write, a touch drag, a route switch during a drag, and the return to system volume.
+  The log ends with `connect checks: n of m right -- PASS` or `FAIL`. Capture the local row at 1 s
+  and the remote row at 3 s. Set `SIMCTL_CHILD_HARNESS_CONNECT_SETTINGS=1` to show the Controls
+  section with Volume on and Connect speaker volume at its default (off).
 - `look` plays one track, then a track from another album at 8 s, whose picture reaches the screens
   0.4 s later. It shows the field, the moving background and its crossfade, and the footer row. At 3 s
   it logs whether touches on the lowered footer row (issue #54) still reach it.
