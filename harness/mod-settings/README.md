@@ -55,5 +55,10 @@ it flips the switch off before the new reminder would have appeared.
     xcrun simctl launch --console-pty <udid> com.vitrine.modsettingsharness dump dump dump dump signing=quiet
     xcrun simctl launch --console-pty <udid> com.vitrine.modsettingsharness bottom toggle=7.0 dump dump signing=off
 
+On a fresh install with the same fixture, `signing-onboarding` keeps the onboarding gate closed past
+the old 64-second retry limit, then checks for the reminder without a new foreground event.
+
+    xcrun simctl launch --console-pty <udid> com.vitrine.modsettingsharness signing-onboarding
+
 What it does not cover: the pages the rows open, the row the mod adds to Spotify's settings list and side drawer
 in Spotify's real lists (`rows` uses stand-ins of the same names), and iOS below 26, where the switch warns first.

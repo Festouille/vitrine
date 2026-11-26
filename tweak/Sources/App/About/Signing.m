@@ -191,7 +191,8 @@ SGModRow *SGSigningExpiryRow(void) {
 }
 
 static BOOL expiryReminderNeedsRetry(void) {
-    if (!SGEnabled(SGKeySigningExpiryReminder)) return NO;
+    if (UIApplication.sharedApplication.applicationState != UIApplicationStateActive ||
+        !SGEnabled(SGKeySigningExpiryReminder)) return NO;
     NSDate *profileEnd = dateIn(@"ExpirationDate"), *certEnd = certificateExpiry();
     BOOL certificateFirst = certEnd && (!profileEnd || [certEnd compare:profileEnd] == NSOrderedAscending);
     NSDate *expires = certificateFirst ? certEnd : profileEnd;
@@ -206,8 +207,7 @@ static BOOL expiryReminderNeedsRetry(void) {
         [NSCalendar.currentCalendar isDate:shownAt inSameDayAsDate:now]) return NO;
 
     UIViewController *top = SGTopController();
-    if (UIApplication.sharedApplication.applicationState != UIApplicationStateActive ||
-        !top.viewIfLoaded.window || top.isBeingDismissed || top.isBeingPresented ||
+    if (!top.viewIfLoaded.window || top.isBeingDismissed || top.isBeingPresented ||
         SGOnboardingShowing() || SGIsAlertController(top)) return YES;
 
     NSString *item = certificateFirst ? @"signing certificate" : @"provisioning profile";
@@ -223,9 +223,9 @@ static BOOL expiryReminderNeedsRetry(void) {
     return NO;
 }
 
-static void scheduleExpiryReminder(NSInteger tries, dispatch_block_t done) {
+static void scheduleExpiryReminder(dispatch_block_t done) {
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 4 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-        if (expiryReminderNeedsRetry() && tries > 0) scheduleExpiryReminder(tries - 1, done);
+        if (expiryReminderNeedsRetry()) scheduleExpiryReminder(done);
         else done();
     });
 }
@@ -239,7 +239,7 @@ void SGWatchSigningExpiry(void) {
         dispatch_async(dispatch_get_main_queue(), ^{
             if (scheduled) return;
             scheduled = YES;
-            scheduleExpiryReminder(15, ^{ scheduled = NO; });
+            scheduleExpiryReminder(^{ scheduled = NO; });
         });
     }];
 }

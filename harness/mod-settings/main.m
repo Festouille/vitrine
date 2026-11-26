@@ -30,6 +30,7 @@
 @end
 
 BOOL SGHarnessWarning;
+BOOL SGHarnessOnboarding;
 
 static void findViews(UIView *root, Class kind, NSMutableArray *found) {
     if ([root isKindOfClass:kind]) [found addObject:root];
@@ -179,6 +180,19 @@ static UIViewController *gatedPage(void) {
         if ([alert isKindOfClass:UIAlertController.class]) NSLog(@"[harness] alert \"%@\": %@", alert.title, alert.message);
     } else if ([verb isEqualToString:@"top"]) {
         [table setContentOffset:CGPointMake(0, -table.adjustedContentInset.top) animated:NO];
+    } else if ([verb isEqualToString:@"signing-onboarding"]) {
+        SGHarnessOnboarding = YES;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 66 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+            if (SGIsAlertController(SGTopController())) {
+                NSLog(@"[harness] signing onboarding: FAIL; alert while onboarding was open");
+                exit(EXIT_FAILURE);
+            }
+            SGHarnessOnboarding = NO;
+            NSLog(@"[harness] signing onboarding: cleared after 66 seconds without an alert");
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+                [self run:@"signing=profile"];
+            });
+        });
     } else if ([verb isEqualToString:@"signing"]) {
         UIViewController *top = SGTopController();
         UIAlertController *alert = [top isKindOfClass:UIAlertController.class] ? (UIAlertController *)top : nil;

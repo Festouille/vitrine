@@ -7,6 +7,7 @@
 #import "Shared/Haptics/SGHapticRelay.h"
 
 extern BOOL SGHarnessWarning;
+extern BOOL SGHarnessOnboarding;
 
 static UIViewController *blank(NSString *title) {
     return [[SGModPage alloc] initWithTitle:title intro:nil sections:@[] footer:nil];
@@ -57,7 +58,7 @@ void SGCheckForUpdate(BOOL force) {}
 void SGWatchForUpdates(void) {}
 // Signing.m is the real one: its row stays away while the harness's own signature is sound, and its
 // "Signed until" row shows once the .app holds an embedded.mobileprovision (README).
-BOOL SGOnboardingShowing(void) { return NO; }
+BOOL SGOnboardingShowing(void) { return SGHarnessOnboarding; }
 // Environment.m's red row, as a phone with EeveeSpotify injected too shows it.
 NSArray<SGModRow *> *SGEnvironmentWarningRows(void) {
     if (!SGHarnessWarning) return @[];
