@@ -68,7 +68,7 @@ static NSString *timingText(NSArray<SGKaraokeLine *> *lines) {
     switch (SGKaraokeLinesTiming(lines)) {
         case SGKaraokeTimingWords: return @"Word by word";
         case SGKaraokeTimingLine: return @"Line by line";
-        default: return @"Not synced";
+        default: return @"Plain lyrics · no timing";
     }
 }
 

@@ -148,6 +148,7 @@ void SGHarnessStartClock(double at, double rate, double pauseAt, double holdFor)
 
 NSString *SGKaraokePlayingTrack(void) { return @"harness"; }
 NSArray<SGKaraokeLine *> *SGKaraokeLinesForTrack(NSString *trackID) { return sg_lines; }
+NSArray<SGKaraokeLine *> *SGLyricsAutoTimedLines(NSString *track, NSArray<SGKaraokeLine *> *lines) { return lines; }
 void SGKaraokeKeepLines(NSString *trackID, NSArray<SGKaraokeLine *> *lines) { sg_lines = lines; }
 
 void SGAddPlayerStateObserver(id observer) {}

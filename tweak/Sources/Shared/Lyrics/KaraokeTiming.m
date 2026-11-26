@@ -394,6 +394,146 @@ SGKaraokeTiming SGKaraokeLinesTiming(NSArray<SGKaraokeLine *> *lines) {
     return finest;
 }
 
+static NSArray<NSString *> *recognitionTokens(NSString *text) {
+    NSString *folded = [[text stringByFoldingWithOptions:NSDiacriticInsensitiveSearch | NSWidthInsensitiveSearch locale:nil] lowercaseString];
+    NSArray *parts = [folded componentsSeparatedByCharactersInSet:NSCharacterSet.alphanumericCharacterSet.invertedSet];
+    return [parts filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"length > 0"]];
+}
+
+@interface SGKaraokeMatch : NSObject
+@property (nonatomic) NSUInteger line;
+@property (nonatomic) NSRange span;
+@property (nonatomic) double score;
+@property (nonatomic, strong) SGKaraokeMatch *prior;
+@end
+
+@implementation SGKaraokeMatch
+@end
+
+static NSUInteger plainLineMinimum(NSInteger duration, NSUInteger count) {
+    return MIN(250, (NSUInteger)duration / count);
+}
+
+static BOOL plainLineGapFits(NSUInteger start, NSUInteger end, NSUInteger count, NSUInteger minimum) {
+    return end >= start && end - start >= count * minimum;
+}
+
+NSDictionary<NSNumber *, NSValue *> *SGKaraokeRecognizedLines(NSArray<SGKaraokeLine *> *lines, NSArray<NSString *> *words,
+    NSArray<NSValue *> *times, NSInteger duration, NSDictionary<NSNumber *, NSValue *> *previous) {
+    if (duration <= 0) return previous ?: @{};
+    if (!lines.count) return @{};
+    NSUInteger minimum = plainLineMinimum(duration, lines.count);
+    NSMutableArray<NSString *> *heard = [NSMutableArray array];
+    NSMutableArray<NSValue *> *spans = [NSMutableArray array];
+    for (NSUInteger i = 0; i < MIN(words.count, times.count); i++) {
+        for (NSString *token in recognitionTokens(words[i])) {
+            [heard addObject:token];
+            [spans addObject:times[i]];
+        }
+    }
+    NSMutableArray<NSArray<NSString *> *> *phrases = [NSMutableArray arrayWithCapacity:lines.count];
+    NSCountedSet *phraseCounts = [NSCountedSet set];
+    for (SGKaraokeLine *line in lines) {
+        NSArray *phrase = recognitionTokens(SGKaraokeLineText(line));
+        [phraseCounts addObject:phrase];
+        [phrases addObject:phrase];
+    }
+    NSArray<SGKaraokeLine *> *estimated = SGKaraokeFollowPlainLines(lines, duration, nil);
+    NSMutableArray<SGKaraokeMatch *> *matches = [NSMutableArray array];
+    SGKaraokeMatch *best = nil;
+    for (NSUInteger line = 0; line < lines.count; line++) {
+        NSArray<NSString *> *phrase = phrases[line];
+        if (phrase.count < 3 || [phraseCounts countForObject:phrase] > 1) continue;
+        NSMutableArray<NSValue *> *candidates = [NSMutableArray array];
+        NSValue *cached = previous[@(line)];
+        if (cached) [candidates addObject:cached];
+        for (NSUInteger i = 0; i + phrase.count <= heard.count; i++) {
+            if (![heard[i] isEqual:phrase.firstObject]) continue;
+            NSUInteger j = 1;
+            for (; j < phrase.count && [heard[i + j] isEqual:phrase[j]]; j++) {
+                if (spans[i + j].rangeValue.location > NSMaxRange(spans[i + j - 1].rangeValue) + 1800) break;
+            }
+            if (j != phrase.count) continue;
+            NSUInteger start = spans[i].rangeValue.location, end = NSMaxRange(spans[i + j - 1].rangeValue);
+            if (end > start) [candidates addObject:[NSValue valueWithRange:NSMakeRange(start, end - start)]];
+        }
+        for (NSValue *value in candidates) {
+            NSRange span = value.rangeValue;
+            if (!span.length || !plainLineGapFits(NSMaxRange(span), duration, lines.count - line - 1, minimum)) continue;
+            SGKaraokeMatch *prior = nil;
+            for (SGKaraokeMatch *match in matches) {
+                if (match.line == line) break;
+                if (match.score > prior.score && plainLineGapFits(NSMaxRange(match.span), span.location,
+                    line - match.line - 1, minimum)) prior = match;
+            }
+            if (!prior && !plainLineGapFits(0, span.location, line, minimum)) continue;
+            double distance = fabs((double)span.location - estimated[line].start) / duration;
+            SGKaraokeMatch *match = [SGKaraokeMatch new];
+            match.line = line;
+            match.span = span;
+            match.prior = prior;
+            match.score = prior.score + 1.0 + 0.3 * phrase.count - distance;
+            [matches addObject:match];
+            if (match.score > best.score) best = match;
+        }
+    }
+    NSMutableDictionary<NSNumber *, NSValue *> *found = [NSMutableDictionary dictionary];
+    for (SGKaraokeMatch *match = best; match; match = match.prior) found[@(match.line)] = [NSValue valueWithRange:match.span];
+    return found;
+}
+
+static SGKaraokeLine *followLine(SGKaraokeLine *plain, NSInteger start, NSInteger end) {
+    SGKaraokeLine *line = [plain copy];
+    line.start = start;
+    line.end = end;
+    line.timing = SGKaraokeTimingLine;
+    NSUInteger weight = 0;
+    for (SGKaraokeWord *word in plain.words) weight += lettersIn(word.text) + kWordWeight;
+    NSMutableArray *words = [NSMutableArray arrayWithCapacity:plain.words.count];
+    double at = start;
+    for (SGKaraokeWord *original in plain.words) {
+        SGKaraokeWord *word = [SGKaraokeWord new];
+        word.text = original.text;
+        word.joined = original.joined;
+        word.start = (NSInteger)at;
+        at += (double)(end - start) * (lettersIn(word.text) + kWordWeight) / weight;
+        word.end = MIN(end, (NSInteger)at);
+        [words addObject:word];
+    }
+    line.words = words;
+    return line;
+}
+
+NSArray<SGKaraokeLine *> *SGKaraokeFollowPlainLines(NSArray<SGKaraokeLine *> *lines, NSInteger duration, NSDictionary<NSNumber *, NSValue *> *anchors) {
+    if (!lines.count || duration <= 0 || SGKaraokeLinesTiming(lines) != SGKaraokeTimingNone) return lines;
+    NSInteger minimum = plainLineMinimum(duration, lines.count);
+    if (!minimum) return lines;
+    NSMutableArray<SGKaraokeLine *> *timed = [NSMutableArray arrayWithCapacity:lines.count];
+    NSUInteger run = 0;
+    NSInteger at = 0;
+    for (NSUInteger i = 0; i <= lines.count; i++) {
+        NSRange anchor = anchors[@(i)].rangeValue;
+        if (i < lines.count && (!anchor.length || !plainLineGapFits(at, anchor.location, i - run, minimum)
+            || !plainLineGapFits(NSMaxRange(anchor), duration, lines.count - i - 1, minimum))) continue;
+        NSInteger until = i < lines.count ? (NSInteger)anchor.location : duration;
+        NSUInteger weight = 0;
+        for (NSUInteger j = run; j < i; j++) weight += MAX(1, lettersIn(SGKaraokeLineText(lines[j])));
+        NSInteger extra = until - at - minimum * (NSInteger)(i - run);
+        double share = 0;
+        for (NSUInteger j = run; j < i; j++) {
+            NSInteger start = at + minimum * (NSInteger)(j - run) + (NSInteger)share;
+            share += (double)extra * MAX(1, lettersIn(SGKaraokeLineText(lines[j]))) / weight;
+            NSInteger end = at + minimum * (NSInteger)(j - run + 1) + (NSInteger)share;
+            [timed addObject:followLine(lines[j], start, j + 1 == i ? until : end)];
+        }
+        if (i == lines.count) break;
+        at = (NSInteger)NSMaxRange(anchor);
+        [timed addObject:followLine(lines[i], anchor.location, at)];
+        run = i + 1;
+    }
+    return timed;
+}
+
 // Some sources list a line out of its place in time: a chorus written once with its repeats after it,
 // or one voice's lines listed after the other's. Everything that reads lines takes them in time order.
 NSArray<SGKaraokeLine *> *SGKaraokeInTimeOrder(NSArray<SGKaraokeLine *> *lines) {

@@ -118,6 +118,7 @@ static CFTimeInterval sg_started;
 
 NSString *SGKaraokePlayingTrack(void) { return sg_track; }
 NSArray<SGKaraokeLine *> *SGKaraokeLinesForTrack(NSString *trackID) { return sg_lines; }
+NSArray<SGKaraokeLine *> *SGLyricsAutoTimedLines(NSString *track, NSArray<SGKaraokeLine *> *lines) { return lines; }
 void SGKaraokeKeepLines(NSString *trackID, NSArray<SGKaraokeLine *> *lines) { sg_lines = lines; }
 void SGKaraokeRequestLyrics(NSString *trackID) {}
 NSNotificationName const SGKaraokeLinesKeptNotification = @"harness.karaokeLinesKept";
