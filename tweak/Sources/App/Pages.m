@@ -14,6 +14,7 @@
 #import "Shared/Player/ABLoop.h"
 #import "Shared/Player/HoldSpeed.h"
 #import "Shared/Player/PlayerSettings.h"
+#import "Shared/Player/RepeatMode.h"
 #import "Shared/Sing/Sing.h"
 #import "Native/Appearance/Appearance.h"
 #import "Native/Navbar/Navbar.h"
@@ -169,6 +170,7 @@ UIViewController *SGPlayerSettingsPage(void) {
 
     [sections addObject:SGSection(@"Playback", @[
         SGOptionRow(@"A–B Loop", @"Repeat part of a track from the Now Playing menu", SGKeyABLoop),
+        SGOptionRow(@"Remember repeat mode", @"Restore your last repeat setting when Spotify starts", SGKeyRememberRepeatMode),
     ])];
 
     [sections addObject:SGNotedSection(@"Lossless", @[

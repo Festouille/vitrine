@@ -70,3 +70,21 @@ the old 64-second retry limit, then checks for the reminder without a new foregr
 
 What it does not cover: the pages the rows open, the row the mod adds to Spotify's settings list and side drawer
 in Spotify's real lists (`rows` uses stand-ins of the same names), and iOS below 26, where the switch warns first.
+
+## Remember repeat mode
+
+With a fresh harness install, run the lines below in order. Terminate the app between launches, without
+uninstalling. The real Player settings section, shared player observer and repeat hooks run against a mock
+Spotify player. The redesigned page's preview and styling are stubbed, but its shared Playback rows are real.
+Each `repeat-check` asserts the reported mode and how many repeat commands the player received.
+
+    xcrun simctl launch --console <udid> com.vitrine.modsettingsharness remember-repeat=0 repeat-start=off repeat-check=off,0 remember-repeat=toggle remember-repeat=1 repeat-set=track repeat-check=track,1
+    xcrun simctl launch --console <udid> com.vitrine.modsettingsharness redesign remember-repeat=1 repeat-start=off repeat-check=track,2 repeat-report=off repeat-check=off,2
+    xcrun simctl launch --console <udid> com.vitrine.modsettingsharness remember-repeat=1 repeat-start=off repeat-check=track,2 repeat-set=off repeat-set-context=context repeat-check=context,4
+    xcrun simctl launch --console <udid> com.vitrine.modsettingsharness redesign remember-repeat=1 repeat-start=off repeat-check=context,1 repeat-set=off repeat-check=off,2
+    xcrun simctl launch --console <udid> com.vitrine.modsettingsharness remember-repeat=1 repeat-start=track repeat-check=off,2 remember-repeat=toggle remember-repeat=0
+    xcrun simctl launch --console <udid> com.vitrine.modsettingsharness redesign remember-repeat=0 repeat-start=track repeat-check=track,0
+
+Capture the real switch and the mock player's reported mode with `xcrun simctl io <udid> screenshot shot.png`
+after any check. For the second run, capture after `repeat-check=track,2` or omit the two subsequent actions
+to keep the restored mode on screen.

@@ -1,0 +1,1 @@
+#define SGKeyRememberRepeatMode @"spotifyglass.rememberRepeatMode"
