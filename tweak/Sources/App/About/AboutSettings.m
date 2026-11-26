@@ -65,6 +65,7 @@ UIViewController *SGAboutPage(void) {
     else if (![SGSpotifySupportedVersions containsObject:spotify]) spotify = [NSString stringWithFormat:@"%@, made for %@", spotify, SGSpotifyMadeFor];
     // The row reads out where the build stands and opens the changelog of everything newer than it.
     SGModRow *updates = SGPageRow(@"Updates", ^UIViewController *{ return SGUpdatePage(); });
+    updates.searchChildren = NO;
     updates.value = ^NSString *{ return SGUpdateStatus(); };
     // A release build can opt into betas; a beta build starts opted in. Either way a check follows at
     // once, since the stored list only holds what counted at the last one.

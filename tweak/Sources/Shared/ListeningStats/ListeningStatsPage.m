@@ -143,6 +143,7 @@ UIViewController *SGListeningStatsPage(void) {
         int64_t back = [days[i] longLongValue] * kDay;
         int64_t (^since)(void) = ^int64_t { return back ? (int64_t)time(NULL) - back : 0; };
         SGModRow *row = SGPageRow(name, ^UIViewController *{ return periodPage(name, since()); });
+        row.searchChildren = NO;
         row.value = ^NSString *{ return duration(msSince(since())); };
         [periods addObject:row];
     }
