@@ -12,6 +12,8 @@ xcrun -sdk iphonesimulator clang -target arm64-apple-ios17.4-simulator -fobjc-ar
     -I"$SRC" -I"$SRC/Redesigned/ContextMenu" -isysroot "$SDK" -Wno-deprecated-declarations \
     "$(dirname "$0")/main.m" "$(dirname "$0")/../scene.m" "$(dirname "$0")/../tabbar/touch.m" "$OUT"/gen/*.m "$SRC"/Redesigned/Player/PlayerMenu.m \
     "$SRC"/Shared/AnimatedArtwork/SaveCanvas.m "$SRC"/Shared/AnimatedArtwork/MotionSources.m \
+    "$(dirname "$0")/../player-shortcuts-fixture.m" "$SRC"/Shared/Player/PlayerShortcuts.m "$SRC"/Shared/AudioEffects/AudioEffectsSettings.m \
+    "$SRC"/Settings/SGLocalize.m "$SRC"/Settings/SGStrings_fr.m "$SRC"/Settings/SGStrings_es.m "$SRC"/Settings/SGStrings_tr.m \
     "$SRC"/Shared/Player/ABLoop.m "$SRC"/Core/SGLog.m "$SRC"/Core/SGPrefs.m "$SRC"/Core/SGViewTree.m "$SRC"/Core/SGUIMode.m \
     -framework UIKit -framework IOKit -framework QuartzCore -framework CoreGraphics -framework Foundation \
     -o "$OUT/SystemMenuHarness.app/SystemMenuHarness"
