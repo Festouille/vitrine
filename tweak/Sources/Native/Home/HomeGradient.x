@@ -15,6 +15,7 @@
 // top for the header, painted #121212; the shelves inside it are collection views of their own,
 // painted #121212 as well.
 #import "Core/SGCore.h"
+#import "Native/Appearance/Appearance.h"
 #import "Native/Appearance/Repaint.h"
 #import "Home.h"
 
@@ -128,13 +129,19 @@ static void layoutGradient(UIScrollView *list) {
 
     CGFloat height = kHeights[clamp(SGHomeChoiceValue(SGHomeChoiceHeight), SGCount(kHeights))];
     CGFloat span = height > 0 ? height : list.bounds.size.height;
-    uint32_t color = strengthened(kTints[clamp(SGHomeChoiceValue(SGHomeChoiceTint), SGCount(kTints))],
-                                  kStrengths[clamp(SGHomeChoiceValue(SGHomeChoiceStrength), SGCount(kStrengths))]);
+    NSInteger artwork = SGArtworkAccentColorRGB();
+    uint32_t tint = artwork < 0 ? kTints[clamp(SGHomeChoiceValue(SGHomeChoiceTint), SGCount(kTints))]
+                               : strengthened((uint32_t)artwork, 0x41 / (255.0 * 0.96));
+    uint32_t color = strengthened(tint, kStrengths[clamp(SGHomeChoiceValue(SGHomeChoiceStrength), SGCount(kStrengths))]);
 
     CGRect frame = CGRectMake(0, -kOverscroll - list.adjustedContentInset.top,
                               list.bounds.size.width, kOverscroll + span);
     if (!CGRectEqualToRect(view.frame, frame)) view.frame = frame;
     [view paintColor:color span:span];
+}
+
+void SGHomeArtworkAccentChanged(void) {
+    [sg_homeRoot setNeedsLayout];
 }
 
 // The one collection view of the page; the shelves are collection views nested inside it.
@@ -176,7 +183,7 @@ static UIScrollView *pageList(UIView *view) {
 %end
 
 %ctor {
-    if (!SGNativeUI() || !SGFlag(SGKeyHomeGradient, NO)) return;
+    if (!SGNativeUI() || (!SGFlag(SGKeyHomeGradient, NO) && !SGHidden(SGKeyArtworkAccent))) return;
     %init;
     SGRequireClasses(@[
         @"_TtC16Home_EvoPageImpl33EvoLoadableResourceViewController",

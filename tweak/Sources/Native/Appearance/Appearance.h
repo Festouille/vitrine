@@ -7,9 +7,11 @@
 #define SGKeyAccent @"spotifyglass.accent"   // 0xRRGGBB; unset or negative keeps Spotify's own green
 // The last color picked, kept while a preset is in place so Custom brings it back.
 #define SGKeyAccentCustom @"spotifyglass.accent.custom"
+#define SGKeyArtworkAccent @"spotifyglass.accent.artwork"
 
 UIColor *SGAccentColor(void);   // nil while Spotify's own green is kept
-NSInteger SGAccentRGB(void);    // the color in effect, 0xRRGGBB, Spotify's green included
+NSInteger SGAccentRGB(void);    // the manual accent, including Spotify's green
+NSInteger SGArtworkAccentColorRGB(void); // -1 without an artwork accent
 
 @class SGModRow;
 NSArray<SGModRow *> *SGNativeAppearanceRows(void);   // AMOLED and the accent color, for the Appearance page

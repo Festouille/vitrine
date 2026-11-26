@@ -13,6 +13,7 @@
 UIColor *SGRAccentColor(void) { return nil; }
 // Spotify's own green is kept, so no color is swapped (PlayerCoverAccent.x asks).
 NSInteger SGRAccentRGB(void) { return 0x1ED760; }
+NSInteger SGRArtworkAccentColorRGB(void) { return -1; }
 BOOL SGRAccentSwap(CGFloat *r, CGFloat *g, CGFloat *b) { return NO; }
 __weak UIView *sgr_nowPlayingRoot = nil;
 NSHashTable<UIView *> *sgr_nowPlayingPainted = nil;

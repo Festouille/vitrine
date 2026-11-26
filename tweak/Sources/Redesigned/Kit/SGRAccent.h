@@ -5,11 +5,13 @@
 #define SGRKeyAccent @"spotifyglass.redesign.accent"   // 0xRRGGBB
 // The last color picked, kept while a preset is in place so Custom brings it back.
 #define SGRKeyAccentCustom @"spotifyglass.redesign.accent.custom"
+#define SGRKeyArtworkAccent @"spotifyglass.redesign.accent.artwork"
 // The redesign's own green until another is picked; Spotify's is a pick of its own, stored as -1.
 #define SGRDefaultAccent 0x37F200
 
 UIColor *SGRAccentColor(void);   // nil while Spotify's own green is kept
-NSInteger SGRAccentRGB(void);    // the color in effect, 0xRRGGBB, Spotify's green included
+NSInteger SGRAccentRGB(void);    // the manual accent, including Spotify's green
+NSInteger SGRArtworkAccentColorRGB(void); // -1 without an artwork accent
 // Black or white, whichever reads on `accent`: the redesign's green is bright, and white text on it is lost.
 UIColor *SGRInkOnAccent(UIColor *accent);
 
@@ -18,8 +20,7 @@ UIColor *SGRInkOnAccent(UIColor *accent);
 // white, as the bar had it, until switched on. Applies as the bar lays out again.
 #define SGRKeyTabAccent @"spotifyglass.redesign.tabbar.accent"
 
-// What a UIColor made from these components comes out as: one of Spotify's greens turns into the accent while it is
-// swapped. NO, and the components untouched, for any other color.
+// Resolve Spotify's greens to the launch preset, without the current artwork override.
 BOOL SGRAccentSwap(CGFloat *r, CGFloat *g, CGFloat *b);
 
 // Plain checkmark (SGRPlainCheck.x): a saved song's circled tick as a plain checkmark in the accent. Off until switched

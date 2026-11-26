@@ -75,8 +75,16 @@ static BOOL accentLike(CGFloat r, CGFloat g, CGFloat b) {
     CGFloat h, s, v;
     SGRAccentSwap(&r, &g, &b);
     hsv(r, g, b, &h, &s, &v);
+    if (s <= kColorful || v <= 0.2) return NO;
     CGFloat d = fabs(h - accentHue);
-    return MIN(d, 1 - d) < kHueNear && s > kColorful && v > 0.2;
+    if (MIN(d, 1 - d) < kHueNear) return YES;
+    NSInteger artwork = SGRArtworkAccentColorRGB();
+    if (artwork < 0) return NO;
+    CGFloat ar, ag, ab, ah;
+    unpack(artwork, &ar, &ag, &ab);
+    hsv(ar, ag, ab, &ah, &s, &v);
+    d = fabs(h - ah);
+    return MIN(d, 1 - d) < kHueNear;
 }
 
 BOOL SGRPlayerAccentLike(UIColor *color) {
