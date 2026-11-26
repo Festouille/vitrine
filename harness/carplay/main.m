@@ -201,7 +201,7 @@ static void runUnitAndHookTests(void) {
     // 1. SGCarPlayLyricsEntries: active line, 1-line lookback, translations, seekable
     NSInteger activeIdx = -1;
     NSArray<SGCarPlayLyricEntry *> *entries = SGCarPlayLyricsEntries(lines, 42500, 0, YES, NO, NO, 6, &activeIdx);
-    check(entries.count == 5, "lyrics entries window from anchor-1 (2..6) within maxItems=6");
+    check(entries.count == 6 && entries.lastObject.lineIndex == 7, "lyrics entries window from anchor-1 (2..7) with maxItems=6");
     check(activeIdx == 3, "outActiveIndex reports global active line index 3");
     check(entries[0].lineIndex == 2, "entry 0 is prior line (index 2)");
     check(entries[1].lineIndex == 3 && entries[1].active, "entry 1 is active line (index 3) with 1-line lookback");
