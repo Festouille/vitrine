@@ -1,6 +1,8 @@
 // The Lyrics page's parts; App/Pages.m assembles the page.
 #import "Core/SGCore.h"
 #import "Settings/SGModPage.h"
+#import <Speech/Speech.h>
+#import "AutoTiming.h"
 #import "Lyrics.h"
 #import "Shared/LocalFiles/LocalLyrics.h"
 #import "Shared/LockScreenLyrics/LockScreenLyrics.h"
@@ -17,14 +19,28 @@ SGModSection *SGLyricsSourcesSection(BOOL namingSource) {
         NSString *first = SGLyricsProviderFor(order.firstObject).name;
         return order.count == 1 ? first : [NSString stringWithFormat:@"%@ +%lu", first, (unsigned long)order.count - 1];
     };
-    SGModRow *imported = SGPageRow(@"Imported LRC files", ^UIViewController *{ return SGImportedLRCPage(); });
+    SGModRow *imported = SGPageRow(@"Imported lyrics", ^UIViewController *{ return SGImportedLRCPage(); });
     imported.value = ^NSString *{
-        NSUInteger count = SGImportedLRCFiles().count;
+        NSUInteger count = SGImportedLRCFiles().count + SGImportedTrackLyricsFiles().count;
         return count ? @(count).stringValue : @"None";
     };
+    SGModRow *trackImport = SGOptionRow(@"Import lyrics for any track", @"Use your own TTML or LRC instead of online lyrics", SGKeyTrackLyricsImport);
+    trackImport.changed = ^(BOOL on) {
+        [NSNotificationCenter.defaultCenter postNotificationName:SGTrackLyricsDidChangeNotification object:nil];
+    };
     SGModRow *words = SGOptionRow(@"Prefer word-by-word timing", @"Asks down the order past lines timed by the line", SGKeyLyricsPreferWordTiming);
-    NSMutableArray<SGModRow *> *rows = [NSMutableArray arrayWithObjects:sources, words, imported,
+    NSMutableArray<SGModRow *> *rows = [NSMutableArray arrayWithObjects:sources, words, trackImport, imported,
         SGSwitchRow(@"Lyrics for every track", @"Even where Spotify has none", SGKeyLyricsAllTracks), SGSpicyLyricsKeyRow(), nil];
+    if (namingSource) {
+        SGModRow *autoTiming = SGOptionRow(@"Follow plain lyrics", @"Estimates timing. With Speech Recognition permission, uses the song's audio on this iPhone to refine it as it plays.", SGKeyLyricsAutoTiming);
+        autoTiming.changed = ^(BOOL on) {
+            if (on && [NSBundle.mainBundle objectForInfoDictionaryKey:@"NSSpeechRecognitionUsageDescription"]
+                && [SFSpeechRecognizer authorizationStatus] == SFSpeechRecognizerAuthorizationStatusNotDetermined) {
+                [SFSpeechRecognizer requestAuthorization:^(SFSpeechRecognizerAuthorizationStatus status) {}];
+            }
+        };
+        [rows insertObject:autoTiming atIndex:2];
+    }
     // Spicy Lyrics' terms ask for its credit wherever its lines show (Shared/LyricsSources/SpicyLyrics.m), so the switch
     // says so, or its credit under the lyrics reads as the switch not working (issue #20).
     if (namingSource) [rows addObject:SGOptionRow(@"Show source", @"Spicy Lyrics is always credited after the last line: its terms ask for it", SGKeyLyricsCredit)];
@@ -49,6 +65,7 @@ SGModRow *SGLockScreenTranslationRow(void) {
 
 SGModRow *SGLyricsTranslationLanguageRow(void) {
     SGModRow *row = SGChoiceRow(@"Translation language", nil, SGKeyLyricsTranslationLanguage, SGLyricsTranslationLanguageNames(), 0);
+    row.chosen = ^(NSInteger index) { SGKaraokeRefreshImportedTranslation(SGKaraokePlayingTrack()); };
     row.choiceFooter = @"A language brings Musixmatch's community translations to lyrics that have none, "
                        @"which sends Musixmatch each song's ID. Any shows the first translation the lyrics come with. "
                        @"It is also the language the lyrics' translate menu translates into, offered only for songs in another one; "

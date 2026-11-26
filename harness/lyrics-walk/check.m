@@ -18,6 +18,8 @@
 // that search by name are asked at once.
 NSString *const SGSpicyLyricsKey = @"spicylyrics";
 NSString *const SGImportedLRCKey = @"importedLRC";
+NSString *SGTrackLyricsLinkedTo(NSString *track) { return nil; }
+SGLyricsResult *SGTrackLyricsOverride(NSString *track) { return nil; }
 NSString *SGSpicyLyricsStatus(void) { return nil; }
 BOOL SGLocalFileIs(NSString *uri) { return NO; }
 NSDictionary<NSString *, id> *SGLocalFileInfo(NSString *uri) { return @{@"title": @"a", @"artist": @"b", @"seconds": @200}; }

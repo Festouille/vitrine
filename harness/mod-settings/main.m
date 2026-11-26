@@ -27,6 +27,9 @@
 #import "Settings/SGPageStyle.h"
 #import "Shared/AnimatedArtwork/AnimatedArtwork.h"
 #import "Shared/Player/PlayerSettings.h"
+#import "Shared/Player/RepeatMode.h"
+
+BOOL SGHarnessRepeatAction(NSString *verb, NSString *value, UIViewController *page);
 
 // Spotify's page protocol, so SGRegisterPages finds one and the page is pushed as on the phone.
 @protocol SPTPageController <NSObject>
@@ -149,7 +152,37 @@ static UIViewController *gatedPage(void) {
     NSArray<NSString *> *parts = [action componentsSeparatedByString:@"="];
     NSString *verb = parts.firstObject, *value = parts.count > 1 ? parts[1] : @"";
     UITableView *table = self.table;
-    if ([verb isEqualToString:@"toggle"]) {
+    if (SGHarnessRepeatAction(verb, value, self.nav.topViewController)) {
+        return;
+    } else if ([verb isEqualToString:@"remember-repeat"]) {
+        UIViewController *page = self.nav.topViewController;
+        if (![page.title isEqualToString:SGL(@"Player")]) {
+            [self tapTitle:SGL(@"Player")];
+            page = self.nav.topViewController;
+            table = self.table;
+        }
+        for (NSInteger section = 0; section < table.numberOfSections; section++) {
+            for (NSInteger row = 0; row < [table numberOfRowsInSection:section]; row++) {
+                NSIndexPath *path = [NSIndexPath indexPathForRow:row inSection:section];
+                UITableViewCell *cell = [table.dataSource tableView:table cellForRowAtIndexPath:path];
+                if (![[(UIListContentConfiguration *)cell.contentConfiguration text] isEqualToString:SGL(@"Remember repeat mode")]) continue;
+                [table scrollToRowAtIndexPath:path atScrollPosition:UITableViewScrollPositionMiddle animated:NO];
+                [table layoutIfNeeded];
+                UISwitch *toggle = (UISwitch *)([table cellForRowAtIndexPath:path] ?: cell).accessoryView;
+                NSAssert([toggle isKindOfClass:UISwitch.class], @"Missing Remember repeat mode switch");
+                if ([value isEqualToString:@"toggle"]) {
+                    [toggle setOn:!toggle.isOn animated:NO];
+                    [toggle sendActionsForControlEvents:UIControlEventValueChanged];
+                } else {
+                    NSAssert(toggle.isOn == value.boolValue && SGFlag(SGKeyRememberRepeatMode, NO) == value.boolValue,
+                             @"Remember repeat mode setting does not match %@", value);
+                    NSLog(@"[harness] Remember repeat mode switch: %@", toggle.isOn ? @"on" : @"off");
+                }
+                return;
+            }
+        }
+        NSAssert(NO, @"Missing Remember repeat mode row");
+    } else if ([verb isEqualToString:@"toggle"]) {
         NSMutableArray<UIControl *> *controls = [NSMutableArray array];
         findViews([table cellForRowAtIndexPath:[self pathFrom:value]].accessoryView, UIControl.class, controls);
         UIControl *toggle = nil;

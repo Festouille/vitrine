@@ -87,6 +87,10 @@ void SGPlayerSetLeadReaders(SGPlayerHeldLead held, SGPlayerLeadOf of);
 typedef void (*SGPlayerSourceSelector)(AudioUnit output, uint64_t epoch, double sourceFrame,
                                       double sampleRate, UInt32 frames, AudioBufferList *data);
 void SGPlayerSetSourceSelector(SGPlayerSourceSelector selector);
+// Read-only native PCM before effects, on the render thread. A silent pull has no readable samples.
+typedef void (*SGPlayerSourceListener)(AudioUnit output, double sampleRate, UInt32 frames,
+                                      const AudioBufferList *data, BOOL silent);
+void SGPlayerSetSourceListener(SGPlayerSourceListener listener);
 uint64_t SGPlayerSourceEpoch(void);
 // Any thread, including render. Invalidate on every seek/skip/recording occurrence/policy cancellation.
 // Audio-output lifecycle changes also invalidate internally. An already admitted render may finish.

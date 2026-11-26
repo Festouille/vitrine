@@ -19,6 +19,10 @@ static BOOL sg_pagesConform;
     [super setTitle:SGL(title)];
 }
 
+- (void)setLiteralTitle:(NSString *)title {
+    [super setTitle:title];
+}
+
 // Inset grouped cards on black, the way Settings draws them, a hairline between the rows of a card.
 - (void)viewDidLoad {
     [super viewDidLoad];

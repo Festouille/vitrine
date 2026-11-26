@@ -113,6 +113,11 @@ Shared:
                   the provider pins 9.1.88's ios-reprise-liquid-glass-override.mode to default in both looks (after an All flags
                   override) and logs the server's own value once, as a force_disabled would take the glass off the redesign.
                   It also pins 9.1.90's ios-navigationui-tabbar-impl.is_liquid_glass_tab_bar_enabled off in both looks.
+    DefaultPlaylist/ Mod Settings › Player enables Spotify's own Default save locations feature at launch
+                  (spotifyglass.defaultPlaylist, off). Choose default playlist opens Spotify's picker, where
+                  the Music category can be changed to a playlist instead of Liked Songs. Spotify owns the
+                  button state and the track it saves in either look. The section is shown only when Spotify
+                  ships the picker and curation support (verified on 9.2.2).
     Gestures/     the double tap zones on the player: the grid, what each cell does, the recognizer (each look hooks it on)
     Lyrics/       the lyrics engine for the redesign's Apple Music style lyrics and the lock screen: lines read from
                   color-lyrics and the player's clock (KaraokeSource.x), words timed by estimate inside Spotify's line
@@ -165,7 +170,12 @@ Shared:
                   words timed and else keeps the finest it saw, the highest among equals (settled()); a timed imported
                   LRC above every source as finely timed ends it too (#111). The redesigned
                   player's ⋯ has Lyrics Source (LyricsPick.m): every source asked at once for the song playing, a pick
-                  shown at once and kept in memory until Spotify quits, and Automatic putting back what the order chose
+                  shown at once and kept in memory until Spotify quits, and Automatic putting back what the order chose.
+                  Follow plain lyrics (off by default, redesigned lyrics page) estimates line timing when the chosen
+                  lyrics have none; real timing still takes priority in Automatic. With Speech Recognition permission,
+                  a supported language and local playback at normal speed, it refines the estimate using on-device
+                  recognition of the song as it plays, not the microphone. Unmatched lines stay estimated, and results
+                  are kept in memory for replay. The page labels the timing as estimated; no audio goes to a server.
     LyricsTranslation/ a song's lines translated from the lyrics' corner menu, for the lines no source translated, three
                   ways, each its own item: on the iPhone by Apple's Translate (iOS 26, the song's language told by
                   NaturalLanguage, both languages downloaded: a missing pair brings up Apple's download sheet, and if they are
@@ -239,12 +249,17 @@ Shared:
                   with no source switched on, of LRCLIB alone, which then gets the file's title, artist, album and
                   length. A rename gives a new key (a cover alone does not), asked for at once while the file plays.
                   A miss is asked again a few times, in case it was a lost request. The user's own .lrc files
-                  (LocalLyrics.m), imported from Files on the Imported LRC files page under Lyrics' sources and kept
+                  (LocalLyrics.m), imported from Files on the Imported lyrics page under Lyrics' sources and kept
                   as UTF-8 in Documents/Vitrine/Lyrics, come before any source: a file linked to the local file
                   playing (Import for current track) is its lyrics whatever its tags say, and any other is matched by
                   [ti:] and [ar:], or a name of "Artist - Title", folded; an import or a delete has the engine forget
                   what it kept for local files and ask again. SGImportedLRCAsk is the same as a source for the
                   order, which moves it on top at the first import and at every link once LyricsSources lists it.
+                  With Import lyrics for any track on, Assign TTML or LRC links a copy from Files to the track
+                  playing, by Spotify ID or local URI rather than by tags. These copies sit in the Tracks
+                  subdirectory and take precedence over online lyrics and source choices. TTML keeps its word
+                  timing and duet and backing vocals in the redesign. Turning the switch off keeps the copies
+                  and restores normal source selection.
                   Where Spotify's player shows its placeholder for a local file, the file's own cover is found
                   (LocalCover.m) in the image fields of its metadata or, while the titles and artists agree, in the
                   system's now playing artwork, which the lock screen shows; the native look puts it into the front
@@ -511,11 +526,11 @@ Native:
                   the cover's room are checked in the simulator against harness/native-player/
     Lyrics/       the full screen lyrics page on glass: tap a timed line to seek, hold a line to copy or share it,
                   or tap the footer to open the pages a credit links to (LyricsPage.x). The local-file viewer has
-                  the same line actions. In Mod Settings → Lyrics → Imported LRC files, tap a file to move its
+                  the same line actions. In Mod Settings → Lyrics → Imported lyrics, tap a matched LRC file to move its
                   timed lyrics earlier or later without editing the file.
-    LocalFiles/   a lyrics button on the player's footer for a local file with an LRC file linked to it, a fifth of the
+    LocalFiles/   a lyrics button on the player's footer for a track with an explicitly linked file, a fifth of the
                   way in from the leading edge, which opens a page of the lines on black that follows the song
-                  (LocalLyrics.h lists its files); the file's metadata says has_lyrics. Checked in the simulator
+                  (LocalLyrics.h lists its files); a local file linked to an LRC also says has_lyrics. Checked in the simulator
                   against harness/local-files/lyrics/. And the file's own cover where the player shows
                   Spotify's placeholder (LocalCover.x)
     Home/         the Home gradient, Home's sections and pills hidden (HomeDeclutter.x), the Home & Library page
@@ -969,7 +984,9 @@ while its switch is on (Reverb has its Room and its Amount, the amount the playe
 applying as it changes; the row reads out Off, On or how many effects are on. Home & Library, in the native look only:
 the Gradient page (the wash behind the top of Home in one of eight colors, at three strengths and
 four heights) and the Home flags, the parts of Home to hide including the DJ button and badge, the
-playlist header, buttons and pills to hide, and the Library flags. Then Premium, ads & privacy
+playlist header, buttons and pills to hide, and the Library flags. In either look, Hide podcasts
+is off by default and takes effect on restart. It filters recognized podcast cards, rows and search
+results on Home, Your Library and Search; it does not unfollow shows or change playback. Then Premium, ads & privacy
 (EeveeSpotify's Hide ads and Hide upsells, in the native look hiding the video carousel in Search, and
 an Ad and upsell flags page under them, every switch there forcing a flag Spotify ships on to off;
 SponsorBlock and its Categories & behavior page; Spoof Premium; Block telemetry; Clean shared links; then what the ad

@@ -43,5 +43,15 @@ SGLyricsResult *SGImportedLRCFor(NSString *trackID, NSString *title, NSString *a
 // Posted on the main thread after an import, delete or timing adjustment.
 extern NSNotificationName const SGImportedLRCDidChangeNotification;
 
+#define SGKeyTrackLyricsImport @"spotifyglass.lyrics.importForTrack"
+// Explicit assignments only. The lookup accepts either a Spotify track URI or a karaoke track key.
+BOOL SGCanImportTrackLyrics(NSString *uri);
+NSString *SGTrackLyricsLinkedTo(NSString *track);
+SGLyricsResult *SGTrackLyricsOverride(NSString *track);
+NSString *SGImportTrackLyrics(NSURL *url, NSString *uri, NSError **error); // main thread
+NSArray<NSString *> *SGImportedTrackLyricsFiles(void);
+// Main thread; object is the affected track key, or nil when the switch changes.
+extern NSNotificationName const SGTrackLyricsDidChangeNotification;
+
 // LocalLyricsPage.m
 UIViewController *SGImportedLRCPage(void);

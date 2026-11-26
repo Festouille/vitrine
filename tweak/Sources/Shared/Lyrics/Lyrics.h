@@ -151,6 +151,9 @@ SGKaraokeLine *SGKaraokePieceLine(NSArray<SGKaraokePiece *> *pieces, NSInteger s
 NSArray<SGKaraokeLine *> *SGKaraokeEstimatedLines(NSArray<NSNumber *> *starts, NSArray<NSString *> *texts);
 // Lines with no time at all, for lyrics that come as plain text; a ♪ or empty text is dropped.
 NSArray<SGKaraokeLine *> *SGKaraokeStaticLines(NSArray<NSString *> *texts);
+NSDictionary<NSNumber *, NSValue *> *SGKaraokeRecognizedLines(NSArray<SGKaraokeLine *> *lines, NSArray<NSString *> *words,
+    NSArray<NSValue *> *times, NSInteger duration, NSDictionary<NSNumber *, NSValue *> *previous);
+NSArray<SGKaraokeLine *> *SGKaraokeFollowPlainLines(NSArray<SGKaraokeLine *> *lines, NSInteger duration, NSDictionary<NSNumber *, NSValue *> *anchors);
 // The finest timing any of the lines has; SGKaraokeTimingNone for none at all.
 SGKaraokeTiming SGKaraokeLinesTiming(NSArray<SGKaraokeLine *> *lines);
 // The lines in the order they start, lines starting together kept as they came; the array itself when
@@ -178,6 +181,8 @@ void SGSpclientHeaders(void (^use)(NSDictionary<NSString *, NSString *> *headers
 // Asks spclient for a track's lyrics once, with the headers of Spotify's own requests, for when no
 // page of Spotify's has asked for them, e.g. with the app in the background.
 void SGKaraokeRequestLyrics(NSString *trackID);
+// After the translation language changes, redraw the assigned lyrics and ask for the new translation. Main queue.
+void SGKaraokeRefreshImportedTranslation(NSString *trackID);
 // Asks Spotify's JSON lyrics for the track once, and keeps its lines only if they are more finely
 // timed than the ones kept: the lyrics view was left with plain text, and Spotify may have it timed.
 void SGKaraokeAskSpotifyForTiming(NSString *trackID);

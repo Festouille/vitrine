@@ -334,8 +334,7 @@ NSArray<SGKaraokeLine *> *SGTTMLLines(NSString *xml) {
     // The TTML namespaces carry nothing the reader needs, and the prefixes it matches on
     // ("ttm:agent") only survive while they are left alone.
     parser.shouldProcessNamespaces = NO;
-    [parser parse];
-    if (!reader.lines.count) return nil;
+    if (![parser parse] || !reader.lines.count) return nil;
     SGKaraokeAlignVoices(reader.lines);
     addHead(reader);
     return reader.lines;

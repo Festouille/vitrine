@@ -29,6 +29,7 @@
 #import "Shared/LiveActivity/LiveActivity.h"
 #import "Shared/ListeningStats/ListeningStats.h"
 #import "Shared/HeadGestures/HeadGestures.h"
+#import "Shared/HidePodcasts/HidePodcasts.h"
 #import "Shared/Player/PlayerSettings.h"
 #import "Shared/Sing/Sing.h"
 #import "Shared/Haptics/Haptics.h"
@@ -98,6 +99,8 @@ static UIViewController *modSettingsPage(void) {
     [sections addObject:SGSection(nil, @[
         redesignedHome,
         home,
+        SGWithTile(SGHideRow(@"Hide podcasts", @"Home, Your Library and Search · Restart to apply", SGKeyHidePodcasts),
+                   @"mic.slash.fill", UIColor.systemPurpleColor),
         pageRow(@"Player", @"play.fill", UIColor.systemPinkColor, ^UIViewController *{ return SGPlayerSettingsPage(); }),
         pageRow(@"Lyrics", @"quote.bubble.fill", UIColor.systemOrangeColor, ^UIViewController *{ return SGLyricsSettingsPage(); }),
         albums,

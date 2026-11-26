@@ -61,6 +61,7 @@ NSArray<SGModRow *> *SGOnDeviceTranslatorRows(void) { return @[SGPageRow(@"SGOnD
 NSArray<SGModRow *> *SGAppFontRows(void) { return @[]; }
 NSArray<SGModRow *> *SGNativeAppearanceRows(void) { return @[]; }
 NSArray<SGModRow *> *SGRAppearanceRows(void) { return @[]; }
+SGModSection *SGDefaultPlaylistSection(void) { return nil; }
 NSArray<NSDictionary *> *SGBlockedArtists(void) { return @[]; }
 
 PAGE(SGLyricsSourcesPage) PAGE(SGImportedLRCPage) PAGE(SGSponsorBlockSettingsPage)
@@ -69,6 +70,10 @@ NSArray<NSString *> *SGLyricsOrder(void) { return @[]; }
 SGLyricsProvider *SGLyricsProviderFor(NSString *key) { return nil; }
 NSArray<NSString *> *SGLyricsTranslationLanguageNames(void) { return @[@"Any"]; }
 NSArray<NSString *> *SGImportedLRCFiles(void) { return @[]; }
+NSArray<NSString *> *SGImportedTrackLyricsFiles(void) { return @[]; }
+NSString *SGKaraokePlayingTrack(void) { return nil; }
+void SGKaraokeRefreshImportedTranslation(NSString *trackID) {}
+NSNotificationName const SGTrackLyricsDidChangeNotification = @"SGTrackLyricsDidChangeNotification";
 BOOL SGEeveeLyricsOn(void) { return NO; }
 NSInteger SGKaraokeDelayMs(void) { return 0; }
 NSString *const SGLyricsRomanisedDidChangeNotification = @"SGLyricsRomanisedDidChangeNotification";

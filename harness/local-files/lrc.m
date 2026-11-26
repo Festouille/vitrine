@@ -4,6 +4,7 @@
 // "Artist - Title" name worked out from the track. Runs in its own home, so nothing of the Mac's is
 // touched. Exits non-zero on the first wrong answer.
 #import <UIKit/UIKit.h>
+#import "Core/SGPrefs.h"
 #import "Shared/LocalFiles/LocalFiles.h"
 #import "Shared/LocalFiles/LocalLyrics.h"
 
@@ -34,6 +35,7 @@ void SGLyricsPageLines(NSArray<SGKaraokeLine *> *lines, NSArray<NSNumber *> **st
     *texts = said;
 }
 SPTPlayerTrack *SGKaraokeTrackFor(NSString *trackID) { return nil; }
+NSString *SGLyricsTranslationLanguage(void) { return nil; }
 
 static NSURL *fileNamed(NSString *name, NSData *data) {
     NSURL *url = [[NSURL fileURLWithPath:NSTemporaryDirectory()] URLByAppendingPathComponent:name];
@@ -59,6 +61,23 @@ int main(void) {
         CHECK(!SGImportLRC(fileNamed(@"big.lrc", [NSMutableData dataWithLength:1024 * 1024 + 1]), nil, &error));
         CHECK(!SGImportLRC(lrc(@"words.lrc", @"just some words"), nil, &error));
         CHECK(SGImportedLRCFiles().count == 0);
+
+        NSString *spotify = @"spotify:track:0123456789012345678901";
+        NSURL *streamLRC = lrc(@"stream.lrc", @"[ti:Wrong title]\n[ar:Wrong artist]\n[00:03.00]My own lyrics\n");
+        CHECK(!SGImportTrackLyrics(streamLRC, spotify, &error));
+        SGSetEnabled(SGKeyTrackLyricsImport, YES);
+        CHECK(!SGImportTrackLyrics(streamLRC, @"spotify:episode:0123456789012345678901", &error));
+        NSString *streamName = SGImportTrackLyrics(streamLRC, spotify, &error);
+        CHECK(streamName && SGImportedLRCFiles().count == 0);
+        CHECK(SGTrackLyricsOverride(@"0123456789012345678901").karaokeLines.firstObject.start == 3000);
+        CHECK(!SGTrackLyricsOverride(@"1123456789012345678901"));
+        CHECK(!SGImportedLRCFor(@"1123456789012345678901", @"Wrong title", @"Wrong artist"));
+        SGSetEnabled(SGKeyTrackLyricsImport, NO);
+        CHECK(!SGTrackLyricsOverride(spotify));
+        SGSetEnabled(SGKeyTrackLyricsImport, YES);
+        CHECK(SGTrackLyricsOverride(spotify).synced);
+        CHECK(SGDeleteImportedLRC(streamName) && !SGTrackLyricsOverride(spotify));
+        SGSetEnabled(SGKeyTrackLyricsImport, NO);
 
         // Several stamps on a line, every fraction form, an offset, a line with no text skipped.
         NSString *sheet = @"﻿[ti:Halo]\n[ar:Beyoncé]\n[offset:+500]\n[00:10.5][01:00:250]Remember\n[00:20.25]those walls\n[00:30]\n[1:05.123]I built\n";
