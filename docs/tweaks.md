@@ -974,7 +974,9 @@ while its switch is on (Reverb has its Room and its Amount, the amount the playe
 applying as it changes; the row reads out Off, On or how many effects are on. Home & Library, in the native look only:
 the Gradient page (the wash behind the top of Home in one of eight colors, at three strengths and
 four heights) and the Home flags, the parts of Home to hide including the DJ button and badge, the
-playlist header, buttons and pills to hide, and the Library flags. Then Premium, ads & privacy
+playlist header, buttons and pills to hide, and the Library flags. In either look, Hide podcasts
+is off by default and takes effect on restart. It filters recognized podcast cards, rows and search
+results on Home, Your Library and Search; it does not unfollow shows or change playback. Then Premium, ads & privacy
 (EeveeSpotify's Hide ads and Hide upsells, in the native look hiding the video carousel in Search, and
 an Ad and upsell flags page under them, every switch there forcing a flag Spotify ships on to off;
 SponsorBlock and its Categories & behavior page; Spoof Premium; Block telemetry; Clean shared links; then what the ad
