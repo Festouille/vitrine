@@ -52,6 +52,7 @@ static id currentProvider(void) {
     return provider;
 }
 
+%group SGRLegacyCollectionPlatform
 %hook SPTCollectionPlatformImplementation
 - (id)initWithCosmosDataLoader:(id)loader isGatedEntityRelationsEnabled:(BOOL)gated {
     id platform = %orig;
@@ -63,6 +64,7 @@ static id currentProvider(void) {
     keepProvider(provider);
     return provider;
 }
+%end
 %end
 
 %hook _TtC23Collection_PlatformImpl22CollectionPlatformImpl
@@ -224,6 +226,10 @@ BOOL SGRArtistFollowing(UIView *page, NSString *moreIdentifier, BOOL *following,
 
 %ctor {
     if (!SGRedesignedUI()) return;
+    Class legacyPlatform = NSClassFromString(@"SPTCollectionPlatformImplementation");
+    if (legacyPlatform) {
+        %init(SGRLegacyCollectionPlatform);
+    }
     %init;
     SGRequireClasses(@[@"SPTCollectionPlatformState", @"_TtC23Collection_PlatformImpl35CollectionPlatformStateProviderImpl"]);
 }

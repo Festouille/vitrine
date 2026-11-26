@@ -344,6 +344,7 @@ static void backWithGlass(UIView *snapshot, UIView *source, NSString *what, BOOL
     if (logged++ < 4) SGLog(@"player transition: %@ stand-in got %lu glass panes", what, (unsigned long)panes.count);
 }
 
+%group SGRLegacyBarTransition
 %hook SPTBarOverlayPresentationTransition
 - (void)setBarSnapshotView:(UIView *)view {
     backWithGlass(view, [self bottomBarView], @"bar", NO);
@@ -353,6 +354,7 @@ static void backWithGlass(UIView *snapshot, UIView *source, NSString *what, BOOL
     backWithGlass(view, [self tabBarView], @"tab bar", YES);
     %orig;
 }
+%end
 %end
 
 static id ivarNamed(id object, const char *name) {
@@ -373,9 +375,11 @@ static id ivarNamed(id object, const char *name) {
 
 %ctor {
     if (!SGRedesignedUI()) return;
+    Class legacyTransition = NSClassFromString(@"SPTBarOverlayPresentationTransition");
+    if (legacyTransition) {
+        %init(SGRLegacyBarTransition);
+    } else {
+        SGRequireClasses(@[@"_TtC19MainUI_TabBarUIImpl24CompactOverlayTransition"]);
+    }
     %init;
-    SGRequireClasses(@[
-        @"SPTBarOverlayPresentationTransition",
-        @"_TtC19MainUI_TabBarUIImpl24CompactOverlayTransition",
-    ]);
 }

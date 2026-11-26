@@ -40,6 +40,7 @@ shows only while something is learned, and asks before it clears both.
 
     THEOS=$HOME/theos sim/build.sh && xcrun simctl install <udid> build/sim/HeadGesturesSim.app
     xcrun simctl launch <udid> com.vitrine.headgesturessim    # then read the [harness] lines from the log
+    xcrun simctl launch <udid> com.vitrine.headgesturessim --modern-collection    # same checks with Spotify 9.2.2's platform class
     xcrun simctl launch <udid> com.vitrine.headgesturessim live    # no checks: page, sheet, done or live, to screenshot
 
 `live` feeds double nods and then shakes in real time, 25 samples a second, so screenshots catch the ring mid-gesture.

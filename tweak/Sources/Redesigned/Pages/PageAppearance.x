@@ -88,9 +88,11 @@ static void barLaidOut(UIView *bar) {
 
 %ctor {
     if (!SGRedesignedUI()) return;
-    sg_barClass = NSClassFromString(@"SPNavigationBar");
-    %init;
-    SGRequireClasses(@[@"SPNavigationController", @"SPNavigationBar", @"_UINavigationBarContentView"]);
+    sg_barClass = NSClassFromString(@"_TtC28ContainerUI_NavigationBarKit15SPNavigationBar");
+    if (!sg_barClass) sg_barClass = NSClassFromString(@"SPNavigationBar");
+    %init(SPNavigationBar = sg_barClass);
+    SGRequireClasses(@[@"SPNavigationController", @"_UINavigationBarContentView"]);
+    if (!sg_barClass) SGLog(@"page appearance: no Spotify navigation bar class found");
     // Spotify builds its blur again as the app comes back; it is settled at once and once more after its own pass.
     void (^comeback)(NSNotification *) = ^(NSNotification *note) {
         syncAllStacks();

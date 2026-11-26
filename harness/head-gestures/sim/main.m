@@ -26,6 +26,10 @@ static void check(BOOL ok, NSString *what) {
     NSLog(@"[harness] %@ %@", ok ? @"ok  " : @"FAIL", what);
 }
 
+void SGDressPageBar(UIViewController *page) {}
+void SGPlacePageBar(UIViewController *page) {}
+void SGUndressPageBar(UIViewController *page) {}
+
 #pragma mark - Spotify stood in for
 
 @interface FakeTrack : NSObject
@@ -86,6 +90,12 @@ id SGKaraokePlayer(void) { return sg_player; }
     [sg_calls addObject:[NSString stringWithFormat:@"add %@ %@", url.absoluteString, show ? @"toast" : @"quiet"]];
     completion();
 }
+@end
+
+@interface _TtC23Collection_PlatformImpl22CollectionPlatformImpl : SPTCollectionPlatformImplementation
+@end
+@implementation _TtC23Collection_PlatformImpl22CollectionPlatformImpl
+- (id)stateProvider { return nil; }
 @end
 
 #pragma mark - the headphones stood in for
@@ -661,7 +671,9 @@ static Step waitFor(double seconds) {
     sg_state.options = [FakeOptions new];
     sg_state.track.URI = @"spotify:track:4uLU6hMCjMI75M1A2tKUQC";
     // Spotify reaching for its platform's state provider is what the hook keeps it from.
-    self.platform = [SPTCollectionPlatformImplementation new];
+    NSArray<NSString *> *arguments = NSProcessInfo.processInfo.arguments;
+    BOOL modern = [arguments containsObject:@"--modern-collection"];
+    self.platform = modern ? [_TtC23Collection_PlatformImpl22CollectionPlatformImpl new] : [SPTCollectionPlatformImplementation new];
     [self.platform stateProvider];
     [self setPlaying:YES];
 
@@ -671,7 +683,8 @@ static Step waitFor(double seconds) {
     self.window.rootViewController = self.nav;
     [self.window makeKeyAndVisible];
 
-    NSString *shot = NSProcessInfo.processInfo.arguments.count > 1 ? NSProcessInfo.processInfo.arguments[1] : nil;
+    NSString *shot = arguments.count > 1 ? arguments[1] : nil;
+    if ([shot isEqualToString:@"--modern-collection"]) shot = nil;
     self.steps = [@[waitFor(1.5)] arrayByAddingObjectsFromArray:shot ? [self shot:shot] : [self checks]];
     [NSTimer scheduledTimerWithTimeInterval:0.25 target:self selector:@selector(tick) userInfo:nil repeats:YES];
     return YES;
