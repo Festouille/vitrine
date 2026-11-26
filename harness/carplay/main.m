@@ -157,6 +157,7 @@ void SGKaraokeSeek(NSInteger ms) {
 }
 
 double SGPlayerSpeed(void) { return gSpeed; }
+BOOL SGPlayerSpeedAllowed(void) { return YES; }
 void SGSetPlayerSpeed(double speed) {
     gSpeed = speed;
     publishNowPlayingInfo();

@@ -299,7 +299,7 @@ static void refreshControlsTemplate(void);
 
 static void pushSpeedTemplate(void) {
     CPInterfaceController *ic = sg_cpInterface;
-    if (!ic) return;
+    if (!ic || !SGPlayerSpeedAllowed()) return;
     double current = SGPlayerSpeed();
     NSMutableArray<CPListItem *> *items = [NSMutableArray array];
     for (NSNumber *n in SGCarPlaySpeedPresets()) {
@@ -386,15 +386,18 @@ static NSArray<CPListSection *> *buildControlsSections(void) {
     [playbackItems addObject:fwd15];
 
     // Playback speed
-    NSString *speedText = SGCarPlayFormatSpeed(SGPlayerSpeed());
+    BOOL speedAllowed = SGPlayerSpeedAllowed();
+    NSString *speedText = speedAllowed ? SGCarPlayFormatSpeed(SGPlayerSpeed()) : SGL(@"Unavailable");
     CPListItem *speedItem = [[CPListItem alloc] initWithText:SGL(@"Playback Speed")
                                                   detailText:speedText
                                                        image:carPlaySymbolImage(@"gauge.with.needle", 20)
                                               accessoryImage:nil
-                                               accessoryType:CPListItemAccessoryTypeDisclosureIndicator];
+                                               accessoryType:(speedAllowed ? CPListItemAccessoryTypeDisclosureIndicator : CPListItemAccessoryTypeNone)];
+    speedItem.enabled = speedAllowed;
     speedItem.handler = ^(id<CPSelectableListItem> selectedItem, dispatch_block_t completionBlock) {
         completionBlock();
-        pushSpeedTemplate();
+        if (SGPlayerSpeedAllowed()) pushSpeedTemplate();
+        else refreshControlsTemplate();
     };
     [playbackItems addObject:speedItem];
 
