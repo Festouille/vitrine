@@ -641,7 +641,7 @@ static BOOL linesShown(void) {
         }
         NSString *playing = SGKaraokePlayingTrack();
         if (!refreshes(playing)) return;
-        if (timingEdit) requestLyrics(playing, !SGLocalFileIs(playing) && sg_ownSources && SGLyricsEnabled());
+        if (timingEdit) requestLyrics(playing, !SGLocalFileIs(playing));
         else if (sg_prefetchLocalLyrics || [imported containsObject:playing]) SGKaraokeRequestLyrics(playing);
         announce(playing);
     }];
