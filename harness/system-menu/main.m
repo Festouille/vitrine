@@ -22,12 +22,16 @@
 #import "Shared/LyricsSources/LyricsSources.h"
 #import "Shared/Player/ABLoop.h"
 #import "Shared/Player/PlayerState.h"
+#import "Shared/Player/PlayerShortcuts.h"
 #import "Shared/Player/SleepTimer.h"
+#import "Shared/AudioEffects/AudioEffects.h"
+#import "Shared/LocalFiles/LocalLyrics.h"
 
 // The album footer is exercised by harness/album-queue and the Spotify simulator test. These
 // player-menu fixtures do not provide an album page or the shared album footer.
 void SGAlbumQueueInstall(UIViewController *menu) {}
 void SGBatchTranslationInstall(UIViewController *menu) {}
+NSString *SGTrackLyricsLinkedTo(NSString *track) { return nil; }
 BOOL SGIsAlertController(UIViewController *controller) { return [controller isKindOfClass:UIAlertController.class]; }
 void SGPlayerStylePanel(UIView *content) {}
 
@@ -177,6 +181,7 @@ void SGMotionAlbumCover(NSString *artist, NSString *album, SGMotionShape shape, 
 
 @interface SGLoopMockState : NSObject
 @property (nonatomic, strong) SGLoopMockTrack *track;
+@property (nonatomic, copy) NSArray *future;
 @property (nonatomic, copy) NSString *playbackId;
 @property (nonatomic) double position, positionAsOfTimestamp, duration;
 @property (nonatomic) BOOL isPlaying, isPaused, isLoading;
@@ -185,6 +190,7 @@ void SGMotionAlbumCover(NSString *artist, NSString *album, SGMotionShape shape, 
 @end
 
 static SGLoopMockState *sg_loopState;
+extern NSArray *SGFixtureUpcomingTracks(void);
 static id<SGPlayerStateObserver> sg_loopObserver;
 static NSUInteger sg_seekCount;
 static double sg_seekTarget;
@@ -667,7 +673,7 @@ static NSArray<NSString *> *quickTitles(void) {
 - (void)run:(NSString *)run {
     void (^finish)(void) = ^{
         NSLog(@"[harness] done");
-        exit(0);
+        if (!is(@"shortcuts-view") && !is(@"shortcuts-next") && !is(@"shortcuts-off")) exit(0);
     };
     sg_rowsHeld = is(@"loading") || is(@"quick") || is(@"quicklate") || is(@"podcast") || is(@"stored");
     sg_rowsNever = is(@"quicklate");
@@ -782,6 +788,54 @@ static NSArray<NSString *> *quickTitles(void) {
 }
 
 - (void)run:(NSString *)run finish:(dispatch_block_t)finish {
+    if ([run hasPrefix:@"shortcuts"]) {
+        BOOL enabled = !is(@"shortcuts-off");
+        check(menuShows(@"Quick EQ") == enabled && menuShows(@"Playing Next") == enabled,
+              enabled ? @"both shortcuts are in the redesigned menu" : @"the redesigned menu has no shortcuts by default");
+        if (!enabled) { finish(); return; }
+        if (is(@"shortcuts-next")) {
+            pick(@"Playing Next");
+            waitFor(^BOOL { return menuShows(@"Night Drive"); }, 3, ^{
+                check(menuShowsAll(@[@"Night Drive", @"Blue Hour", @"First Light"]) && !menuShows(@"Afterglow"),
+                      @"Playing Next shows only the first three tracks");
+                UIAction *first = (UIAction *)sg_elements[@"Night Drive"];
+                check((first.attributes & UIMenuElementAttributesDisabled) && [first.subtitle isEqualToString:@"Mira Vale"],
+                      @"queue rows are read-only and include the artist");
+                finish();
+            });
+            return;
+        }
+        pick(@"Quick EQ");
+        waitFor(^BOOL { return menuShows(@"Bass"); }, 3, ^{
+            check(menuShowsAll(@[@"Bypass EQ", @"Flat", @"Bass", @"Treble", @"Vocal"]), @"Quick EQ shows bypass and four presets");
+            if (is(@"shortcuts-view")) { finish(); return; }
+            pick(@"Bass");
+            waitFor(^BOOL { return self.sheetGone && !openMenu(); }, 4, ^{
+                NSArray *bass = SGDSPEqualizerPreset(1);
+                check([SGDSPGains(SGKeyDSPEqualizerGains) isEqualToArray:bass] && SGDSPSwitch(SGKeyDSPEqualizer), @"Bass applies the existing EQ gains");
+                check(self.sheetGone && !openMenu(), @"the first menu and its backing sheet close before reopening");
+                [self tap:^(CFTimeInterval took) {
+                    waitFor(^BOOL { return self.sheetWindow != nil && menuShows(@"Quick EQ"); }, 3, ^{
+                        pick(@"Quick EQ");
+                        waitFor(^BOOL { return menuShows(@"Bypass EQ"); }, 3, ^{
+                            check(((UIAction *)sg_elements[@"Bass"]).state == UIMenuElementStateOn, @"the active preset is checked");
+                            pick(@"Bypass EQ");
+                            waitFor(^BOOL { return self.sheetGone && !openMenu(); }, 4, ^{
+                                check(!SGDSPSwitch(SGKeyDSPEqualizer) && SGDSPSwitch(SGKeyDSP) &&
+                                      [SGDSPGains(SGKeyDSPEqualizerGains) isEqualToArray:bass], @"bypass leaves Audio Effects and the curve intact");
+                                sg_loopState.future = @[];
+                                check([SGPlayingNextMenu().subtitle isEqualToString:@"No Upcoming Tracks"], @"an empty queue is explicit");
+                                sg_loopState.future = nil;
+                                check([SGPlayingNextMenu().subtitle isEqualToString:@"Queue Preview Unavailable"], @"missing queue data is distinct from an empty queue");
+                                finish();
+                            });
+                        });
+                    });
+                }];
+            });
+        });
+        return;
+    }
     if ([run isEqualToString:@"rows"] || [run isEqualToString:@"sort"] || [run isEqualToString:@"wrapped"]) {
         after(0.3, ^{
             pick(@"More");
@@ -1148,6 +1202,15 @@ __attribute__((constructor(101))) static void sgr_harnessDefaults(void) {
     else [defaults removeObjectForKey:@"spotifyglass.redesign.player.sleepTimer"];
     [defaults setBool:[scenario() hasPrefix:@"canvas"] && !is(@"canvas-off") forKey:SGKeySaveCanvas];
     [defaults setBool:is(@"abloop") || is(@"abloop-view") || is(@"abloop-duplicate") forKey:SGKeyABLoop];
+    [defaults removeObjectForKey:SGKeyPlayerShortcuts];
+    if ([scenario() hasPrefix:@"shortcuts"] && !is(@"shortcuts-off")) {
+        [defaults setBool:YES forKey:SGKeyPlayerShortcuts];
+        [defaults setBool:YES forKey:SGKeyDSP];
+        [defaults setBool:YES forKey:SGKeyDSPEqualizer];
+        [defaults removeObjectForKey:SGKeyDSPEqualizerGains];
+        sg_loopState = [SGLoopMockState new];
+        sg_loopState.future = SGFixtureUpcomingTracks();
+    }
     sg_elements = [NSMutableDictionary dictionary];
     Method make = class_getClassMethod(UIAction.class, @selector(actionWithTitle:image:identifier:handler:));
     sg_actionWithTitle = method_setImplementation(make, (IMP)recordAction);
