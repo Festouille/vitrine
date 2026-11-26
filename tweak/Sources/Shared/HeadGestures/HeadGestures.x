@@ -76,11 +76,13 @@ static void keepPlatform(id platform) {
     SGLog(@"head gestures: collection platform %@", name);
 }
 
+%group SGLegacyCollectionPlatform
 %hook SPTCollectionPlatformImplementation
 - (id)stateProvider {
     keepPlatform(self);
     return %orig;
 }
+%end
 %end
 
 %hook _TtC23Collection_PlatformImpl22CollectionPlatformImpl
@@ -508,8 +510,13 @@ double SGHeadGesturesLearnFrom(NSArray<NSData *> *motions, SGHeadAxis axis) {
 @end
 
 %ctor {
+    Class legacyPlatform = NSClassFromString(@"SPTCollectionPlatformImplementation");
+    if (legacyPlatform) {
+        %init(SGLegacyCollectionPlatform);
+    } else {
+        SGRequireClasses(@[@"_TtC23Collection_PlatformImpl22CollectionPlatformImpl"]);
+    }
     %init;
-    SGRequireClasses(@[@"SPTCollectionPlatformImplementation", @"_TtC23Collection_PlatformImpl22CollectionPlatformImpl"]);
     static SGHeadGesturesObserver *observer;
     observer = [SGHeadGesturesObserver new];
     SGAddPlayerStateObserver(observer);

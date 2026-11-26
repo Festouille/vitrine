@@ -342,6 +342,7 @@ static SGRPlayerMorph *morphFor(SPTBarOverlayPresentationTransition *transition,
     return morph;
 }
 
+%group SGRLegacyPlayerMorph
 %hook SPTBarOverlayPresentationTransition
 - (void)setProgress:(double)progress {
     %orig;
@@ -365,6 +366,7 @@ static SGRPlayerMorph *morphFor(SPTBarOverlayPresentationTransition *transition,
     }
     %orig;
 }
+%end
 %end
 
 #pragma mark - 9.1.90
@@ -532,6 +534,11 @@ static void followTransition(id transition, id<UIViewControllerContextTransition
 
 %ctor {
     if (!SGRedesignedUI()) return;
+    Class legacyTransition = NSClassFromString(@"SPTBarOverlayPresentationTransition");
+    if (legacyTransition) {
+        %init(SGRLegacyPlayerMorph);
+    } else {
+        SGRequireClasses(@[@"_TtC19MainUI_TabBarUIImpl24CompactOverlayTransition"]);
+    }
     %init;
-    SGRequireClasses(@[@"SPTBarOverlayPresentationTransition"]);
 }
