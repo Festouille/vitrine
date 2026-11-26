@@ -7,6 +7,7 @@
 #import "Lyrics.h"
 #import "Shared/Player/PlayerState.h"
 #import "Shared/Player/SpeedPitch.h"
+#import "Shared/Sing/Sing.h"
 
 enum { kWindowSeconds = 16, kMaxSampleRate = 48000 };
 static atomic_flag sg_audioLock = ATOMIC_FLAG_INIT;
@@ -139,11 +140,13 @@ static void poll(void) {
     }
     AudioUnit output = SGPlayerMusicOutput();
     SPTPlayerState *state = SGPlayerState();
-    NSInteger position = SGKaraokePositionMs();
-    if (!output || !state.isPlaying || state.isPaused || state.isLoading || fabs(state.playbackSpeed - 1) > 0.01 || position < 0) {
+    double sourceSeconds = SGSingSourcePosition(state);
+    if (!output || !state.isPlaying || state.isPaused || state.isLoading || fabs(state.playbackSpeed - 1) > 0.01
+        || !isfinite(sourceSeconds) || sourceSeconds < 0) {
         cancelRecording();
         return;
     }
+    NSInteger position = lround(sourceSeconds * 1000);
     if (sg_recording && (sg_output != output || sg_recording != sg_current || !atomic_load(&sg_capture)
         || fabs((position - sg_start) - (now - sg_began) * 1000) > 400)) cancelRecording();
     if (sg_task || atomic_flag_test_and_set_explicit(&sg_audioLock, memory_order_acquire)) return;
