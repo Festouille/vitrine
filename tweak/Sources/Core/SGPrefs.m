@@ -48,7 +48,7 @@ void SGPrefsWriteUnmemoized(void (^write)(void)) {
 
 BOOL SGFlag(NSString *key, BOOL fallback) {
     id value = stored(key);
-    if (value) return [value respondsToSelector:@selector(boolValue)] ? [value boolValue] : fallback;
+    if ([value respondsToSelector:@selector(boolValue)]) return [value boolValue];
     id stock = stored(SGKeyStock);
     return fallback && !([stock respondsToSelector:@selector(boolValue)] && [stock boolValue]);
 }
