@@ -298,6 +298,7 @@ static void place(SGRPlayerLyricsOverlay *overlay, UIView *host, SGRLyricsLayout
     overlay.thumb.center = CGPointMake(CGRectGetMidX(cover), CGRectGetMidY(cover));
     overlay.cover.frame = overlay.thumb.bounds;
     SGRShadowPlate *plate = SGRShadowPlateIn(overlay.thumb, &kPlateKey);
+    plate.hidden = SGHidden(SGRKeyPlayerHideArtworkShadow);
     plate.bounds = overlay.thumb.bounds;
     plate.center = CGPointMake(CGRectGetMidX(overlay.thumb.bounds), CGRectGetMidY(overlay.thumb.bounds));
     overlay.stage.bounds = (CGRect){CGPointZero, stage.size};
@@ -314,11 +315,11 @@ static CGAffineTransform thumbTransform(SGRLyricsLayout l) {
 }
 
 // The corners as they will be drawn: a radius under a scale is drawn scaled, so the thumbnail asks for
-// the radius it wants divided by the shrink, and the two ends of the animation are 12pt and 8pt corners.
+// the radius it wants divided by the shrink.
 static CGFloat thumbRadius(SGRLyricsLayout l, BOOL open) {
-    if (!open) return SGRRadiusArtwork;
+    if (!open) return SGRPlayerCoverCornerRadius();
     CGFloat scale = l.cover.size.width > 0 ? l.thumb.size.width / l.cover.size.width : 1;
-    return scale > 0 ? SGRRadiusCover / scale : SGRRadiusArtwork;
+    return scale > 0 ? SGRRadiusCover / scale : SGRPlayerCoverCornerRadius();
 }
 
 #pragma mark - the lines on their own

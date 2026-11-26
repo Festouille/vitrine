@@ -4,7 +4,9 @@
 // for one track with lyrics, so the redesign's own code is what is being looked at. The player itself
 // is a mock the harness drives: SGRHarnessSetTrack reports a track change to every observer.
 #import <UIKit/UIKit.h>
+#import "Settings/SGPage.h"
 #import "Shared/Lyrics/Lyrics.h"
+#import "Shared/SponsorBlock/SGSponsorBlockOverlay.h"
 #import "Headers/SPTPlayer.h"
 #import "Shared/Player/PlayerState.h"
 
@@ -19,6 +21,18 @@ __weak UIView *sgr_nowPlayingRoot = nil;
 NSHashTable<UIView *> *sgr_nowPlayingPainted = nil;
 __weak UIView *sgr_lyricsPageRoot = nil;
 __weak UIView *sgr_playlistRoot = nil;
+__weak UIView *sgr_sheetChromeRoot = nil;
+void SGRWatchSheetPaint(UIView *root) {}
+
+void SGOpenModSettings(UIView *source) {}
+void SGDressPageBar(UIViewController *page) {}
+void SGPlacePageBar(UIViewController *page) {}
+void SGUndressPageBar(UIViewController *page) {}
+
+@implementation SGSponsorBlockOverlay
++ (void)attachToSlider:(UIView *)slider {}
++ (void)refreshAll {}
+@end
 
 #pragma mark - Shared/Player/PlayerEvents.x
 
@@ -141,6 +155,8 @@ void SGLyricsTranslateWithAI(NSString *trackID, NSArray<SGKaraokeLine *> *lines,
                              void (^done)(NSArray<NSString *> *translations, NSString *error)) { done(nil, @"harness"); }
 // No translation language is asked for, so none of these is reached past its name.
 NSString *SGLyricsTranslationLanguage(void) { return nil; }
+BOOL SGKaraokeInAnotherLanguage(NSArray<SGKaraokeLine *> *lines, NSString *language) { return NO; }
+NSString *SGLyricsErrorTitle(NSString *error) { return error; }
 NSString *SGAITranslatorName(void) { return @"Gemini"; }
 NSString *SGAITranslatorRecipient(void) { return @"Google"; }
 NSString *SGLyricsSongName(NSString *trackID) { return @"the harness's song"; }
@@ -153,7 +169,9 @@ SGTranslationSource *SGAITranslatorSource(void) { return [SGTranslationSource by
 @implementation SGOnDeviceTranslation
 + (BOOL)translationAvailable { return NO; }
 + (BOOL)appleIntelligenceAvailable:(NSString *)languageTag { return NO; }
-+ (void)translate:(NSArray<NSString *> *)lines to:(NSString *)languageTag done:(void (^)(NSArray<NSString *> *, NSString *))done { done(nil, @"harness"); }
++ (void)openTranslateSettings {}
++ (void)translate:(NSArray<NSString *> *)lines to:(NSString *)languageTag from:(UIView *)view
+             done:(void (^)(NSArray<NSString *> *, NSString *))done { done(nil, @"harness"); }
 + (void)translateWithAppleIntelligence:(NSArray<NSString *> *)lines to:(NSString *)languageTag song:(NSString *)song
                               progress:(void (^)(NSArray<NSString *> *))progress done:(void (^)(NSArray<NSString *> *, NSString *))done { done(nil, @"harness"); }
 @end
@@ -226,6 +244,7 @@ NSString *SGSingStatusText(void) { return @"Unavailable"; }
 NSString *SGSingStatusDetail(void) { return nil; }
 NSString *SGSingMissing(void) { return @"the harness"; }
 BOOL SGSingOn(void) { return NO; }
+BOOL SGSingButtonShown(void) { return YES; }
 void SGSetSingOn(BOOL on) {}
 float SGSingLevel(void) { return 0; }
 void SGSetSingLevel(float level) {}
@@ -262,10 +281,12 @@ BOOL SGMotionAppleMusicOn(void) { return YES; }
 // TabBar.x: the Mini player section's Apple Music style switch lays the tab bar out again; there is none here.
 void SGRSetTabBarMinimized(BOOL minimized, BOOL animated) {}
 void SGRRefreshTabBar(void) {}
+BOOL SGRLegacyTabBarOn(void) { return NO; }
 
 // The ⋯'s system menu (PlayerMenu.m, ContextMenu.x), which this harness does not build; PlayerHeader.x hands it
 // the ⋯, and with no button of the mod's over it the ⋯'s own touches press its circle.
 void SGRPlayerMenuWatch(UIView *button) {}
+void SGRDJPlayerMenuWatch(UIView *button) {}
 UIControl *SGRSystemMenuFront(UIView *button) { return nil; }
 
 // Cydia Substrate's hook (substrate.h here), as the runtime does it: the class gets its own copy of an inherited

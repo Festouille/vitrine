@@ -38,11 +38,15 @@
 #import <UIKit/UIKit.h>
 #import <objc/runtime.h>
 #import <objc/message.h>
+#import "Core/SGPrefs.h"
+#import "Settings/SGModPage.h"
 #import "Shared/Lyrics/Lyrics.h"
 #import "Redesigned/Player/Player.h"
 #import "Shared/AnimatedArtwork/AnimatedArtwork.h"
 #import "Redesigned/Kit/SGRBridges.h"
 #import "Redesigned/Kit/SGRField.h"
+#import "Redesigned/Kit/SGRRestyle.h"
+#import "Redesigned/Kit/SGRTokens.h"
 #import "Redesigned/Lyrics/MeaningSheet.h"
 #import "Redesigned/Lyrics/SGRKaraokeView.h"
 
@@ -620,6 +624,7 @@ static void loadLyrics(void) {
     else if ([scenario() isEqualToString:@"catalog"]) [self runCatalogChecks];
     else if ([scenario() isEqualToString:@"badge"]) [self runBadgeChecks];
     else if ([scenario() isEqualToString:@"cover"]) [self runCoverChecks];
+    else if ([scenario() isEqualToString:@"cover-polish"]) [self runCoverPolishChecks];
     else if ([scenario() isEqualToString:@"immersive"]) [self runImmersiveChecks];
     else if ([scenario() isEqualToString:@"settings"]) [self runSettingsChecks];
     else if ([scenario() isEqualToString:@"preview"]) [self runPreviewChecks];
@@ -1269,9 +1274,12 @@ static UIView *firstOfClass(UIView *root, NSString *name) {
                 step:@"the card leads the page, the five backgrounds under it, their names whole"
               detail:[NSString stringWithFormat:@"card %@ in a header of %@, control %@ with %ld segments", NSStringFromCGRect(card),
                       NSStringFromCGRect(header), NSStringFromCGRect(segments.frame), (long)segments.numberOfSegments]];
-        NSInteger sections = table().numberOfSections;
-        [self expect:sections == 2 && [table() numberOfRowsInSection:1] == 3 step:@"the Mini player section on the page"
-              detail:[NSString stringWithFormat:@"%ld sections, %ld rows in the second", (long)sections, (long)[table() numberOfRowsInSection:1]]];
+        __block NSUInteger miniRows = 0;
+        [(SGModPage *)nav.topViewController enumerateVisibleRows:^(SGModRow *row, NSString *section) {
+            if ([section isEqualToString:@"Mini player"]) miniRows++;
+        }];
+        [self expect:miniRows == 4 step:@"the Mini player section on the page"
+              detail:[NSString stringWithFormat:@"%lu rows", (unsigned long)miniRows]];
         expectBackground(@"Animated", YES, NO, YES, NO);
         pick(2);
     });
@@ -1533,6 +1541,59 @@ static CGFloat hillHeight(UIView *view, NSString *ivar) {
     });
 }
 
+- (void)runCoverPolishChecks {
+    for (NSString *key in @[SGRKeyPlayerSquareArtwork, SGRKeyPlayerHideArtworkShadow, SGRKeyPlayerFullSizePausedArtwork]) {
+        [NSUserDefaults.standardUserDefaults removeObjectForKey:key];
+    }
+    SGPrefsChanged();
+    UIView *cover = _cover.superview;
+    UIView *tilt = _tilt;
+    [tilt setNeedsLayout];
+    [tilt layoutIfNeeded];
+    SGRShadowPlate *plate = (SGRShadowPlate *)firstOfClass(tilt, @"SGRShadowPlate");
+    void (^check)(NSString *, CGFloat, BOOL, CGFloat) = ^(NSString *step, CGFloat radius, BOOL shadow, CGFloat scale) {
+        [tilt layoutIfNeeded];
+        BOOL ok = cover.layer.cornerRadius == radius && plate && plate.cornerRadius == radius &&
+                  plate.hidden != shadow && fabs(cover.transform.a - scale) < 0.001;
+        [self expect:ok step:step detail:[NSString stringWithFormat:@"radius %.0f, shadow %d, scale %.2f",
+                                        cover.layer.cornerRadius, !plate.hidden, cover.transform.a]];
+    };
+    SGRHarnessSetTrack(@"spotify:track:harnessA", imageURI(@"aaaa"), YES);
+    check(@"default paused appearance", SGRRadiusArtwork, YES, 0.84);
+
+    UITableViewController *page = (UITableViewController *)SGRPlayerSettingsPage(@[]);
+    UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:page];
+    nav.modalPresentationStyle = UIModalPresentationOverFullScreen;
+    [self.window.rootViewController presentViewController:nav animated:NO completion:^{
+        UITableView *table = page.tableView;
+        NSArray<NSString *> *titles = @[@"Square artwork", @"Hide artwork shadow", @"Full-size artwork when paused"];
+        for (BOOL on = YES;; on = NO) {
+            for (NSUInteger row = 0; row < titles.count; row++) {
+                NSIndexPath *path = [NSIndexPath indexPathForRow:(NSInteger)row inSection:2];
+                if ([table numberOfRowsInSection:path.section] <= path.row) continue;
+                [table scrollToRowAtIndexPath:path atScrollPosition:UITableViewScrollPositionMiddle animated:NO];
+                [table layoutIfNeeded];
+                UITableViewCell *cell = [table cellForRowAtIndexPath:path];
+                UIListContentConfiguration *content = (UIListContentConfiguration *)cell.contentConfiguration;
+                UISwitch *toggle = [cell.accessoryView isKindOfClass:UISwitch.class] ? (UISwitch *)cell.accessoryView : nil;
+                if (![content.text isEqualToString:titles[row]] || !toggle || toggle.isOn == on) continue;
+                toggle.on = on;
+                [toggle sendActionsForControlEvents:UIControlEventValueChanged];
+                if (on && row == 0) check(@"square artwork only", 0, YES, 0.84);
+                if (on && row == 1) check(@"no shadow", 0, NO, 0.84);
+            }
+            if (!on) break;
+            check(@"full-size while paused", 0, NO, 1);
+            SGRHarnessSetTrack(@"spotify:track:harnessA", imageURI(@"aaaa"), NO);
+            SGRHarnessSetTrack(@"spotify:track:harnessA", imageURI(@"aaaa"), YES);
+            check(@"full-size after resuming and pausing again", 0, NO, 1);
+        }
+        check(@"turning off restores the defaults", SGRRadiusArtwork, YES, 0.84);
+        NSLog(@"[harness] cover-polish checks: %lu of %lu right -- %@", (unsigned long)(self->_checks - self->_failures),
+              (unsigned long)self->_checks, self->_checks == 6 && !self->_failures ? @"PASS" : @"FAIL");
+    }];
+}
+
 #pragma mark - the lines on their own
 
 static UIView *lyricsOverlay(UIView *host) {
@@ -1617,7 +1678,7 @@ static BOOL linesSeek(SGRKaraokeView *lyrics) {
         check(@"woken", lowerShown() && !wake.enabled && linesSeek(lines()),
               [NSString stringWithFormat:@"controls %.0f, wake %d, lines seek %d", duration.alpha, wake.enabled, linesSeek(lines())]);
         // A scroll through the lines leaves them alone at once.
-        lines().browsingBegan();
+        lines().browsingBegan(YES);
         check(@"a scroll hides the controls", lowerHidden() && wake.enabled, [NSString stringWithFormat:@"controls %.0f", duration.alpha]);
     });
     after(9.5, ^{

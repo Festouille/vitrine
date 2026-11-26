@@ -82,7 +82,7 @@ come late, out of order, or not at all.
 
 - `settings` opens the redesign's Player page (`PlayerSettings.m`, with the real `Settings/` framework) over the
   player at 3 s, with the clip of `motion` in. It checks the card leads the page with the five backgrounds'
-  segmented control under it, every name whole, the Mini player section's three rows are on the page, and then,
+  segmented control under it, every name whole, the Mini player section's four rows are on the page, and then,
   as the control picks each in turn, that the card shows Animated (the clip, the sources and Low Data Mode's rows
   in), Fluid, Colors, Still, Visualizer (the hills over Fluid held still) and Animated again, with a note for
   each and the header the same height throughout. The log ends with `settings checks: n of 8 right -- PASS` or
@@ -118,6 +118,10 @@ come late, out of order, or not at all.
   to the slider as touch down, value changed and touch up with the slider still tracking, that a drag nobody
   seeks for is seeked directly after a second, and that the slider lets go once the position is there. The
   log ends with `seek checks: n of 9 right -- PASS` or `FAIL`.
+
+- `cover-polish` pauses playback, flips the Artwork switches on the Player page, and checks the cover's
+  corners, shadow and paused size, including a resume and pause and turning the switches back off.
+  The log ends with `cover-polish checks: n of 6 right -- PASS` or `FAIL`.
 
 `HARNESS_VOLUME=0` leaves out the volume row that the phone has and the tree does not.
 

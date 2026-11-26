@@ -30,8 +30,16 @@ static NSMapTable<UIView *, UIView *> *sg_covers;
 
 static CGFloat currentScale(void) {
     SPTPlayerState *state = SGPlayerState();
-    if (!state.isPaused) return 1;
+    if (!state.isPaused || SGHidden(SGRKeyPlayerFullSizePausedArtwork)) return 1;
     return SGRReduceMotion() ? 1 : kPausedScale;
+}
+
+CGFloat SGRPlayerCoverCornerRadius(void) {
+    return SGHidden(SGRKeyPlayerSquareArtwork) ? 0 : SGRRadiusArtwork;
+}
+
+void SGRPlayerRefreshArtwork(void) {
+    for (UIView *tilt in sg_tilts) [tilt setNeedsLayout];
 }
 
 // The child of the tilt view the size of the cover.
@@ -276,17 +284,20 @@ static void watchHold(UIView *tilt) {
         if (!CGRectEqualToRect(image.frame, cover.bounds)) image.bounds = image.bounds, image.center = image.center;
     }
 
-    cover.layer.cornerRadius = SGRRadiusArtwork;
+    CGFloat radius = SGRPlayerCoverCornerRadius();
+    cover.layer.cornerRadius = radius;
     cover.layer.cornerCurve = kCACornerCurveContinuous;
     cover.clipsToBounds = YES;
     SGRShadowPlate *plate = SGRShadowPlateIn(tilt, &kPlateKey);
+    if (plate.cornerRadius != radius) plate.cornerRadius = radius;
+    plate.hidden = SGHidden(SGRKeyPlayerHideArtworkShadow);
     plate.bounds = cover.bounds;
     plate.center = cover.center;
     // The same value an animation in flight is heading to, so a layout pass never cuts one short.
     scaleCover(tilt, currentScale());
 
     static dispatch_once_t once;
-    dispatch_once(&once, ^{ SGLog(@"redesign player: cover %@ rounded %.0f with a shadow plate, scale %.2f", NSStringFromClass(cover.class), SGRRadiusArtwork, currentScale()); });
+    dispatch_once(&once, ^{ SGLog(@"redesign player: cover %@ radius %.0f, shadow %d, scale %.2f", NSStringFromClass(cover.class), radius, !plate.hidden, currentScale()); });
 }
 %end
 
