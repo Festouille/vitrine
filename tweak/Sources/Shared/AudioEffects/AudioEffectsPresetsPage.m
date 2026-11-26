@@ -60,7 +60,8 @@ static NSArray<NSString *> *userPresetNames(void) {
     [super viewDidLoad];
     _footer = SGNote(@"Picking a preset turns Audio effects on and replaces the other effects' settings. A built-in "
                       "preset leaves the Graphic EQ, your headphones' correction, as it is; your own presets keep every "
-                      "effect, the Graphic EQ too. What you had before the first pick is kept under Yours as Before presets. "
+                      "effect, the Graphic EQ too. A saved EQ per output takes priority over the preset’s Equalizer. "
+                      "What you had before the first pick is kept under Yours as Before presets. "
                       "Swipe left on one of yours to delete it.");
     self.tableView.tableFooterView = _footer;
 }

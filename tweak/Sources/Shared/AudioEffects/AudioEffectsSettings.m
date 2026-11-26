@@ -194,17 +194,21 @@ void SGDSPSetGains(NSString *key, NSArray<NSNumber *> *gains) {
     SGDSPSetString(key, formatGains(key, gains));
 }
 
-void SGDSPKeepEqualizerAsDefault(void) {
-    NSDictionary *snapshot = outputEQSnapshot();
-    if (!snapshot) return;
-    [store() setObject:snapshot[SGKeyDSPEqualizerGains] forKey:SGKeyDSPEqualizerGains];
-    SGSetEnabled(SGKeyDSPEqualizer, [snapshot[SGKeyDSPEqualizer] boolValue]);
+void SGDSPSetDefaultEqualizer(BOOL on, id gains) {
+    if ([gains isKindOfClass:NSArray.class]) gains = formatGains(SGKeyDSPEqualizerGains, gains);
+    if ([gains isKindOfClass:NSString.class]) [store() setObject:gains forKey:SGKeyDSPEqualizerGains];
+    SGSetEnabled(SGKeyDSPEqualizer, on);
+    SGDSPApply(SGKeyDSPEqualizer);
 }
 
 void SGDSPResetAll(void) {
     if (outputEQSnapshot()) {
         setOutputEQSnapshot(@{SGKeyDSPEqualizer: @NO, SGKeyDSPEqualizerGains: stringDefaults()[SGKeyDSPEqualizerGains]});
     }
+    SGDSPResetPresetSettings();
+}
+
+void SGDSPResetPresetSettings(void) {
     for (size_t i = 0; i < sizeof kNumbers / sizeof *kNumbers; i++) [store() removeObjectForKey:kNumbers[i].key];
     for (NSString *key in stringDefaults()) [store() removeObjectForKey:key];
     for (NSString *effect in effectSwitches()) [store() removeObjectForKey:effect];

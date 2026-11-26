@@ -13,12 +13,18 @@ static NSUserDefaults *store(void) {
 // A value back through its setter: a switch (the key naming its own effect), a number, the gains as a
 // list, or text. Anything else is left out, a preset from a later build naming a key this one lacks too.
 static void setValue(NSString *key, id value) {
-    if (![key hasPrefix:kPrefix]) return;
+    if (![key hasPrefix:kPrefix] || [key isEqualToString:SGKeyDSPEqualizer] || [key isEqualToString:SGKeyDSPEqualizerGains]) return;
     if ([value isKindOfClass:NSArray.class]) SGDSPSetGains(key, value);
     else if ([value isKindOfClass:NSString.class]) SGDSPSetString(key, value);
     else if (![value isKindOfClass:NSNumber.class]) return;
     else if ([SGDSPEffectOf(key) isEqualToString:key]) SGDSPSetSwitch(key, [value boolValue]);
     else SGDSPSetNumber(key, [value doubleValue]);
+}
+
+static void applyPreset(NSDictionary<NSString *, id> *values) {
+    for (NSString *key in values) setValue(key, values[key]);
+    NSNumber *equalizer = values[SGKeyDSPEqualizer];
+    SGDSPSetDefaultEqualizer([equalizer isKindOfClass:NSNumber.class] && equalizer.boolValue, values[SGKeyDSPEqualizerGains]);
 }
 
 // A pick is meant to be heard: the master switch, off until asked for, comes on with it.
@@ -32,8 +38,6 @@ static NSDictionary<NSString *, id> *currentValues(void) {
     for (NSString *key in all) {
         if ([key hasPrefix:kPrefix]) values[key] = all[key];
     }
-    values[SGKeyDSPEqualizer] = @(SGDSPSwitch(SGKeyDSPEqualizer));
-    values[SGKeyDSPEqualizerGains] = SGDSPString(SGKeyDSPEqualizerGains);
     return values;
 }
 
@@ -95,10 +99,9 @@ void SGDSPLoadBuiltInPreset(NSInteger index) {
     for (NSString *key in now) {
         if ([SGDSPEffectOf(key) isEqualToString:SGKeyDSPGraphicEq]) kept[key] = now[key];
     }
-    SGDSPResetAll();
+    SGDSPResetPresetSettings();
     for (NSString *key in kept) setValue(key, kept[key]);
-    for (NSString *key in values) setValue(key, values[key]);
-    SGDSPKeepEqualizerAsDefault();
+    applyPreset(values);
     turnOn();
 }
 
@@ -123,9 +126,8 @@ void SGDSPSaveUserPreset(NSString *name) {
 BOOL SGDSPLoadUserPreset(NSString *name) {
     NSDictionary *values = userPresets()[name];
     if (![values isKindOfClass:NSDictionary.class]) return NO;
-    SGDSPResetAll();
-    for (NSString *key in values) setValue(key, values[key]);
-    SGDSPKeepEqualizerAsDefault();
+    SGDSPResetPresetSettings();
+    applyPreset(values);
     turnOn();
     return YES;
 }

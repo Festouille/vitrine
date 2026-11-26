@@ -21,10 +21,15 @@ NSString *SGDSPBuiltInPresetDetail(NSInteger index);   // the effects it turns o
 void SGDSPLoadBuiltInPreset(NSInteger index);
 
 // A user's preset is everything: every spotifyglass.dsp.* key but the master switch, Graphic EQ included.
+// Full Audio effects presets contain the default Equalizer. A device assignment is a separate layer.
 NSArray<NSString *> *SGDSPUserPresetNames(void);   // sorted
 void SGDSPSaveUserPreset(NSString *name);          // replaces one of the same name
 BOOL SGDSPLoadUserPreset(NSString *name);
 void SGDSPDeleteUserPreset(NSString *name);
+
+// Bulk preset writes replace the default EQ without changing the live per-output override.
+void SGDSPResetPresetSettings(void);
+void SGDSPSetDefaultEqualizer(BOOL on, id gains);
 
 // The text as one GraphicEQ line, trimmed and on one line, or nil when it is not one: what the Graphic EQ
 // editor saves and what a headphone's file is checked with.
