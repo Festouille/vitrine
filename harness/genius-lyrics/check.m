@@ -228,6 +228,13 @@ static void checkTiming(void) {
     CHECK(aligned[0].start == 2000 && aligned[0].end == 2600);
     CHECK(aligned[1].start == 9000 && aligned[1].end == 14800);
     CHECK(aligned[2].start == 14800 && aligned[2].end == 20000);
+    NSArray<SGKaraokeLine *> *touching = SGKaraokeFollowPlainLines(plain, 20000, @{
+        @0: [NSValue valueWithRange:NSMakeRange(1000, 1000)],
+        @2: [NSValue valueWithRange:NSMakeRange(2000, 1000)]
+    });
+    CHECK(touching[0].start == 1000 && touching[0].end == 2000);
+    CHECK(touching[1].end - touching[1].start >= 250);
+    CHECK(touching[1].end == touching[2].start && touching[2].end == 20000);
     CHECK([SGKaraokeLineText(aligned[1]) isEqualToString:@"Slowly fades away"]);
     CHECK(SGKaraokeRecognizedLines(SGKaraokeStaticLines(@[@"Here comes rain", @"Here comes rain"]), words, spans).count == 0);
     CHECK(SGKaraokeRecognizedLines(plain, @[@"here", @"comes", @"rain"], @[spans[0], spans[3], spans[4]]).count == 0);

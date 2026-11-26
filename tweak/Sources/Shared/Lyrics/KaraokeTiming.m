@@ -462,21 +462,25 @@ static SGKaraokeLine *followLine(SGKaraokeLine *plain, NSInteger start, NSIntege
 
 NSArray<SGKaraokeLine *> *SGKaraokeFollowPlainLines(NSArray<SGKaraokeLine *> *lines, NSInteger duration, NSDictionary<NSNumber *, NSValue *> *anchors) {
     if (!lines.count || duration <= 0 || SGKaraokeLinesTiming(lines) != SGKaraokeTimingNone) return lines;
+    NSInteger minimum = MIN(250, duration / (NSInteger)lines.count);
+    if (!minimum) return lines;
     NSMutableArray<SGKaraokeLine *> *timed = [NSMutableArray arrayWithCapacity:lines.count];
     NSUInteger run = 0;
     NSInteger at = 0;
     for (NSUInteger i = 0; i <= lines.count; i++) {
         NSRange anchor = anchors[@(i)].rangeValue;
-        if (i < lines.count && (!anchor.length || anchor.location < (NSUInteger)at || NSMaxRange(anchor) > (NSUInteger)duration)) continue;
+        if (i < lines.count && (!anchor.length || anchor.location < (NSUInteger)at + minimum * (i - run)
+            || NSMaxRange(anchor) > (NSUInteger)duration - minimum * (lines.count - i - 1))) continue;
         NSInteger until = i < lines.count ? (NSInteger)anchor.location : duration;
         NSUInteger weight = 0;
         for (NSUInteger j = run; j < i; j++) weight += MAX(1, lettersIn(SGKaraokeLineText(lines[j])));
-        NSInteger gap = until - at;
-        double position = at;
+        NSInteger extra = until - at - minimum * (NSInteger)(i - run);
+        double share = 0;
         for (NSUInteger j = run; j < i; j++) {
-            NSInteger start = (NSInteger)position;
-            position += (double)gap * MAX(1, lettersIn(SGKaraokeLineText(lines[j]))) / weight;
-            [timed addObject:followLine(lines[j], start, j + 1 == i ? until : (NSInteger)position)];
+            NSInteger start = at + minimum * (NSInteger)(j - run) + (NSInteger)share;
+            share += (double)extra * MAX(1, lettersIn(SGKaraokeLineText(lines[j]))) / weight;
+            NSInteger end = at + minimum * (NSInteger)(j - run + 1) + (NSInteger)share;
+            [timed addObject:followLine(lines[j], start, j + 1 == i ? until : end)];
         }
         if (i == lines.count) break;
         at = (NSInteger)NSMaxRange(anchor);
