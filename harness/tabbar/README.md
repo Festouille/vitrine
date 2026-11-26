@@ -24,6 +24,14 @@ restrictions, taps and long-press actions. Run it once per look; each run logs P
     xcrun simctl launch --console-pty <udid> com.vojta.tabbarharness gestures native
     xcrun simctl launch --console-pty <udid> com.vojta.tabbarharness gestures sheet
 
+`press` holds and releases a finger on the mini player. It checks the live switch, child controls,
+drag cancellation, the held highlight and scale, and the original tap on release. `HARNESS_PRESS_HOLD`
+sets the hold in seconds for a screenshot; take it after the log's `press held` line, then capture the
+resting card after `press released`. Append `native` to run the same checks on Spotify's bar.
+
+    SIMCTL_CHILD_HARNESS_PRESS_HOLD=8 xcrun simctl launch --console-pty <udid> com.vojta.tabbarharness press
+    SIMCTL_CHILD_HARNESS_PRESS_HOLD=8 xcrun simctl launch --console-pty <udid> com.vojta.tabbarharness press native
+
 The `sheet` run checks that the long-press menu opens over a presented sheet containing the mini player.
 
 The layout is the one 9.1.78 makes in a compact width, with the addresses it was read from:

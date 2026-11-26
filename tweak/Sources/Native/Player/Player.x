@@ -24,6 +24,9 @@
 #import "Native/Appearance/Repaint.h"
 #import "NowPlaying.h"
 #import "Native/Appearance/Appearance.h"
+#import "Shared/AnimatedArtwork/AnimatedArtwork.h"
+#import "Shared/AnimatedArtwork/SGMotionColor.h"
+#import "Shared/Player/SGPlaybackQuality.h"
 
 static const CGFloat kButtonMin = 36, kButtonMax = 48;
 static const CGFloat kArtRadius = 12;
@@ -59,16 +62,152 @@ static void glassBehindRoundButtons(UIViewController *unit) {
     SGHideGlassFrom(host, index);
 }
 
+static void showQuality(UIView *host) {
+    static char key;
+    UILabel *badge = objc_getAssociatedObject(host, &key);
+    NSString *text = SGFlag(SGKeyPlayerQualityBar, NO) ? SGPlaybackQualityText(SGPlayerState()) : nil;
+    if (!text.length) {
+        badge.hidden = YES;
+        return;
+    }
+    if (!badge) {
+        badge = [UILabel new];
+        badge.accessibilityIdentifier = @"sg.audio-quality";
+        badge.userInteractionEnabled = NO;
+        badge.font = [UIFont systemFontOfSize:10 weight:UIFontWeightSemibold];
+        badge.textAlignment = NSTextAlignmentCenter;
+        badge.textColor = UIColor.whiteColor;
+        badge.backgroundColor = [UIColor colorWithWhite:0 alpha:0.60];
+        badge.layer.cornerRadius = 9;
+        badge.layer.borderWidth = 0.5;
+        badge.layer.borderColor = [UIColor colorWithWhite:1 alpha:0.25].CGColor;
+        badge.clipsToBounds = YES;
+        [host addSubview:badge];
+        objc_setAssociatedObject(host, &key, badge, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    }
+    if (![badge.text isEqualToString:text]) badge.text = text;
+    CGFloat width = ceil(badge.intrinsicContentSize.width) + 18;
+    badge.frame = CGRectMake(round(CGRectGetMidX(host.bounds) - width / 2), CGRectGetMaxY(host.bounds) + 2, width, 18);
+    badge.hidden = NO;
+}
+
 %hook _TtC20NowPlaying_ModesImpl18HeaderElementsUnit
 - (void)viewDidLayoutSubviews {
     %orig;
-    glassBehindRoundButtons((UIViewController *)self);
+    UIViewController *unit = (UIViewController *)self;
+    glassBehindRoundButtons(unit);
+    UIView *host = unit.viewIfLoaded;
+    if (!host) return;
+    SGObservePlaybackQuality(host, ^(UIView *owner) { showQuality(owner); });
+    showQuality(host);
 }
 %end
 
 #pragma mark - the cover behind the player
 
 static char kBackdropKey;
+static char kMotionTintKey;
+
+@interface SGPlayerMotionTint : UIView
+@end
+
+@implementation SGPlayerMotionTint {
+    SGMotionFollower *_follower;
+    SGMotionColorSampler *_sampler;
+    NSTimer *_clock;
+    CALayer *_colorLayer;
+}
+
+- (instancetype)initWithFrame:(CGRect)frame {
+    if (!(self = [super initWithFrame:frame])) return nil;
+    self.userInteractionEnabled = NO;
+    self.accessibilityElementsHidden = YES;
+    self.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    _colorLayer = [CALayer layer];
+    _colorLayer.frame = self.bounds;
+    [self.layer addSublayer:_colorLayer];
+    NSNotificationCenter *center = NSNotificationCenter.defaultCenter;
+    for (NSNotificationName name in @[UIApplicationDidBecomeActiveNotification, UIApplicationWillResignActiveNotification,
+                                      NSUserDefaultsDidChangeNotification, NSProcessInfoPowerStateDidChangeNotification,
+                                      UIAccessibilityReduceMotionStatusDidChangeNotification]) {
+        [center addObserver:self selector:@selector(updateSoon) name:name object:nil];
+    }
+    return self;
+}
+
+- (void)layoutSubviews {
+    [super layoutSubviews];
+    [CATransaction begin];
+    [CATransaction setDisableActions:YES];
+    _colorLayer.frame = self.bounds;
+    [CATransaction commit];
+}
+
+- (void)dealloc {
+    [NSNotificationCenter.defaultCenter removeObserver:self];
+    [_clock invalidate];
+}
+
+- (BOOL)wantsMotion {
+    return self.window && UIApplication.sharedApplication.applicationState == UIApplicationStateActive &&
+        SGFlag(SGKeyPlayerAMPolish, NO) && !UIAccessibilityIsReduceMotionEnabled() &&
+        !NSProcessInfo.processInfo.lowPowerModeEnabled;
+}
+
+- (void)sample {
+    if (![self wantsMotion] || SGPlayerState().isPaused) return;
+    __weak SGPlayerMotionTint *weakSelf = self;
+    __weak SGMotionColorSampler *sampler = _sampler;
+    double time = SGPlayerState().position;
+    if (!isfinite(time) || time < 0) return;
+    [_sampler sampleAt:CMTimeMakeWithSeconds(time, 600) looping:YES completion:^(UIColor *color) {
+        SGPlayerMotionTint *view = weakSelf;
+        if (!view || sampler != view->_sampler || ![view wantsMotion] || SGPlayerState().isPaused) return;
+        CGFloat r, g, b;
+        UIColor *tint = [color getRed:&r green:&g blue:&b alpha:NULL]
+            ? [UIColor colorWithRed:r * 0.3 green:g * 0.3 blue:b * 0.3 alpha:0.65]
+            : UIColor.clearColor;
+        SGMotionBlendColor(view->_colorLayer, tint, 0.35);
+    }];
+}
+
+- (void)updateMotion {
+    if (![self wantsMotion]) {
+        [_clock invalidate];
+        _clock = nil;
+        _follower = nil;
+        _sampler = nil;
+        SGMotionBlendColor(_colorLayer, UIColor.clearColor, 0);
+        return;
+    }
+    if (_follower) return;
+    __weak SGPlayerMotionTint *weakSelf = self;
+    _follower = [[SGMotionFollower alloc] initWithBegin:^BOOL(NSString *uri, SPTPlayerState *state) {
+        SGPlayerMotionTint *view = weakSelf;
+        if (!view) return NO;
+        view->_sampler = nil;
+        SGMotionBlendColor(view->_colorLayer, UIColor.clearColor, 0.35);
+        return [view wantsMotion];
+    } found:^(NSString *uri, NSURL *file) {
+        SGPlayerMotionTint *view = weakSelf;
+        if (!view || ![view wantsMotion] || !file) return;
+        view->_sampler = [[SGMotionColorSampler alloc] initWithFile:file bottomFraction:1];
+        [view sample];
+    }];
+    [_follower restart];
+    _clock = [NSTimer scheduledTimerWithTimeInterval:0.65 repeats:YES block:^(NSTimer *timer) { [weakSelf sample]; }];
+}
+
+- (void)updateSoon {
+    dispatch_async(dispatch_get_main_queue(), ^{ [self updateMotion]; });
+}
+
+- (void)didMoveToWindow {
+    [super didMoveToWindow];
+    [self updateSoon];
+}
+
+@end
 
 static UIImage *sg_cover;       // the cover the backdrop stands on, compared by pointer
 static UIImage *sg_coverSmall;
@@ -120,16 +259,23 @@ static UIView *backdropIn(UIView *plane) {
 %hook _TtC21NowPlaying_ScrollImpl27NPVBackgroundViewController
 - (void)viewDidLayoutSubviews {
     %orig;
-    if (!backdropOn()) return;
     UIView *plane = ((UIViewController *)self).viewIfLoaded;
     if (!plane || plane.bounds.size.height < 200) return;
-    sg_npvBackdropRoot = plane;
-    UIView *backdrop = backdropIn(plane);
-    for (UIView *sub in plane.subviews) {
-        if (sub != backdrop) SGStripBackgrounds(sub);
+    SGPlayerMotionTint *tint = objc_getAssociatedObject(plane, &kMotionTintKey);
+    if (backdropOn()) {
+        sg_npvBackdropRoot = plane;
+        UIView *backdrop = backdropIn(plane);
+        for (UIView *sub in plane.subviews) {
+            if (sub != backdrop && sub != tint) SGStripBackgrounds(sub);
+        }
+        plane.layer.backgroundColor = NULL;
+        if (backdrop.superview != plane) [plane insertSubview:backdrop atIndex:0];
     }
-    plane.layer.backgroundColor = NULL;
-    if (backdrop.superview != plane) [plane insertSubview:backdrop atIndex:0];
+    if (!tint) {
+        tint = [[SGPlayerMotionTint alloc] initWithFrame:plane.bounds];
+        objc_setAssociatedObject(plane, &kMotionTintKey, tint, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    }
+    if (plane.subviews.lastObject != tint) [plane addSubview:tint];
 }
 %end
 

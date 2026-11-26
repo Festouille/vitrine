@@ -48,11 +48,13 @@
 #import "Redesigned/Kit/SGRField.h"
 #import "Redesigned/Kit/SGRRestyle.h"
 #import "Redesigned/Kit/SGRTokens.h"
+#import "../player-quality.h"
 #import "Redesigned/Lyrics/MeaningSheet.h"
 #import "Redesigned/Lyrics/SGRKaraokeView.h"
 
 void SGRHarnessPlayFrom(NSInteger ms);
 void SGRHarnessSetTrack(NSString *uri, NSString *imageURI, BOOL paused);
+void SGRHarnessReportQuality(id quality);
 // ../tabbar/touch.m: a finger's touches, through UIKit's own recognizers.
 extern void SGHarnessHold(UIWindow *window, CGPoint point, NSTimeInterval seconds);
 
@@ -632,6 +634,11 @@ static void loadLyrics(void) {
     else if ([scenario() isEqualToString:@"seek"]) [self runSeekChecks];
     else if ([scenario() isEqualToString:@"visualiser"]) [self runVisualiserChecks];
     else if ([scenario() isEqualToString:@"header"]) [self runHeaderChecks];
+    else if ([scenario() isEqualToString:@"quality"]) {
+        SGHarnessQualityChecks(@"redesign", header, SGRKeyPlayerQualityBar,
+                               [NSProcessInfo.processInfo.environment[@"HARNESS_QUALITY_SHOWN"] boolValue],
+                               ^(SPTPlaybackQuality *quality) { SGRHarnessReportQuality(quality); });
+    }
     // Opened, closed and opened again, so a screenshot can be taken of each state and of the move itself.
     else for (NSNumber *at in @[@2, @6, @10]) {
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(at.doubleValue * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
@@ -958,6 +965,25 @@ static BOOL fieldCovered(void) {
     [self expect:invalid && ![invalid valueForKey:@"_player"] && [[invalid valueForKey:@"_aspect"] doubleValue] == 0
             step:@"zero-sized poster" detail:@"invalid geometry must not start a clip"];
 
+    if (getenv("HARNESS_MOTION_POLISH")) {
+        [self->_list insertSubview:self->_plane atIndex:0];
+        self->_units = [self->_units arrayByAddingObject:self->_background];
+        [self layOut];
+        BOOL on = SGFlag(SGRKeyPlayerAMPolish, NO);
+        void (^check)(NSString *, BOOL) = ^(NSString *frame, BOOL blue) {
+            CALayer *foot = [motionView() valueForKey:@"_foot"];
+            CGColorRef drawn = (foot.presentationLayer ?: foot).backgroundColor;
+            CGFloat red = 0, green = 0, b = 0;
+            BOOL ok = drawn && [[UIColor colorWithCGColor:drawn] getRed:&red green:&green blue:&b alpha:NULL]
+                && (blue ? b > 0.7 && red < 0.2 : red > 0.7 && b < 0.2);
+            [self expect:ok step:frame detail:[NSString stringWithFormat:@"foot %.2f %.2f %.2f", red, green, b]];
+            NSLog(@"COVER READY: redesign %@ -- %@", frame, ok ? @"PASS" : @"FAIL");
+        };
+        if (on) after(3, ^{ check(@"on-a", NO); });
+        after(8, ^{ check(on ? @"on-b" : @"off", on); });
+        return;
+    }
+
     // The clip comes in before the player has laid out, as for the track restored at launch.
     after(3, ^{
         [self expect:SGRPlayerMotionShowing() && !SGRPlayerField() step:@"before the player opened"
@@ -978,9 +1004,10 @@ static BOOL fieldCovered(void) {
               detail:[NSString stringWithFormat:@"clip %@ the field, cover %@", motion ? @"on" : @"not on", self->_covers.layer.mask ? @"hidden" : @"shown"]];
         CGFloat seamAt = round(clip.frame.size.height * 0.9);
         BOOL footDown = foot && fabs(foot.frame.origin.y - seamAt) < 1 && CGRectGetMaxY(foot.frame) >= self.window.bounds.size.height
-            && foot.contents && foot.contentsRect.size.height < 0.05 && CGRectGetMaxY(foot.contentsRect) > 0.999;
+            && foot.backgroundColor && CGColorGetAlpha(foot.backgroundColor) == 1;
         [self expect:footDown step:@"the foot"
-              detail:[NSString stringWithFormat:@"clip %@, foot %@ from rows %@", NSStringFromCGRect(clip.frame), NSStringFromCGRect(foot.frame), NSStringFromCGRect(foot.contentsRect)]];
+              detail:[NSString stringWithFormat:@"clip %@, foot %@, poster color %@", NSStringFromCGRect(clip.frame),
+                      NSStringFromCGRect(foot.frame), foot.backgroundColor ? @"opaque" : @"missing"]];
         // The poster under the video, so the clip has a picture before its first frame is decoded; and the
         // Fluid field under it held still and, the clip being opaque, hidden.
         CALayer *still = clip.superlayer;
@@ -1956,6 +1983,10 @@ __attribute__((constructor(101))) static void sgr_harnessDefaults(void) {
     if ([scenario() isEqualToString:@"motion"] || [scenario() isEqualToString:@"settings"]) {
         [NSUserDefaults.standardUserDefaults setInteger:3 forKey:@"spotifyglass.redesign.player.background"];
         setenv("HARNESS_CANVAS", "https://canvas.harness/clip.mp4", 1);
+        if (getenv("HARNESS_MOTION_POLISH")) {
+            [NSUserDefaults.standardUserDefaults setBool:atoi(getenv("HARNESS_MOTION_POLISH")) != 0 forKey:SGRKeyPlayerAMPolish];
+            setenv("HARNESS_CANVAS", [NSString stringWithFormat:@"https://canvas.harness/clip-%d.mp4", getpid()].UTF8String, 1);
+        }
         [NSURLProtocol registerClass:SGRHarnessPictureServer.class];
     }
     Method original = class_getClassMethod(NSURLSessionConfiguration.class, @selector(defaultSessionConfiguration));

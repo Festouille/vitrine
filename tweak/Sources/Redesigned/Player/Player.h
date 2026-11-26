@@ -134,6 +134,8 @@ void SGRPlayerVolumeSliderSet(UISlider *slider);
 // Off until switched on, read at launch. The cover's color (a gray one gives the accent back), and a paint of Spotify's
 // bottom stack, which the footer's layout asks for.
 #define SGRKeyPlayerFollowsCover @"spotifyglass.redesign.player.followsCover"
+#define SGRKeyPlayerAMPolish @"spotifyglass.redesign.player.amPolish"
+#define SGRKeyPlayerQualityBar @"spotifyglass.redesign.player.qualityBar"
 BOOL SGRPlayerFollowsCover(void);
 void SGRPlayerSetCoverAccent(UIColor *cover);
 void SGRPlayerPaintCover(UIView *stack);

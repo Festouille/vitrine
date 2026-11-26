@@ -24,5 +24,16 @@ It checks, a line each with `ok` or `WRONG`:
 The log ends with `native player checks: n of 11 right -- PASS` or `FAIL`. On main before the fixes it
 reads 7 of 11.
 
+Set `SIMCTL_CHILD_HARNESS_MOTION_POLISH=1` (or `0` for the poster backdrop) and
+`SIMCTL_CHILD_HARNESS_CANVAS_FILE` to a local red-then-blue MP4 with the color change at five seconds.
+The mock player reports positions at two and seven seconds. Capture the frames at the `COVER READY`
+markers. The harness runs the Native repaint hook with Artwork background on and checks that colors
+remain after the blend finishes, Spotify's view backgrounds still clear, and a track with no clip
+restores the backdrop.
+
+Set `SIMCTL_CHILD_HARNESS_QUALITY_SHOWN=1` for a Lossless badge or `0` for an unknown level.
+The harness exercises the disabled setting, known and unknown levels, and a missing quality object
+using playback-quality-only reports. Capture the frame at `QUALITY READY`.
+
 What it does not cover: Spotify's real Auto Layout in the cover cell, its open and close transition, and
 a real touch on the slider.

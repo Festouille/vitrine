@@ -6,6 +6,8 @@
 
 #define SGKeyPlayer @"spotifyglass.player"
 #define SGKeyPlayerBackdrop @"spotifyglass.playerBackdrop"
+#define SGKeyPlayerAMPolish @"spotifyglass.player.amPolish"
+#define SGKeyPlayerQualityBar @"spotifyglass.player.qualityBar"
 #define SGKeyLyricsCard @"spotifyglass.lyricsCard"
 
 // Parts of the player to hide, one switch each (PlayerDeclutter.x). An unset switch is off.

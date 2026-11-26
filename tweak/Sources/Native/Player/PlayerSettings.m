@@ -6,15 +6,17 @@
 
 NSArray<SGModSection *> *SGNativePlayerScreenSections(void) {
     return @[
-        SGSection(@"Player screen", @[
+        SGNotedSection(@"Player screen", @[
             SGOptionRow(@"Artwork background", nil, SGKeyPlayerBackdrop),
+            SGOptionRow(@"Audio quality bar", nil, SGKeyPlayerQualityBar),
             SGOptionRow(@"Glass header buttons", nil, SGKeyPlayer),
             SGKillRow(@"Disable Canvas", @"ios-feature-canvas.canvas_enabled"),
             SGFlagRow(@"Sheet style player", @"ios-feature-nowplaying.sheet_style_npv"),
             SGFlagRow(@"Redesigned header", @"ios-feature-nowplaying.new_redesign_header_with_context_menu_enabled"),
             SGFlagRow(@"New progress slider", @"ios-feature-encoreexperiments.new_npv_slider_enabled"),
             SGFlagRow(@"Expand the sticky header on tap", @"ios-feature-nowplaying.expand_sticky_header_on_tap"),
-        ]),
+        ], @"The audio quality bar shows the current playback quality at the top of the player when it is known. "
+           @"Its switch takes effect without restarting Spotify."),
         SGSection(@"Hide cards below the player", @[
             SGHideRow(@"Lyrics", nil, SGHideLyricsCard),
             SGHideRow(@"About the artist", nil, SGHideAboutArtist),
