@@ -421,6 +421,7 @@ static void loadLyrics(void) {
 
 @implementation SGRHarnessDelegate {
     NSArray<UIViewController *> *_units;
+    UIViewController *_infoUnit, *_durationUnit, *_floatingUnit, *_playbackUnit, *_footerUnit;
     NSUInteger _headerDowns;
     UIImageView *_cover, *_barCover;
     UIViewController *_bar;
@@ -590,6 +591,11 @@ static void loadLyrics(void) {
     headerUnit.view = header;
     UIViewController *player = [_TtC19NowPlaying_ViewImpl24NowPlayingViewController new];
     player.view = host;
+    _infoUnit = info;
+    _durationUnit = duration;
+    _floatingUnit = floating;
+    _playbackUnit = playback;
+    _footerUnit = footer;
     _units = @[headerUnit, info, duration, floating, playback, footer, scrollUnit, background, player];
     _covers = covers;
     _plane = plane;
@@ -1514,7 +1520,7 @@ static CGFloat hillHeight(UIView *view, NSString *ivar) {
     // Issue #172: the list's pan is off while the progress bar is scrubbed, back once the scrub ends however
     // it ends, and a pan that was off already stays off.
     after(3, ^{
-        UIView *duration = self->_units[1].view;
+        UIView *duration = self->_durationUnit.view;
         UISlider *slider = [[_TtCO17NowPlaying_ECMKit11ProgressBar6Slider alloc] initWithFrame:CGRectMake(24, 0, duration.bounds.size.width - 48, 20)];
         slider.hidden = YES;
         [duration addSubview:slider];
@@ -1577,12 +1583,13 @@ static CGFloat hillHeight(UIView *view, NSString *ivar) {
         [self->_covers layoutIfNeeded];
     });
     after(2.5, ^{
-        check(@"the preview takes no room", CGSizeEqualToSize(preview.frame.size, CGSizeZero)
-              && CGSizeEqualToSize(preview.intrinsicContentSize, CGSizeZero) && CGSizeEqualToSize([preview sizeThatFits:room.bounds.size], CGSizeZero),
-              [NSString stringWithFormat:@"frame %@, intrinsic %@", NSStringFromCGRect(preview.frame), NSStringFromCGSize(preview.intrinsicContentSize)]);
-        check(@"with lyrics, the cover fills its room", CGRectEqualToRect(tilt.frame, square), NSStringFromCGRect(tilt.frame));
+        CGFloat small = side - 72;
+        CGRect reduced = CGRectMake(round((room.bounds.size.width - small) / 2), 0, small, small);
+        check(@"the preview keeps its room", CGRectEqualToRect(preview.frame, CGRectMake(0, small + 8, room.bounds.size.width, 64)),
+              NSStringFromCGRect(preview.frame));
+        check(@"with lyrics, the cover keeps Spotify's layout", CGRectEqualToRect(tilt.frame, reduced), NSStringFromCGRect(tilt.frame));
         CGRect drawn = SGRPlayerCoverFrameIn(room);
-        check(@"the Kit sees it", CGRectEqualToRect(CGRectIntegral(drawn), square),
+        check(@"the Kit sees it", CGRectEqualToRect(CGRectIntegral(drawn), reduced) && CGSizeEqualToSize(self->_cover.bounds.size, reduced.size),
               [NSString stringWithFormat:@"%@, the picture %@", NSStringFromCGRect(drawn), NSStringFromCGSize(self->_cover.bounds.size)]);
         NSLog(@"[harness] cover: screenshot with lyrics now");
     });
@@ -1663,8 +1670,7 @@ static BOOL linesSeek(SGRKaraokeView *lyrics) {
 }
 
 // The lyrics up and left alone past the rest: only the controls under them fade, the lines grow down into
-// their room and still scroll, a tap brings the controls back and is not a seek, a scroll hides them again
-// and the thumbnail closes the lyrics from there.
+// their room and still scroll. A tap in the extra room or on the thumbnail wakes the controls.
 - (void)runImmersiveChecks {
     __block NSUInteger right = 0, checks = 0;
     void (^check)(NSString *, BOOL, NSString *) = ^(NSString *step, BOOL ok, NSString *detail) {
@@ -1673,7 +1679,7 @@ static BOOL linesSeek(SGRKaraokeView *lyrics) {
         NSLog(@"[harness] immersive %@: %@ -- %@", step, detail, ok ? @"ok" : @"WRONG");
     };
     UIView *host = _host;
-    UIView *info = _units[0].view, *duration = _units[1].view, *playback = _units[3].view, *footer = _units[4].view;
+    UIView *info = _infoUnit.view, *duration = _durationUnit.view, *playback = _playbackUnit.view, *footer = _footerUnit.view;
     UIGestureRecognizer *wake = nil;
     for (UIGestureRecognizer *recognizer in host.gestureRecognizers) {
         if ([NSStringFromClass(recognizer.class) isEqualToString:@"SGRPlayerWake"]) wake = recognizer;
@@ -1684,7 +1690,7 @@ static BOOL linesSeek(SGRKaraokeView *lyrics) {
     // Everything in the bottom stack but the title row and the chips: the volume row too, where there is one.
     NSMutableArray<UIView *> *lower = [NSMutableArray array];
     for (UIView *view in info.superview.subviews) {
-        if (view != info && view != self->_units[2].view) [lower addObject:view];
+        if (view != info && view != _floatingUnit.view) [lower addObject:view];
     }
     BOOL (^lowerHidden)(void) = ^BOOL { for (UIView *v in lower) if (v.alpha != 0) return NO; return lower.count >= 3; };
     BOOL (^lowerShown)(void) = ^BOOL { for (UIView *v in lower) if (v.alpha != 1) return NO; return lower.count >= 3; };
@@ -1714,18 +1720,21 @@ static BOOL linesSeek(SGRKaraokeView *lyrics) {
         CGPoint onThumb = [host convertPoint:CGPointMake(CGRectGetMidX(thumb.bounds), CGRectGetMidY(thumb.bounds)) fromView:thumb];
         UIView *thumbHit = [host hitTest:onThumb withEvent:nil];
         check(@"the thumbnail takes its touch", [thumbHit isDescendantOfView:thumb], NSStringFromClass(thumbHit.class));
-        check(@"a tap wakes, the lines do not seek", wake.enabled && !linesSeek(lines()),
-              [NSString stringWithFormat:@"wake %d, lines seek %d", wake.enabled, linesSeek(lines())]);
+        CGPoint inLines = [lines() convertPoint:onButtons fromView:host];
+        BOOL canSeek = [lines() tapSeeksAt:inLines];
+        check(@"a tap in the extra room wakes instead of seeking", wake.enabled && linesSeek(lines())
+              && inLines.y > lines().seeksAbove && !canSeek,
+              [NSString stringWithFormat:@"wake %d, seek at %.0f %d (seeks through %.0f)", wake.enabled, inLines.y, canSeek, lines().seeksAbove]);
         NSLog(@"[harness] immersive: screenshot alone now");
     });
     after(8, ^{
         [wake sgr_woke];
         // Off still for the rest of this turn of the run loop, which the tap that woke is part of.
-        check(@"the waking tap does not seek", lowerShown() && !linesSeek(lines()),
-              [NSString stringWithFormat:@"controls %.0f, lines seek %d", duration.alpha, linesSeek(lines())]);
+        check(@"the waking tap does not seek", lowerShown() && lines().seeksBelow == CGFLOAT_MAX,
+              [NSString stringWithFormat:@"controls %.0f, seek held %d", duration.alpha, lines().seeksBelow == CGFLOAT_MAX]);
     });
     after(8.5, ^{
-        check(@"woken", lowerShown() && !wake.enabled && linesSeek(lines()),
+        check(@"woken", lowerShown() && !wake.enabled && linesSeek(lines()) && lines().seeksAbove == 0,
               [NSString stringWithFormat:@"controls %.0f, wake %d, lines seek %d", duration.alpha, wake.enabled, linesSeek(lines())]);
         // A scroll through the lines leaves them alone at once.
         lines().browsingBegan(YES);
@@ -1733,8 +1742,14 @@ static BOOL linesSeek(SGRKaraokeView *lyrics) {
     });
     after(9.5, ^{
         [lyricsOverlay(host) sgr_thumbTapped];
-        check(@"the thumbnail closes the lyrics while alone", !SGRPlayerLyricsOpen() && lowerShown() && !wake.enabled,
+        BOOL stayedOpen = SGRPlayerLyricsOpen() && wake.enabled;
+        [wake sgr_woke];
+        check(@"the first thumbnail tap wakes without closing the lyrics", stayedOpen && SGRPlayerLyricsOpen() && lowerShown() && !wake.enabled,
               [NSString stringWithFormat:@"lyrics %@, controls %.0f", SGRPlayerLyricsOpen() ? @"up" : @"down", duration.alpha]);
+    });
+    after(10, ^{
+        [lyricsOverlay(host) sgr_thumbTapped];
+        check(@"a second thumbnail tap closes the lyrics", !SGRPlayerLyricsOpen(), SGRPlayerLyricsOpen() ? @"up" : @"down");
     });
     // A sheet over the player keeps the controls up past the rest, and the clock runs again behind it, so
     // they fade within a rest of the sheet going.
@@ -1797,7 +1812,7 @@ static BOOL linesSeek(SGRKaraokeView *lyrics) {
         if (ok) right++;
         NSLog(@"[harness] seek %@: %@ -- %@", step, detail, ok ? @"ok" : @"WRONG");
     };
-    UIViewController *durationUnit = _units[1];
+    UIViewController *durationUnit = _durationUnit;
     UIView *unit = durationUnit.view;
     CGFloat W = unit.bounds.size.width;
     UISlider *slider = [[_TtCO17NowPlaying_ECMKit11ProgressBar6Slider alloc] initWithFrame:CGRectMake(24, 2, W - 48, 14)];
@@ -1953,6 +1968,9 @@ static BOOL linesSeek(SGRKaraokeView *lyrics) {
 // Before every %ctor, so the redesign's gate reads on, and every session gets the picture server.
 __attribute__((constructor(101))) static void sgr_harnessDefaults(void) {
     [NSUserDefaults.standardUserDefaults setBool:YES forKey:@"spotifyglass.redesign"];
+    if ([scenario() isEqualToString:@"immersive"]) {
+        [NSUserDefaults.standardUserDefaults setInteger:SGRLyricsHideControls forKey:SGRKeyLyricsAutoHide];
+    }
     // Animated artwork, its clip served by the picture server to the shared session too.
     if ([scenario() isEqualToString:@"visualiser"]) [NSUserDefaults.standardUserDefaults setInteger:4 forKey:@"spotifyglass.redesign.player.background"];
     // Still at launch, so the player looks up no clip; an address of this run's own, so the store has none of it yet.

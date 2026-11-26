@@ -44,17 +44,17 @@ come late, out of order, or not at all.
   the progress bar's slider in code (issue #172): the list's pan off while it tracks, back at its end, at a
   cancel and when the slider leaves the window, and a pan that was off already left off. The log ends
   with `scrub checks: ... -- PASS` or `FAIL`.
-- `cover` is issue #77. The cover is checked untouched first, then given Spotify's layout for a track with
-  lyrics, a smaller cover over the lyric preview, and must take its room back as a centered square the
-  Kit also reports. The log ends with `cover checks: n of 4 right -- PASS` or `FAIL`.
+- `cover` checks both Spotify layouts: a centered full-size cover with lyrics off and a smaller cover above
+  Spotify's preview with lyrics on. The Kit must report the smaller frame and its image must fill it.
+  The log ends with `cover checks: n of 4 right -- PASS` or `FAIL`.
 - `immersive` opens the lyrics and waits past the rest: only the bottom stack under the title row
   (progress bar, buttons, volume row, footer) fades, the lines grow down only, a touch where the buttons
-  were lands on the lines, the thumbnail takes its own, and the lines' tap is off. Then the tap that
-  wakes them (fired in code), a scroll that hides them again and the thumbnail closing the lyrics. Then,
+  were lands on the lines but wakes the controls instead of seeking. Then the waking tap (fired in
+  code), a scroll that hides the controls again, and two thumbnail taps to wake and close the lyrics. Then,
   opened again, a sheet over the player keeps the controls up past the rest and they fade once it has
   gone, Sing's mic stays with the lines and takes its own touch, and a finger held on the player (its
   touch watcher driven in code) keeps the controls up until it lifts. The log ends with
-  `immersive checks: n of 15 right -- PASS` or `FAIL`.
+  `immersive checks: n of 16 right -- PASS` or `FAIL`.
 - `badge` shows the hold's 2× badge on the cover by hand, holds again while it fades out and lets go.
   The log ends with `badge checks: n of 3 right -- PASS` or `FAIL`.
 
@@ -95,7 +95,8 @@ come late, out of order, or not at all.
   as the control picks each in turn, that the card shows Animated (the clip, the sources and Low Data Mode's rows
   in), Fluid, Colors, Still, Visualizer (the hills over Fluid held still) and Animated again, with a note for
   each and the header the same height throughout. The log ends with `settings checks: n of 8 right -- PASS` or
-  `FAIL`.
+  `FAIL`. After building, use `sh launch-settings.sh <udid>` to generate its Canvas fixture with FFmpeg and
+  launch the scenario.
 - `preview` opens the Player page with the background Still at launch, so the player looks up no clip, and picks
   Animated on it. The card looks the track's clip up itself: nothing is asked for before the page or while Still
   shows, the card is Fluid while the clip comes (`HARNESS_CANVAS_DELAY`, 2 s), then the clip is in it with its
