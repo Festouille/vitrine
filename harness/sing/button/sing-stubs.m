@@ -3,7 +3,12 @@
 // network. The lyrics harness links it too,
 // since SGRKaraokeView puts the mic on the lyrics.
 #import <UIKit/UIKit.h>
+#import "Redesigned/Kit/SGRRepaint.h"
 #import "Shared/Sing/Sing.h"
+
+__weak UIView *sgr_sheetChromeRoot = nil;
+void SGRWatchSheetPaint(UIView *root) {}
+BOOL SGSingButtonShown(void) { return YES; }
 
 NSString *const SGSingChangedNotification = @"SGSingChangedNotification";
 

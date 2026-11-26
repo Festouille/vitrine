@@ -2,10 +2,17 @@
 // clock of the harness's own: the lines are whatever main.m keeps, the position runs from the launch
 // line's -at at -rate, and holds at -pauseAt for -holdFor seconds before it runs on.
 #import <UIKit/UIKit.h>
+#import "Settings/SGPage.h"
 #import "Shared/Lyrics/Lyrics.h"
 #import "Shared/LyricsTranslation/LyricsTranslation.h"
+#import "Shared/Player/PlayerState.h"
 
 UIColor *SGRAccentColor(void) { return nil; }
+void SGOpenModSettings(UIView *source) {}
+void SGDressPageBar(UIViewController *page) {}
+void SGPlacePageBar(UIViewController *page) {}
+void SGUndressPageBar(UIViewController *page) {}
+SPTPlayerState *SGPlayerState(void) { return nil; }
 
 NSString *const SGPlayerTransitionNotification = @"spotifyglass.playerTransition";
 NSString *const SGPlayerTransitionEndedNotification = @"spotifyglass.playerTransitionEnded";
@@ -41,6 +48,10 @@ NSArray<SGLyricsLink *> *SGLyricsCreditLinks(NSString *text) {
 void SGLyricsOpenCreditLinks(NSArray<SGLyricsLink *> *links, UIView *from) { NSLog(@"harness: credit opens %lu links", (unsigned long)links.count); }
 // -translateTo es: the language the Lyrics page would ask translations for.
 NSString *SGLyricsTranslationLanguage(void) { return [NSUserDefaults.standardUserDefaults stringForKey:@"translateTo"]; }
+BOOL SGKaraokeInAnotherLanguage(NSArray<SGKaraokeLine *> *lines, NSString *language) {
+    return lines.count && language.length;
+}
+NSString *SGLyricsErrorTitle(NSString *error) { return @"Translation Failed"; }
 
 // -gemini 1: a Gemini key is set, and Translate with Gemini answers each line with itself, marked.
 BOOL SGAITranslatorReady(void) { return [NSUserDefaults.standardUserDefaults boolForKey:@"gemini"]; }
