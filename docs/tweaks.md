@@ -165,7 +165,12 @@ Shared:
                   words timed and else keeps the finest it saw, the highest among equals (settled()); a timed imported
                   LRC above every source as finely timed ends it too (#111). The redesigned
                   player's ⋯ has Lyrics Source (LyricsPick.m): every source asked at once for the song playing, a pick
-                  shown at once and kept in memory until Spotify quits, and Automatic putting back what the order chose
+                  shown at once and kept in memory until Spotify quits, and Automatic putting back what the order chose.
+                  Follow plain lyrics (off by default, redesigned lyrics page) estimates line timing when the chosen
+                  lyrics have none; real timing still takes priority in Automatic. With Speech Recognition permission,
+                  a supported language and local playback at normal speed, it refines the estimate using on-device
+                  recognition of the song as it plays, not the microphone. Unmatched lines stay estimated, and results
+                  are kept in memory for replay. The page labels the timing as estimated; no audio goes to a server.
     LyricsTranslation/ a song's lines translated from the lyrics' corner menu, for the lines no source translated, three
                   ways, each its own item: on the iPhone by Apple's Translate (iOS 26, the song's language told by
                   NaturalLanguage, both languages downloaded: a missing pair brings up Apple's download sheet, and if they are

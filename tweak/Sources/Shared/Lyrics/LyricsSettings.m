@@ -1,6 +1,8 @@
 // The Lyrics page's parts; App/Pages.m assembles the page.
 #import "Core/SGCore.h"
 #import "Settings/SGModPage.h"
+#import <Speech/Speech.h>
+#import "AutoTiming.h"
 #import "Lyrics.h"
 #import "Shared/LocalFiles/LocalLyrics.h"
 #import "Shared/LockScreenLyrics/LockScreenLyrics.h"
@@ -23,6 +25,16 @@ SGModSection *SGLyricsSourcesSection(BOOL namingSource) {
     SGModRow *words = SGOptionRow(@"Prefer word-by-word timing", @"Asks down the order past lines timed by the line", SGKeyLyricsPreferWordTiming);
     NSMutableArray<SGModRow *> *rows = [NSMutableArray arrayWithObjects:sources, words, imported,
         SGSwitchRow(@"Lyrics for every track", @"Even where Spotify has none", SGKeyLyricsAllTracks), SGSpicyLyricsKeyRow(), nil];
+    if (namingSource) {
+        SGModRow *autoTiming = SGOptionRow(@"Follow plain lyrics", @"Estimates timing. With Speech Recognition permission, uses the song's audio on this iPhone to refine it as it plays.", SGKeyLyricsAutoTiming);
+        autoTiming.changed = ^(BOOL on) {
+            if (on && [NSBundle.mainBundle objectForInfoDictionaryKey:@"NSSpeechRecognitionUsageDescription"]
+                && [SFSpeechRecognizer authorizationStatus] == SFSpeechRecognizerAuthorizationStatusNotDetermined) {
+                [SFSpeechRecognizer requestAuthorization:^(SFSpeechRecognizerAuthorizationStatus status) {}];
+            }
+        };
+        [rows insertObject:autoTiming atIndex:2];
+    }
     // Spicy Lyrics' terms ask for its credit wherever its lines show (Shared/LyricsSources/SpicyLyrics.m), so the switch
     // says so, or its credit under the lyrics reads as the switch not working (issue #20).
     if (namingSource) [rows addObject:SGOptionRow(@"Show source", @"Spicy Lyrics is always credited after the last line: its terms ask for it", SGKeyLyricsCredit)];

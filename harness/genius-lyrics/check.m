@@ -211,11 +211,35 @@ static void checkLive(void) {
     CHECK([result.texts containsObject:@"♪"]);
 }
 
+static void checkTiming(void) {
+    NSArray<SGKaraokeLine *> *plain = SGKaraokeStaticLines(@[@"Here comes rain", @"Slowly fades away", @"One last whisper"]);
+    NSArray *fallback = SGKaraokeFollowPlainLines(plain, 20000, nil);
+    CHECK(SGKaraokeLinesTiming(plain) == SGKaraokeTimingNone);
+    CHECK(SGKaraokeLinesTiming(fallback) == SGKaraokeTimingLine);
+    CHECK(SGKaraokeFollowPlainLines(fallback, 20000, nil) == fallback);
+
+    NSArray *words = @[@"Here", @"comes", @"rain", @"slowly", @"fades", @"away"];
+    NSArray *spans = @[[NSValue valueWithRange:NSMakeRange(2000, 100)], [NSValue valueWithRange:NSMakeRange(2200, 100)],
+        [NSValue valueWithRange:NSMakeRange(2400, 200)], [NSValue valueWithRange:NSMakeRange(9000, 1400)],
+        [NSValue valueWithRange:NSMakeRange(11000, 1600)], [NSValue valueWithRange:NSMakeRange(13000, 1800)]];
+    NSDictionary *anchors = SGKaraokeRecognizedLines(plain, words, spans);
+    NSArray<SGKaraokeLine *> *aligned = SGKaraokeFollowPlainLines(plain, 20000, anchors);
+    CHECK(anchors.count == 2);
+    CHECK(aligned[0].start == 2000 && aligned[0].end == 2600);
+    CHECK(aligned[1].start == 9000 && aligned[1].end == 14800);
+    CHECK(aligned[2].start == 14800 && aligned[2].end == 20000);
+    CHECK([SGKaraokeLineText(aligned[1]) isEqualToString:@"Slowly fades away"]);
+    CHECK(SGKaraokeRecognizedLines(SGKaraokeStaticLines(@[@"Here comes rain", @"Here comes rain"]), words, spans).count == 0);
+    CHECK(SGKaraokeRecognizedLines(plain, @[@"here", @"comes", @"rain"], @[spans[0], spans[3], spans[4]]).count == 0);
+    puts("plain lyric timing: estimates, vocal gap, slow delivery, and ambiguous lines held");
+}
+
 int main(int argc, char **argv) {
     @autoreleasepool {
         sg_live = argc > 1 && !strcmp(argv[1], "live");
         checkPicks();
         checkEmbed();
+        checkTiming();
         if (sg_live) checkLive();
         printf("all good\n");
     }
