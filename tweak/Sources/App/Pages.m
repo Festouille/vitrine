@@ -11,6 +11,7 @@
 #import "Shared/Gestures/Gestures.h"
 #import "Shared/Lyrics/Lyrics.h"
 #import "Shared/LyricsMeanings/Meanings.h"
+#import "Shared/Player/ABLoop.h"
 #import "Shared/Player/PlayerSettings.h"
 #import "Shared/Sing/Sing.h"
 #import "Native/Appearance/Appearance.h"
@@ -163,6 +164,10 @@ UIViewController *SGPlayerSettingsPage(void) {
     NSArray<SGModRow *> *hidden = native ? @[video, tilt]
         : @[SGHideRow(@"Shuffle", nil, SGRKeyPlayerHideShuffle), SGHideRow(@"Repeat", nil, SGRKeyPlayerHideRepeat), video, tilt];
     [sections addObject:SGSection(native ? nil : @"Hide on the player", hidden)];
+
+    [sections addObject:SGSection(@"Playback", @[
+        SGOptionRow(@"A–B Loop", @"Repeat part of a track from the Now Playing menu", SGKeyABLoop),
+    ])];
 
     [sections addObject:SGNotedSection(@"Lossless", @[
         SGOptionRow(@"Lossless files", @"Your own FLACs in place of Spotify's stream", SGKeyLossless),

@@ -20,6 +20,7 @@
 #pragma mark - what SpeedPitchMenu.x calls
 
 void SGResolveSaveCanvasAction(void (^done)(UIAction *action)) { done(nil); }
+UIMenu *SGABLoopMenu(void) { return nil; }
 
 static double sg_speed = 1;
 static float sg_pitch;

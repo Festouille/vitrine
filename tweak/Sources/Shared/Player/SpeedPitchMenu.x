@@ -36,6 +36,7 @@
 #import "Shared/AnimatedArtwork/SaveCanvas.h"
 #import "Shared/AudioEffects/AudioEffects.h"
 #import "Shared/Haptics/Haptics.h"
+#import "ABLoop.h"
 #import "SpeedPitch.h"
 
 // A menu this soon after the more button's tap is the player's.
@@ -123,6 +124,7 @@ static char kBlockKey, kDecidedKey, kWatchedKey, kShownAtKey, kRowsInKey;
     UILabel *_animatedName;
     UISwitch *_animated;
     UIButton *_saveCanvas;
+    UIButton *_loop;
     float _shownSpeed, _shownPitch, _shownReverb;
     NSTimeInterval _speedSentAt;
     BOOL _speedPending;
@@ -270,6 +272,22 @@ static void placeTick(UISlider *slider) {
         [self addSubview:_animatedRow];
     }
 
+    if (SGABLoopMenu()) {
+        _loop = [UIButton buttonWithType:UIButtonTypeSystem];
+        UIButtonConfiguration *config = [UIButtonConfiguration plainButtonConfiguration];
+        config.title = @"A–B Loop";
+        config.image = [UIImage systemImageNamed:@"repeat"];
+        config.imagePadding = kGrid * 2;
+        config.baseForegroundColor = primary();
+        _loop.configuration = config;
+        _loop.contentHorizontalAlignment = UIControlContentHorizontalAlignmentLeading;
+        _loop.menu = [UIMenu menuWithChildren:@[[UIDeferredMenuElement elementWithUncachedProvider:^(void (^complete)(NSArray<UIMenuElement *> *)) {
+            UIMenu *menu = SGABLoopMenu();
+            complete(menu.children ?: @[]);
+        }]]];
+        _loop.showsMenuAsPrimaryAction = YES;
+        [self addSubview:_loop];
+    }
     [self refresh];
     return self;
 }
@@ -301,7 +319,7 @@ static void placeTick(UISlider *slider) {
 
 - (CGFloat)heightOpen:(BOOL)open {
     return kRowHeight + (open ? 3 * kSliderBlockHeight + kSwitchRowHeight + kPanelBottom : 0)
-         + (_animatedRow ? kRowHeight : 0) + (_saveCanvas ? kRowHeight : 0);
+         + (_animatedRow ? kRowHeight : 0) + (_saveCanvas ? kRowHeight : 0) + (_loop ? kRowHeight : 0);
 }
 
 // Set after init, which drew the values for the sheet's closed block: drawn again open.
@@ -351,6 +369,9 @@ static void placeTick(UISlider *slider) {
     _saveCanvas.hidden = self.panelOnly;
     CGFloat canvasY = (sg_open ? CGRectGetMaxY(_panel.frame) : kRowHeight) + (_animatedRow ? kRowHeight : 0);
     _saveCanvas.frame = CGRectMake(0, canvasY, width, kRowHeight);
+    _loop.hidden = self.panelOnly;
+    CGFloat loopY = (sg_open ? CGRectGetMaxY(_panel.frame) : kRowHeight) + (_animatedRow ? kRowHeight : 0) + (_saveCanvas ? kRowHeight : 0);
+    _loop.frame = CGRectMake(0, loopY, width, kRowHeight);
 }
 
 #pragma mark state
