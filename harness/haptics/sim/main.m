@@ -25,11 +25,13 @@
 #import <stdatomic.h>
 #import "Core/SGCore.h"
 #import "Shared/Haptics/Haptics.h"
+#import "Shared/Player/PlayerState.h"
 #import "fakehaptics.h"
 
 // Shared/Player/PlayerState.x, for SpeedPitch.x's SGSetPlayerSpeed: no player state here.
 @class SPTPlayerState;
 SPTPlayerState *SGPlayerState(void) { return nil; }
+void SGAddPlayerStateObserver(id<SGPlayerStateObserver> observer) {}
 
 static atomic_uint_fast64_t sg_frame;
 static double sg_generatorRate;

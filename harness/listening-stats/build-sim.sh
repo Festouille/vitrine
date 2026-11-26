@@ -11,6 +11,7 @@ SDK=$(xcrun --sdk iphonesimulator --show-sdk-path)
 xcrun -sdk iphonesimulator clang -target arm64-apple-ios17.0-simulator -fobjc-arc -g -O0 \
     -I"$SRC" -I"$SRC/Shared/ListeningStats" -isysroot "$SDK" -Wall -Werror -Wno-deprecated-declarations \
     "$(dirname "$0")/sim/main.m" "$(dirname "$0")/sim/stubs.m" "$(dirname "$0")/../scene.m" "$OUT/gen/ListeningStats.m" \
+    "$(dirname "$0")/../page-bar-stubs.m" \
     "$SRC"/Shared/ListeningStats/ListeningStatsPage.m "$SRC"/Shared/ListeningStats/SGPlayLog.m \
     "$SRC"/Settings/SGLocalize.m "$SRC"/Settings/SGStrings_fr.m "$SRC"/Settings/SGStrings_es.m "$SRC"/Settings/SGStrings_tr.m \
     "$SRC"/Settings/SGPage.m "$SRC"/Settings/SGPageStyle.m "$SRC"/Settings/SGModPage.m "$SRC"/Settings/SGGlowSwitch.m \
