@@ -33,6 +33,7 @@
 #import <objc/runtime.h>
 #import "Core/SGCore.h"
 #import "Settings/SGPageStyle.h"
+#import "Shared/AnimatedArtwork/SaveCanvas.h"
 #import "Shared/AudioEffects/AudioEffects.h"
 #import "Shared/Haptics/Haptics.h"
 #import "SpeedPitch.h"
@@ -120,6 +121,7 @@ static char kBlockKey, kDecidedKey, kWatchedKey, kShownAtKey, kRowsInKey;
     UIImageView *_animatedIcon;
     UILabel *_animatedName;
     UISwitch *_animated;
+    UIButton *_saveCanvas;
     float _shownSpeed, _shownPitch, _shownReverb;
     NSTimeInterval _speedSentAt;
     BOOL _speedPending;
@@ -267,13 +269,25 @@ static void placeTick(UISlider *slider) {
         [self addSubview:_animatedRow];
     }
 
+    UIAction *save = SGSaveCanvasAction();
+    if (save) {
+        _saveCanvas = [UIButton buttonWithType:UIButtonTypeSystem primaryAction:save];
+        UIButtonConfiguration *config = [UIButtonConfiguration plainButtonConfiguration];
+        config.title = save.title;
+        config.image = save.image;
+        config.imagePadding = kGrid * 2;
+        config.baseForegroundColor = primary();
+        _saveCanvas.configuration = config;
+        _saveCanvas.contentHorizontalAlignment = UIControlContentHorizontalAlignmentLeading;
+        [self addSubview:_saveCanvas];
+    }
     [self refresh];
     return self;
 }
 
-+ (CGFloat)heightOpen:(BOOL)open {
+- (CGFloat)heightOpen:(BOOL)open {
     return kRowHeight + (open ? 3 * kSliderBlockHeight + kSwitchRowHeight + kPanelBottom : 0)
-         + (SGPlayerMenuOffersAnimatedArtwork() ? kRowHeight : 0);
+         + (_animatedRow ? kRowHeight : 0) + (_saveCanvas ? kRowHeight : 0);
 }
 
 // Set after init, which drew the values for the sheet's closed block: drawn again open.
@@ -320,6 +334,9 @@ static void placeTick(UISlider *slider) {
     toggle = [_animated sizeThatFits:CGSizeZero];
     _animated.frame = CGRectMake(width - side - toggle.width, (kRowHeight - toggle.height) / 2, toggle.width, toggle.height);
     _animatedName.frame = CGRectMake(titleX, 0, MAX(0, CGRectGetMinX(_animated.frame) - kGrid - titleX), kRowHeight);
+    _saveCanvas.hidden = self.panelOnly;
+    CGFloat canvasY = (sg_open ? CGRectGetMaxY(_panel.frame) : kRowHeight) + (_animatedRow ? kRowHeight : 0);
+    _saveCanvas.frame = CGRectMake(0, canvasY, width, kRowHeight);
 }
 
 #pragma mark state
@@ -427,7 +444,7 @@ static NSString *pitchText(float pitch) {
     if (sg_open) [self refresh];
     UITableView *table = self.table;
     CGRect frame = self.frame;
-    frame.size.height = [SGSpeedPitchView heightOpen:sg_open];
+    frame.size.height = [self heightOpen:sg_open];
     animateOpen(^{
         [table beginUpdates];
         self.frame = frame;
@@ -730,7 +747,8 @@ static void install(UIViewController *menu) {
             objc_setAssociatedObject(menu, &kDecidedKey, @NO, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
             return;
         }
-        block = [[SGSpeedPitchView alloc] initWithFrame:CGRectMake(0, 0, width, [SGSpeedPitchView heightOpen:sg_open])];
+        block = [[SGSpeedPitchView alloc] initWithFrame:CGRectZero];
+        block.frame = CGRectMake(0, 0, width, [block heightOpen:sg_open]);
         block.table = table;
         block.inFooter = !headerFree;
         objc_setAssociatedObject(menu, &kBlockKey, block, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
@@ -748,7 +766,7 @@ static void install(UIViewController *menu) {
                                 placed ? NSStringFromClass(placed.class) : @"nothing");
     }
     if (placed != block || fabs(block.frame.size.width - width) > 0.5) {
-        block.frame = CGRectMake(0, block.frame.origin.y, width, [SGSpeedPitchView heightOpen:sg_open]);
+        block.frame = CGRectMake(0, block.frame.origin.y, width, [block heightOpen:sg_open]);
         if (block.inFooter) table.tableFooterView = block;
         else table.tableHeaderView = block;
         [table invalidateIntrinsicContentSize];
