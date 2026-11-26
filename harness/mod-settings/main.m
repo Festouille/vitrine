@@ -18,9 +18,11 @@
 // Spotify's settings list and drawer, after each list is emptied of its subviews, counted to the log).
 #import <UIKit/UIKit.h>
 #import <objc/runtime.h>
+#import "App/About/About.h"
 #import "Core/SGCore.h"
 #import "Settings/SGPage.h"
 #import "Settings/SGModPage.h"
+#import "Settings/SGPageStyle.h"
 #import "Shared/AnimatedArtwork/AnimatedArtwork.h"
 
 // Spotify's page protocol, so SGRegisterPages finds one and the page is pushed as on the phone.
@@ -177,6 +179,15 @@ static UIViewController *gatedPage(void) {
         if ([alert isKindOfClass:UIAlertController.class]) NSLog(@"[harness] alert \"%@\": %@", alert.title, alert.message);
     } else if ([verb isEqualToString:@"top"]) {
         [table setContentOffset:CGPointMake(0, -table.adjustedContentInset.top) animated:NO];
+    } else if ([verb isEqualToString:@"signing"]) {
+        UIViewController *top = SGTopController();
+        UIAlertController *alert = [top isKindOfClass:UIAlertController.class] ? (UIAlertController *)top : nil;
+        BOOL shown = [alert.title isEqualToString:@"Spotify signing expires soon"];
+        BOOL passed = [value isEqualToString:@"profile"]
+            ? shown && [alert.message containsString:@"provisioning profile"]
+            : !shown && SGEnabled(SGKeySigningExpiryReminder) == [value isEqualToString:@"quiet"];
+        NSLog(@"[harness] signing %@: %@; %@", value, passed ? @"PASS" : @"FAIL", alert.message ?: @"no alert");
+        exit(passed ? EXIT_SUCCESS : EXIT_FAILURE);
     } else if ([verb isEqualToString:@"later"]) {
         sg_later = YES;
     } else if ([verb isEqualToString:@"layout"]) {

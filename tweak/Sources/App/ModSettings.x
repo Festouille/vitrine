@@ -129,7 +129,11 @@ static UIViewController *modSettingsPage(void) {
             pageRow(@"Labs", @"testtube.2", UIColor.systemGreenColor, ^UIViewController *{ return SGLabsPage(); }),
             pageRow(@"All flags", @"flag.fill", UIColor.systemOrangeColor, ^UIViewController *{ return SGAllFlagsPage(); }),
         ]),
-        SGSection(nil, @[mod]),
+        SGSection(nil, @[
+            SGWithTile(SGSwitchRow(@"Signing expiry reminder", @"Warn in the last 3 days before signing expires", SGKeySigningExpiryReminder),
+                       @"clock.badge.exclamationmark", UIColor.systemOrangeColor),
+            mod,
+        ]),
     ]];
     SGModPage *page = [[SGModPage alloc] initWithTitle:@"Vitrine" intro:nil sections:sections footer:nil];
     page.tiles = YES;
@@ -331,5 +335,6 @@ static void attachDrawerRow(UICollectionView *list) {
     SGRequireClasses(@[@"_TtC21Settings_PlatformImpl26SettingsListViewController", @"_TtC23SideDrawer_ListPageImpl18ListViewController"]);
     SGRegisterPages();
     SGCheckSigningOnce();
+    SGWatchSigningExpiry();
     SGWatchForUpdates();
 }

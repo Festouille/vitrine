@@ -3,6 +3,8 @@
 #import <UIKit/UIKit.h>
 #import "Core/SGCore.h"
 #import "Settings/SGModPage.h"
+#import "Settings/SGPage.h"
+#import "Shared/Haptics/SGHapticRelay.h"
 
 extern BOOL SGHarnessWarning;
 
@@ -25,6 +27,7 @@ NSArray<SGModRow *> *SGAITranslatorRows(void) { return @[SGPageRow(@"SGAITransla
 ROW(SGAppIconRow) ROW(SGGlassLyricsRow) ROW(SGLockScreenLyricsRow) ROW(SGLyricsMeaningsRow)
 ROW(SGLyricsTranslationLanguageRow) ROW(SGLyricsWordTimingRow) ROW(SGRLyricsTextSizesRow) ROW(SGLyricsDelayRow)
 ROW(SGSavedTranslationsRow) ROW(SGTranslateEverySongRow)
+ROW(SGLockScreenTranslationRow) ROW(SGLyricsRomanisedReplaceRow) ROW(SGRLyricsHideRow)
 NSArray<SGModRow *> *SGOnDeviceTranslatorRows(void) { return @[SGPageRow(@"SGOnDeviceTranslatorRows", ^UIViewController *{ return nil; })]; }
 NSArray<SGModRow *> *SGAppFontRows(void) { return @[]; }
 NSArray<SGModRow *> *SGNativeAppearanceRows(void) { return @[]; }
@@ -39,6 +42,16 @@ NSString *SGSingSummary(void) { return @"Off"; }
 // An iPhone that reads headphone motion, with Spatial voice off.
 BOOL SGSingSpatialAvailable(void) { return YES; }
 BOOL SGSingSpatial(void) { return NO; }
+
+void SGDressPageBar(UIViewController *page) {}
+void SGPlacePageBar(UIViewController *page) {}
+void SGUndressPageBar(UIViewController *page) {}
+BOOL SGHapticAddonOutdated(void) { return NO; }
+BOOL SGHapticEverywhereOffered(void) { return NO; }
+BOOL SGHapticRelayAvailable(void) { return NO; }
+void SGHapticAddonExplain(NSString *feature) {}
+void SGHapticAddonShareSoon(void) {}
+void SGHapticRelaySendLockArt(void) {}
 
 void SGCheckForUpdate(BOOL force) {}
 void SGWatchForUpdates(void) {}

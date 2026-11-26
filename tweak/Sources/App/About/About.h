@@ -67,6 +67,8 @@ void SGShowSigningFixIfPending(void);   // the sheet the tour held back, if any
 // nil without one. A free Apple ID's lasts a week, after which Spotify no longer opens.
 BOOL SGSigningWeekLong(void);
 SGModRow *SGSigningExpiryRow(void);   // "Signed until …", nil without a profile
+#define SGKeySigningExpiryReminder @"spotifyglass.signingExpiryReminder"
+void SGWatchSigningExpiry(void);
 
 // Backup.m: the settings out to a JSON file through the share sheet, and back in from one, replacing
 // what is set and restarting.
