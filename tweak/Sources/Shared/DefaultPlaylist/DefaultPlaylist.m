@@ -1,5 +1,6 @@
 #import "Core/SGCore.h"
 #import "Core/SGFlagForce.h"
+#import "Settings/SGLocalize.h"
 #import "Settings/SGPageStyle.h"
 #import "Shared/Navigation/Links.h"
 #import "DefaultPlaylist.h"
@@ -40,8 +41,8 @@ SGModSection *SGDefaultPlaylistSection(void) {
     SGModRow *picker = SGActionRow(@"Choose default playlist", @"Open Spotify’s Default save locations", ^{
         NSURL *uri = [NSURL URLWithString:@"spotify:settings:default-save-locations"];
         if (SGSpotifyURIRoute(uri, NULL) != SGLinkRouteNone && SGOpenSpotifyURI(uri)) return;
-        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Can’t open Default save locations"
-            message:@"Try again when Spotify has finished loading." preferredStyle:UIAlertControllerStyleAlert];
+        UIAlertController *alert = [UIAlertController alertControllerWithTitle:SGL(@"Can’t open Default save locations")
+            message:SGL(@"Try again when Spotify has finished loading.") preferredStyle:UIAlertControllerStyleAlert];
         [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
         [SGTopController() presentViewController:alert animated:YES completion:nil];
     });

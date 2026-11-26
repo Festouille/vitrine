@@ -1,6 +1,7 @@
 // The Presets and Headphones pages the Audio effects page's first card opens. Both stay open after a pick,
 // so one preset or one headphone after another can be heard before going back.
 #import "Core/SGCore.h"
+#import "Settings/SGLocalize.h"
 #import "Settings/SGPage.h"
 #import "Settings/SGModPage.h"
 #import "Settings/SGPageStyle.h"
@@ -121,7 +122,9 @@ static NSArray<NSString *> *userPresetNames(void) {
         return cell;
     }
     BOOL builtIn = path.section == 0;
-    SGFillCell(cell, (builtIn ? _builtIn : _mine)[(NSUInteger)path.row], builtIn ? SGDSPBuiltInPresetDetail(path.row) : nil, nil, nil);
+    NSString *name = (builtIn ? _builtIn : _mine)[(NSUInteger)path.row];
+    if (builtIn) SGFillCell(cell, name, SGDSPBuiltInPresetDetail(path.row), nil, nil);
+    else SGFillLiteralCell(cell, name, nil, nil, nil);
     cell.selectionStyle = UITableViewCellSelectionStyleDefault;
     tick(cell, [path isEqual:_picked]);
     return cell;
@@ -304,7 +307,7 @@ typedef NS_ENUM(NSInteger, SGDSPHeadphoneSection) {
         [self.refreshControl endRefreshing];
         if (headphones) self->_all = headphones;
         self->_failed = error != nil;
-        self->_message = error ? [NSString stringWithFormat:@"%@. Tap to try again.", error] : nil;
+        self->_message = error ? [NSString stringWithFormat:SGL(@"%@. Tap to try again."), error] : nil;
         [self filter];
     });
 }
@@ -371,8 +374,7 @@ static BOOL headphoneInUse(void) {
 
 - (NSString *)outputFooter {
     NSString *name = SGAutoEqOutputName();
-    return [NSString stringWithFormat:@"With this on, the correction you pick is kept for %@. It comes back each time audio plays through "
-            "%@, and goes off on outputs with none remembered.", name, name];
+    return [NSString stringWithFormat:SGL(@"With this on, the correction you pick is kept for %@. It comes back each time audio plays through %@, and goes off on outputs with none remembered."), name, name];
 }
 
 - (UIView *)tableView:(UITableView *)table viewForFooterInSection:(NSInteger)section {
@@ -385,7 +387,7 @@ static BOOL headphoneInUse(void) {
 
 // A remembered output's correction, by name.
 static NSString *correctionName(NSString *path) {
-    return path.length ? SGAutoEqNameOf(path) : @"None";
+    return path.length ? SGAutoEqNameOf(path) : SGL(@"None");
 }
 
 - (UITableViewCell *)tableView:(UITableView *)table cellForRowAtIndexPath:(NSIndexPath *)path {
@@ -395,8 +397,8 @@ static NSString *correctionName(NSString *path) {
         NSString *uid = SGAutoEqOutputUID();
         BOOL remembered = SGAutoEqOutputRemembered(uid);
         NSString *current = correctionName(headphoneInUse() ? SGDSPString(SGKeyDSPGraphicEqHeadphone) : nil);
-        SGFillCell(cell, [NSString stringWithFormat:@"Use for %@", SGAutoEqOutputName()],
-                   remembered ? [NSString stringWithFormat:@"%@ while it plays", current] : [NSString stringWithFormat:@"Remember %@ for this output", current], nil, nil);
+        SGFillLiteralCell(cell, [NSString stringWithFormat:SGL(@"Use for %@"), SGAutoEqOutputName()],
+                   remembered ? [NSString stringWithFormat:SGL(@"%@ while it plays"), current] : [NSString stringWithFormat:SGL(@"Remember %@ for this output"), current], nil, nil);
         cell.selectionStyle = UITableViewCellSelectionStyleNone;
         UISwitch *toggle = [UISwitch new];
         toggle.onTintColor = SGGreen();
@@ -409,7 +411,7 @@ static NSString *correctionName(NSString *path) {
     if (path.section == SGDSPHeadphoneRemembered) {
         NSDictionary<NSString *, NSString *> *output = _remembered[(NSUInteger)path.row];
         BOOL now = [output[@"uid"] isEqualToString:SGAutoEqOutputUID()];
-        SGFillCell(cell, output[@"name"], now ? [NSString stringWithFormat:@"%@ · playing now", correctionName(output[@"path"])] : correctionName(output[@"path"]), nil, nil);
+        SGFillLiteralCell(cell, output[@"name"], now ? [NSString stringWithFormat:SGL(@"%@ · playing now"), correctionName(output[@"path"])] : correctionName(output[@"path"]), nil, nil);
         cell.selectionStyle = UITableViewCellSelectionStyleNone;
         cell.accessibilityTraits = UIAccessibilityTraitNone;
         cell.accessibilityHint = @"Swipe left to remove";
@@ -434,7 +436,7 @@ static NSString *correctionName(NSString *path) {
         return cell;
     }
     SGAutoEqHeadphone *headphone = _shown[(NSUInteger)path.row];
-    SGFillCell(cell, headphone.name, headphone.source, nil, nil);
+    SGFillLiteralCell(cell, headphone.name, headphone.source, nil, nil);
     cell.selectionStyle = UITableViewCellSelectionStyleDefault;
     if ([headphone.path isEqualToString:_applying]) {
         UIActivityIndicatorView *spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];
@@ -504,7 +506,7 @@ UIViewController *SGDSPHeadphonesPage(void) {
 
 NSString *SGDSPHeadphoneSummary(void) {
     NSString *path = SGDSPString(SGKeyDSPGraphicEqHeadphone);
-    return path.length && SGDSPSwitch(SGKeyDSPGraphicEq) ? SGAutoEqNameOf(path) : @"None";
+    return path.length && SGDSPSwitch(SGKeyDSPGraphicEq) ? SGAutoEqNameOf(path) : SGL(@"None");
 }
 
 #pragma mark - EQ per output
@@ -583,22 +585,23 @@ NSString *SGDSPHeadphoneSummary(void) {
     UITableViewCell *cell = SGDequeueCell(table, @"output-eq");
     if (path.section == 1) {
         NSDictionary *entry = _assignments[(NSUInteger)path.row];
-        SGFillCell(cell, entry[@"name"], entry[@"preset"], nil, nil);
+        NSString *preset = entry[@"preset"];
+        SGFillLiteralCell(cell, entry[@"name"], SGL(preset), nil, nil);
     } else if (path.row == 0) {
         NSString *title = @"Remember EQ presets";
         SGFillCell(cell, title, @"Apply when an output connects", nil, nil);
         UISwitch *toggle = [UISwitch new];
         toggle.onTintColor = SGGreen();
         toggle.on = SGHidden(SGKeyDSPOutputEQEnabled);
-        toggle.accessibilityLabel = title;
+        toggle.accessibilityLabel = SGL(title);
         [toggle addTarget:self action:@selector(toggled:) forControlEvents:UIControlEventValueChanged];
         cell.accessoryView = toggle;
     } else {
         NSString *output = SGDSPOutputEQName();
         BOOL canChoose = [self canChoose];
-        NSString *detail = !output ? @"Connect an output first" :
-            canChoose ? ([self assignedPreset] ?: @"Default Equalizer") : @"Turn on Remember EQ presets to assign";
-        SGFillCell(cell, output ?: @"No output", detail, canChoose ? nil : SGGrey(), nil);
+        NSString *detail = !output ? SGL(@"Connect an output first") :
+            canChoose ? (SGL([self assignedPreset]) ?: SGL(@"Default Equalizer")) : SGL(@"Turn on Remember EQ presets to assign");
+        SGFillLiteralCell(cell, output ?: SGL(@"No output"), detail, canChoose ? nil : SGGrey(), nil);
         if (canChoose) {
             cell.accessoryView = SGChevronView();
             cell.accessibilityTraits = UIAccessibilityTraitButton;
@@ -641,8 +644,9 @@ NSString *SGDSPHeadphoneSummary(void) {
     useDefault.checked = ^BOOL{ return picked == nil; };
     SGModRow *useCurrent = SGActionRow(@"Use current curve", @"Save the Equalizer’s current 15 bands", ^{ choose(-1); });
     useCurrent.checked = ^BOOL{ return [picked isEqualToString:@"Custom curve"]; };
-    UIViewController *page = [[SGModPage alloc] initWithTitle:SGDSPOutputEQName() intro:@"Choose what the Equalizer plays on this output."
+    SGModPage *page = [[SGModPage alloc] initWithTitle:nil intro:@"Choose what the Equalizer plays on this output."
         sections:@[SGSection(nil, @[useDefault, useCurrent]), SGSection(@"Equalizer presets", presets)] footer:nil];
+    [page setLiteralTitle:SGDSPOutputEQName()];
     [self.navigationController pushViewController:page animated:YES];
 }
 

@@ -1,4 +1,5 @@
 #import "Core/SGCore.h"
+#import "Settings/SGLocalize.h"
 #import "Settings/SGPage.h"
 #import "Settings/SGPageStyle.h"
 #import "Navbar.h"
@@ -215,7 +216,7 @@ typedef NS_ENUM(NSInteger, SGRSplitSection) {
         cell.accessibilityTraits = UIAccessibilityTraitButton;
     } else if (path.section == SGRSplitSectionApart) {
         NSDictionary *entry = _split[(NSUInteger)path.row];
-        SGFillCell(cell, entry[SGRNavbarTitle], nil, nil, nil);
+        SGFillLiteralCell(cell, entry[SGRNavbarURI] ? entry[SGRNavbarTitle] : SGL(entry[SGRNavbarTitle]), nil, nil, nil);
         UIListContentConfiguration *content = (UIListContentConfiguration *)cell.contentConfiguration;
         content.image = glyphFor(entry, NO);
         content.imageProperties.tintColor = UIColor.whiteColor;
@@ -742,7 +743,8 @@ typedef NS_ENUM(NSInteger, SGRNavbarSection) {
     SGRTabCell *cell = [table dequeueReusableCellWithIdentifier:@"tab"] ?: [[SGRTabCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:@"tab"];
     NSDictionary *entry = _entries[(NSUInteger)path.row];
     BOOL hidden = [entry[SGRNavbarHidden] boolValue];
-    SGFillCell(cell, entry[SGRNavbarTitle], [splitStockIDs() containsObject:entry[SGRNavbarID]] ? @"Apart, on the right" : nil, hidden ? SGGrey() : nil, nil);
+    SGFillLiteralCell(cell, entry[SGRNavbarURI] ? entry[SGRNavbarTitle] : SGL(entry[SGRNavbarTitle]),
+                      [splitStockIDs() containsObject:entry[SGRNavbarID]] ? SGL(@"Apart, on the right") : nil, hidden ? SGGrey() : nil, nil);
     UIListContentConfiguration *content = (UIListContentConfiguration *)cell.contentConfiguration;
     content.image = glyphFor(entry, NO);
     content.imageProperties.tintColor = hidden ? SGGrey() : UIColor.whiteColor;
@@ -766,7 +768,7 @@ typedef NS_ENUM(NSInteger, SGRNavbarSection) {
     UIImageSymbolConfiguration *size = [UIImageSymbolConfiguration configurationWithPointSize:22 weight:UIImageSymbolWeightRegular];
     [cell.check setImage:[UIImage systemImageNamed:hidden ? @"circle" : @"checkmark.circle.fill" withConfiguration:size] forState:UIControlStateNormal];
     cell.check.tintColor = hidden ? SGGrey() : SGRAccent();
-    cell.check.accessibilityLabel = [NSString stringWithFormat:@"Show %@ on the bar", entry[SGRNavbarTitle]];
+    cell.check.accessibilityLabel = [NSString stringWithFormat:SGL(@"Show %@ on the bar"), entry[SGRNavbarTitle]];
     cell.check.accessibilityValue = hidden ? @"Off" : @"On";
     return cell;
 }

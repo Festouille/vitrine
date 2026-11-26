@@ -12,8 +12,24 @@ row opens (an empty page of that name), the values beside the chevrons (Off) and
     xcrun simctl io <udid> screenshot shot.png
 
 Make a simulator of your own (`xcrun simctl create`) and address it by UDID. `main.m` lists the setup words
-(`redesign`, `warning`, `keep`) and the actions: `toggle=<section>.<row>` flips a switch the way a tap does,
+(`redesign`, `warning`, `keep`, `lang=fr|es|tr|device`) and the actions: `toggle=<section>.<row>` flips a switch the way a tap does,
 `cancel` closes the alert it brings up, `bottom` scrolls to the end, and `dump` logs the rows of every section.
+
+Without `lang=`, the harness starts in English unless `keep` preserves the previous preferences.
+To check localized search and English fallbacks, launch with
+`lang=fr localized=Apparence search "query=Traduire les réglages du mod" search-count=1`. Use `localized=Appearance` with
+no language override to check the default, or launch with `redesign lang=fr dump` for the redesigned root.
+
+`lang=fr search "query=player switch to video" "search-result=Passer à la vidéo"` checks that an English
+page and row query still finds the translated row.
+
+`lang=fr "pick=Accueil et Bibliothèque" pick=Calm` checks that a name matching a translation key
+stays literal in the row. Run `lang=fr search query=calm search-result=Calm query=doux search-count=0`
+to check the same name in search results.
+
+Open deeper pages with `lang=fr "pick=Lecteur" "page-title=Lecteur" dump`, or substitute
+`Paroles` or `Premium, publicités et confidentialité`. Add `redesign` for the Redesigned combined-page
+rows; the dedicated Player and Lyrics page harnesses render their Redesigned previews.
 
 `search "query=home gradient" "pick=Show gradient" jumped` checks the search jump and Back path in the
 native look. `preset-check` checks the JSON allowlist, invalid values, and removal of a reverted change

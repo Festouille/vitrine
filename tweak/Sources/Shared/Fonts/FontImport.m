@@ -5,6 +5,7 @@
 #import <CoreText/CoreText.h>
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 #import "Core/SGCore.h"
+#import "Settings/SGLocalize.h"
 #import "Settings/SGModPage.h"
 #import "Settings/SGPageStyle.h"
 #import "Shared/Fonts/Fonts.h"
@@ -200,9 +201,9 @@ static UIFont *builtInFont(SGAppFont choice, CGFloat size) {
 static NSString *chosenLabel(void) {
     NSUserDefaults *store = NSUserDefaults.standardUserDefaults;
     SGAppFont font = SGAppFontChosen();
-    if (font == SGAppFontCustom) return importedFamily() ?: @"Your font";
-    if (font == SGAppFontFamily) return [store stringForKey:SGKeyAppFontFamily] ?: SGAppFontNames()[0];
-    return SGAppFontNames()[font];
+    if (font == SGAppFontCustom) return importedFamily() ?: SGL(@"Your font");
+    if (font == SGAppFontFamily) return [store stringForKey:SGKeyAppFontFamily] ?: SGL(SGAppFontNames()[0]);
+    return SGL(SGAppFontNames()[font]);
 }
 
 typedef NS_ENUM(NSInteger, SGFontSection) { SGFontBuiltIn, SGFontMore, SGFontYours };
@@ -308,7 +309,7 @@ typedef NS_ENUM(NSInteger, SGFontSection) { SGFontBuiltIn, SGFontMore, SGFontYou
         cell.accessibilityTraits = UIAccessibilityTraitButton;
         return cell;
     }
-    SGFillCell(cell, title, subtitle, nil, nil);
+    SGFillLiteralCell(cell, path.section == SGFontBuiltIn ? SGL(title) : title, subtitle, nil, nil);
     UIListContentConfiguration *content = (UIListContentConfiguration *)cell.contentConfiguration;
     if (font) content.textProperties.font = [[UIFontMetrics metricsForTextStyle:UIFontTextStyleBody] scaledFontForFont:font maximumPointSize:18];
     cell.contentConfiguration = content;
@@ -357,5 +358,6 @@ typedef NS_ENUM(NSInteger, SGFontSection) { SGFontBuiltIn, SGFontMore, SGFontYou
 NSArray<SGModRow *> *SGAppFontRows(void) {
     SGModRow *font = SGPageRow(@"Font", ^UIViewController *{ return [SGFontPage new]; });
     font.value = ^NSString *{ return chosenLabel(); };
+    font.literalValue = YES;
     return @[font];
 }

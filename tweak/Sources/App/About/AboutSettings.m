@@ -1,4 +1,5 @@
 #import "Core/SGCore.h"
+#import "Settings/SGLocalize.h"
 #import "Settings/SGPageStyle.h"
 #import "About.h"
 #import "App/Onboarding/Onboarding.h"
@@ -62,7 +63,7 @@ UIViewController *SGAboutPage(void) {
     clearKeys.color = SGRed();
     NSString *spotify = SGSpotifyVersion();
     if ([SGSpotifyLikelyWorksVersions containsObject:spotify]) spotify = [spotify stringByAppendingString:@", likely works"];
-    else if (![SGSpotifySupportedVersions containsObject:spotify]) spotify = [NSString stringWithFormat:@"%@, made for %@", spotify, SGSpotifyMadeFor];
+    else if (![SGSpotifySupportedVersions containsObject:spotify]) spotify = [NSString stringWithFormat:SGL(@"%@, made for %@"), spotify, SGSpotifyMadeFor];
     // The row reads out where the build stands and opens the changelog of everything newer than it.
     SGModRow *updates = SGPageRow(@"Updates", ^UIViewController *{ return SGUpdatePage(); });
     updates.searchChildren = NO;

@@ -13,6 +13,7 @@ xcrun -sdk iphonesimulator clang -target arm64-apple-ios17.0-simulator -fobjc-ar
     -I"$SRC" -isysroot "$SDK" -Wno-deprecated-declarations -DSG_VERSION="\"$VERSION\"" \
     "$(dirname "$0")/main.m" "$(dirname "$0")/../scene.m" \
     "$SRC"/App/About/Update.m "$SRC"/App/About/UpdatePage.m "$SRC"/App/About/UpdateNotice.m \
+    "$SRC"/Settings/SGLocalize.m "$SRC"/Settings/SGStrings_fr.m "$SRC"/Settings/SGStrings_es.m "$SRC"/Settings/SGStrings_tr.m \
     "$SRC"/Settings/SGPage.m "$SRC"/Settings/SGPageStyle.m \
     "$SRC"/Core/SGLog.m "$SRC"/Core/SGPrefs.m "$SRC"/Core/SGViewTree.m "$SRC"/Core/SGGlass.m "$SRC"/Core/SGLegacyGlass.m "$SRC"/Core/SGGlassTouch.m \
     "$SRC"/Core/SGBackdrop.m "$SRC"/Core/SGFlagForce.m "$SRC"/Core/SGUIMode.m \

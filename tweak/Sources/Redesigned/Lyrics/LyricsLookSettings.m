@@ -4,6 +4,7 @@
 // it is made. The rest of the page is App/Pages.m's sections, under them.
 #import "Core/SGCore.h"
 #import "Settings/SGModPage.h"
+#import "Settings/SGLocalize.h"
 #import "Settings/SGPageStyle.h"
 #import "Redesigned/Kit/SGRTokens.h"
 #import "LyricsLook.h"
@@ -64,7 +65,7 @@ static const CGFloat kChipHeight = 36, kChipGap = 8, kStripGap = 12, kStripPad =
 typedef void (^SGRLookChange)(SGRLyricsLook *look, double value);
 
 static NSString *share(double value) {
-    return value <= 0 ? @"Off" : [NSString stringWithFormat:@"%.0f%%", value * 100];
+    return value <= 0 ? SGL(@"Off") : [NSString stringWithFormat:@"%.0f%%", value * 100];
 }
 
 static NSString *points(double value) {
@@ -94,8 +95,7 @@ static void presentStyleSheet(UIViewController *owner) {
         lookSlider(@"Wave", 0, 2, 0.1, ^CGFloat(SGRLyricsLook l) { return l.wave; },
                    ^(SGRLyricsLook *l, double v) { l->wave = v; }, ^NSString *(double v) { return share(v); }, &sheetPage),
     ];
-    NSString *footer = @"Blur is how much the lines away from the one sung soften. Glow and Wave are how strongly a held "
-                       @"word glows and its letters rise. 100% is Apple Music's.";
+    NSString *footer = SGL(@"Blur is how much the lines away from the one sung soften. Glow and Wave are how strongly a held word glows and its letters rise. 100% is Apple Music's.");
     SGRLyricsStyleSheet *page = [[SGRLyricsStyleSheet alloc] initWithTitle:@"Lyrics Style" intro:nil
                                                                  sections:@[SGNotedSection(nil, rows, footer)] footer:nil];
     sheetPage = page;
@@ -168,7 +168,7 @@ static UIButtonConfiguration *chipConfiguration(NSString *title, NSString *symbo
 - (instancetype)initWithTitle:(NSString *)title note:(NSString *)note sections:(NSArray<SGModSection *> *)sections {
     if (!(self = [super initWithTitle:title intro:nil sections:sections footer:nil])) return nil;
     _note = [UILabel new];
-    _note.text = note;
+    _note.text = SGL(note);
     _note.font = SGSubtitleFont();
     _note.textColor = SGGrey();
     _note.numberOfLines = 0;
@@ -184,7 +184,7 @@ static UIButtonConfiguration *chipConfiguration(NSString *title, NSString *symbo
     _card.layer.cornerCurve = kCACornerCurveContinuous;
     _card.clipsToBounds = YES;
     _card.isAccessibilityElement = YES;
-    _card.accessibilityLabel = @"Preview of the lyrics";
+    _card.accessibilityLabel = SGL(@"Preview of the lyrics");
     _preview = [[SGRKaraokeView alloc] initWithSampleLines:SGRLyricsSampleLines() length:SGRLyricsSampleLength()];
     _preview.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     [_card addSubview:_preview];
@@ -219,16 +219,16 @@ static UIButtonConfiguration *chipConfiguration(NSString *title, NSString *symbo
     NSArray<NSString *> *names = SGRLyricsLookPresetNames();
     for (UIButton *chip in _chips) {
         BOOL lit = chip.tag == chosen;
-        chip.configuration = chipConfiguration(names[(NSUInteger)chip.tag], nil, lit);
+        chip.configuration = chipConfiguration(SGL(names[(NSUInteger)chip.tag]), nil, lit);
         chip.accessibilityTraits = UIAccessibilityTraitButton | (lit ? UIAccessibilityTraitSelected : 0);
     }
     UIButtonConfiguration *adjust = chipConfiguration(@"", @"slider.horizontal.3", chosen < 0);
     adjust.attributedTitle = nil;
     adjust.contentInsets = NSDirectionalEdgeInsetsZero;
     _adjust.configuration = adjust;
-    _adjust.accessibilityLabel = @"Adjust";
-    _adjust.accessibilityValue = chosen < 0 ? @"Custom" : names[(NSUInteger)chosen];
-    _adjust.accessibilityHint = @"Opens the sliders";
+    _adjust.accessibilityLabel = SGL(@"Adjust");
+    _adjust.accessibilityValue = SGL(chosen < 0 ? @"Custom" : names[(NSUInteger)chosen]);
+    _adjust.accessibilityHint = SGL(@"Opens the sliders");
     _adjust.accessibilityTraits = UIAccessibilityTraitButton | (chosen < 0 ? UIAccessibilityTraitSelected : 0);
     _showChosen = YES;
     [self.view setNeedsLayout];

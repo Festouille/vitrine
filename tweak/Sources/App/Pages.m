@@ -5,6 +5,7 @@
 #import "Shared/LyricsTranslation/LyricsTranslation.h"
 #import "Redesigned/Player/Player.h"
 #import "Settings/SGModPage.h"
+#import "Settings/SGLocalize.h"
 #import "Settings/SGPageStyle.h"
 #import "Pages.h"
 #import "Shared/ArtistBlock/ArtistBlock.h"
@@ -41,9 +42,13 @@ void SGSetRedesignedUI(BOOL on) {
     SGSetEnabled(SGKeyRedesignUntested, on && !SGRedesignAvailable());
 }
 
+static NSString *redesignUntestedWarning(BOOL localized) {
+    NSString *format = @"The redesign is built on iOS 26's Liquid Glass. iOS %@ draws a blur in its place, and nobody has tested the redesign there: pages can be laid out wrongly, and Spotify can freeze as it starts. If Spotify does not start with it, the next launch goes back to Legacy.";
+    return [NSString stringWithFormat:localized ? SGL(format) : format, UIDevice.currentDevice.systemVersion];
+}
+
 NSString *SGRedesignUntestedWarning(void) {
-    return [NSString stringWithFormat:@"The redesign is built on iOS 26's Liquid Glass. iOS %@ draws a blur in its place, and nobody has tested the redesign there: pages can be laid out wrongly, and Spotify can freeze as it starts. If Spotify does not start with it, the next launch goes back to Legacy.",
-            UIDevice.currentDevice.systemVersion];
+    return redesignUntestedWarning(NO);
 }
 
 // The whole look changes hands at launch, so the switch asks for the restart straight away rather than
@@ -56,7 +61,7 @@ static void offerRestart(BOOL on) {
 // Below iOS 26 the switch stores the warning's key, not the look's: it is on only once the warning has
 // been accepted, which restarts Spotify at once, so the switch never reads on for a look that is not coming.
 static SGModRow *untestedRow(void) {
-    SGModRow *row = SGOptionRow(@"Redesigned UI", [NSString stringWithFormat:@"Untested on iOS %@", UIDevice.currentDevice.systemVersion], SGKeyRedesignUntested);
+    SGModRow *row = SGOptionRow(@"Redesigned UI", [NSString stringWithFormat:SGL(@"Untested on iOS %@"), UIDevice.currentDevice.systemVersion], SGKeyRedesignUntested);
     row.glows = YES;
     row.info = SGRedesignedUIInfo;
     row.changed = ^(BOOL on) {
@@ -66,11 +71,11 @@ static SGModRow *untestedRow(void) {
             return;
         }
         SGSetEnabled(SGKeyRedesignUntested, NO);   // the page reloads to off; the warning's button turns it on
-        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Turn on the redesign?"
-            message:[SGRedesignUntestedWarning() stringByAppendingString:@"\n\nSpotify restarts to turn it on."]
+        UIAlertController *alert = [UIAlertController alertControllerWithTitle:SGL(@"Turn on the redesign?")
+            message:[redesignUntestedWarning(YES) stringByAppendingString:SGL(@"\n\nSpotify restarts to turn it on.")]
             preferredStyle:UIAlertControllerStyleAlert];
-        [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
-        [alert addAction:[UIAlertAction actionWithTitle:@"Turn On and Restart" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+        [alert addAction:[UIAlertAction actionWithTitle:SGL(@"Cancel") style:UIAlertActionStyleCancel handler:nil]];
+        [alert addAction:[UIAlertAction actionWithTitle:SGL(@"Turn On and Restart") style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
             SGSetRedesignedUI(YES);
             SGRestartSpotify();
         }]];

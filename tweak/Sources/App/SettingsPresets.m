@@ -6,6 +6,7 @@
 #import "Redesigned/Kit/SGRAccent.h"
 #import "Redesigned/Player/Player.h"
 #import "Settings/SGPageStyle.h"
+#import "Settings/SGLocalize.h"
 #import "Shared/Lossless/SGLossless.h"
 #import "Shared/Player/PlayerSettings.h"
 #import "Pages.h"
@@ -116,22 +117,22 @@ static void preview(NSString *title, NSDictionary<NSString *, NSNumber *> *setti
         BOOL before = currentValue(i);
         if (!after || after.boolValue == before) continue;
         changes[key] = after;
-        [lines addObject:[NSString stringWithFormat:@"%@: %@ → %@", kSettings[i].title, before ? @"On" : @"Off", after.boolValue ? @"On" : @"Off"]];
+        [lines addObject:[NSString stringWithFormat:@"%@: %@ → %@", SGL(kSettings[i].title), SGL(before ? @"On" : @"Off"), SGL(after.boolValue ? @"On" : @"Off")]];
     }
-    if (lines.count) [lines addObject:@"\nRestart Spotify to apply."];
-    else [lines addObject:@"No settings would change."];
-    if (skipped) [lines addObject:[NSString stringWithFormat:@"\nIgnored %lu unsupported or invalid entries.", (unsigned long)skipped]];
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:title
+    if (lines.count) [lines addObject:SGL(@"\nRestart Spotify to apply.")];
+    else [lines addObject:SGL(@"No settings would change.")];
+    if (skipped) [lines addObject:[NSString stringWithFormat:SGL(@"\nIgnored %lu unsupported or invalid entries."), (unsigned long)skipped]];
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:SGL(title)
         message:[lines componentsJoinedByString:@"\n"] preferredStyle:UIAlertControllerStyleAlert];
     if (changes.count) {
-        [alert addAction:[UIAlertAction actionWithTitle:@"Apply" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+        [alert addAction:[UIAlertAction actionWithTitle:SGL(@"Apply") style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
             [changes enumerateKeysAndObjectsUsingBlock:^(NSString *key, NSNumber *value, BOOL *stop) {
                 if ([key isEqualToString:SGKeyRedesign]) SGSetRedesignedUI(value.boolValue);
                 else SGSetEnabled(key, value.boolValue);
             }];
         }]];
     }
-    [alert addAction:[UIAlertAction actionWithTitle:changes.count ? @"Cancel" : @"OK" style:UIAlertActionStyleCancel handler:nil]];
+    [alert addAction:[UIAlertAction actionWithTitle:SGL(changes.count ? @"Cancel" : @"OK") style:UIAlertActionStyleCancel handler:nil]];
     [SGTopController() presentViewController:alert animated:YES completion:nil];
 }
 
@@ -155,7 +156,7 @@ static void preview(NSString *title, NSDictionary<NSString *, NSNumber *> *setti
     _input.autocorrectionType = UITextAutocorrectionTypeNo;
     _input.autocapitalizationType = UITextAutocapitalizationTypeNone;
     _input.smartQuotesType = UITextSmartQuotesTypeNo;
-    _input.accessibilityLabel = @"Preset JSON";
+    _input.accessibilityLabel = SGL(@"Preset JSON");
 }
 
 - (void)viewWillLayoutSubviews {
@@ -204,8 +205,8 @@ static void preview(NSString *title, NSDictionary<NSString *, NSNumber *> *setti
         preview(@"Import changes", settings, skipped);
         return;
     }
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Invalid preset"
-        message:@"Paste a JSON object containing settings, up to 128 KB." preferredStyle:UIAlertControllerStyleAlert];
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:SGL(@"Invalid preset")
+        message:SGL(@"Paste a JSON object containing settings, up to 128 KB.") preferredStyle:UIAlertControllerStyleAlert];
     [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleCancel handler:nil]];
     [self presentViewController:alert animated:YES completion:nil];
 }
@@ -282,7 +283,7 @@ SGModRow *SGSettingsPresetsRow(void) {
         if (self.tableView.tableHeaderView) self.tableView.tableHeaderView = nil;
         return;
     }
-    NSString *title = [NSString stringWithFormat:@"Restart to apply (%lu)", (unsigned long)pending.count];
+    NSString *title = [NSString stringWithFormat:SGL(@"Restart to apply (%lu)"), (unsigned long)pending.count];
     if (![_restartPill.configuration.title isEqualToString:title]) {
         UIButtonConfiguration *configuration = _restartPill.configuration;
         configuration.title = title;
@@ -294,8 +295,10 @@ SGModRow *SGSettingsPresetsRow(void) {
 - (void)showRestartChanges {
     NSArray<NSString *> *pending = SGPendingRestartSettings();
     if (pending.count) {
-        SGOfferRestart([NSString stringWithFormat:@"Changes to apply:\n\n%@\n\nSpotify will close. Open it again to apply these settings.",
-                        [pending componentsJoinedByString:@"\n"]]);
+        NSMutableArray<NSString *> *names = [NSMutableArray arrayWithCapacity:pending.count];
+        for (NSString *name in pending) [names addObject:SGL(name)];
+        SGOfferRestart([NSString stringWithFormat:SGL(@"Changes to apply:\n\n%@\n\nSpotify will close. Open it again to apply these settings."),
+                        [names componentsJoinedByString:@"\n"]]);
     }
     [self updateRestartPill];
 }

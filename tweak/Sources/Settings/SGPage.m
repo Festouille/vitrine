@@ -1,4 +1,5 @@
 #import "SGPage.h"
+#import "SGLocalize.h"
 #import "SGPageStyle.h"
 #import "Core/SGCore.h"
 
@@ -13,6 +14,14 @@
 static BOOL sg_pagesConform;
 
 @implementation SGPage
+
+- (void)setTitle:(NSString *)title {
+    [super setTitle:SGL(title)];
+}
+
+- (void)setLiteralTitle:(NSString *)title {
+    [super setTitle:title];
+}
 
 // Inset grouped cards on black, the way Settings draws them, a hairline between the rows of a card.
 - (void)viewDidLoad {

@@ -1,4 +1,5 @@
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
+#import "Settings/SGLocalize.h"
 #import <OSLog/OSLog.h>
 #import <sys/utsname.h>
 #import "Core/SGCore.h"
@@ -207,7 +208,7 @@ static BOOL importSettings(NSDictionary *settings) {
         return;
     }
     NSString *mod = [file[@"mod"] isKindOfClass:NSString.class] ? file[@"mod"] : @"unknown";
-    NSString *message = [NSString stringWithFormat:@"Your settings are replaced by the file's, exported from version %@. Anything it does not have goes back to its default, and Spotify restarts.", mod];
+    NSString *message = [NSString stringWithFormat:SGL(@"Your settings are replaced by the file's, exported from version %@. Anything it does not have goes back to its default, and Spotify restarts."), mod];
     showAlert(@"Import settings?", message, [UIAlertAction actionWithTitle:@"Import and restart" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *action) {
         if (!importSettings(settings)) {
             showAlert(@"Invalid settings file", @"This file has unsupported or invalid values. Your settings were not changed.", nil);

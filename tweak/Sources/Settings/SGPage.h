@@ -2,6 +2,7 @@
 #import <UIKit/UIKit.h>
 
 @interface SGPage : UITableViewController
+- (void)setLiteralTitle:(NSString *)title;
 @end
 
 // Registers SGPage as one of Spotify's pages; called once, from the settings hook's %ctor.

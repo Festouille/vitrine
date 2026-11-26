@@ -1,10 +1,15 @@
-// What Mod Settings' main page links to and reads, stood in for: every page is an empty page of its own
-// name, the values beside the chevrons are what a fresh install reads, and the update check does nothing.
+// Stand-ins for features that need Spotify at runtime.
 #import <UIKit/UIKit.h>
 #import "Core/SGCore.h"
 #import "Settings/SGModPage.h"
 #import "Settings/SGPage.h"
+#import "Shared/AdBlock/AdBlock.h"
 #import "Shared/Haptics/SGHapticRelay.h"
+#import "Shared/LocalFiles/LocalLyrics.h"
+#import "Shared/Lyrics/Lyrics.h"
+#import "Shared/LyricsSources/LyricsSources.h"
+#import "Shared/Privacy/Privacy.h"
+#import "Shared/SponsorBlock/SGSponsorBlock.h"
 
 extern BOOL SGHarnessWarning;
 extern BOOL SGHarnessOnboarding;
@@ -14,16 +19,18 @@ static UIViewController *blank(NSString *title) {
 }
 
 #define PAGE(name) UIViewController *name(void) { return blank(@#name); }
-PAGE(SGAboutPage) PAGE(SGAdsSettingsPage) PAGE(SGAllFlagsPage) PAGE(SGArtistBlockSettingsPage) PAGE(SGDSPSettingsPage) PAGE(SGAutoMixSettingsPage)
+PAGE(SGAboutPage) PAGE(SGAllFlagsPage) PAGE(SGArtistBlockSettingsPage) PAGE(SGDSPSettingsPage) PAGE(SGAutoMixSettingsPage)
 PAGE(SGGesturesSettingsPage) PAGE(SGHeadGesturesSettingsPage) PAGE(SGLabsPage)
 PAGE(SGListeningStatsPage) PAGE(SGLiveActivitySettingsPage) PAGE(SGLockScreenWidgetPage) PAGE(SGNavbarSettingsPage)
-PAGE(SGNowPlayingBarSettingsPage) PAGE(SGQueueSettingsPage) PAGE(SGRAlbumSettingsPage) PAGE(SGRArtistSettingsPage)
+PAGE(SGNowPlayingBarSettingsPage) PAGE(SGRAlbumSettingsPage) PAGE(SGRArtistSettingsPage)
 PAGE(SGRNavbarSettingsPage) PAGE(SGRHomeSettingsPage)
 PAGE(SGSingSettingsPage) PAGE(SGSpatialVoiceSettingsPage) PAGE(SGVibrationsSettingsPage)
 UIViewController *SGRPlayerSettingsPage(NSArray *more) {
     return [[SGModPage alloc] initWithTitle:@"Player" intro:nil sections:more footer:nil];
 }
-UIViewController *SGRLyricsSettingsPage(NSString *title, NSString *intro, NSArray<SGModSection *> *sections) { return blank(title); }
+UIViewController *SGRLyricsSettingsPage(NSString *title, NSString *intro, NSArray<SGModSection *> *sections) {
+    return [[SGModPage alloc] initWithTitle:title intro:intro sections:sections footer:nil];
+}
 UIViewController *SGHomeSettingsPage(void) {
     NSString *gate = @"spotifyglass.harness.searchGate";
     SGModRow *library = SGPageRow(@"Library options", ^UIViewController *{
@@ -32,6 +39,8 @@ UIViewController *SGHomeSettingsPage(void) {
         ] footer:nil];
     });
     library.waitsOn = gate;
+    SGModRow *literal = SGActionRow(@"Calm", nil, ^{});
+    literal.literal = YES;
     return [[SGModPage alloc] initWithTitle:@"Home & Library" intro:nil sections:@[
         SGSection(nil, @[SGPageRow(@"Gradient", ^UIViewController *{
             return [[SGModPage alloc] initWithTitle:@"Gradient" intro:nil sections:@[
@@ -39,23 +48,45 @@ UIViewController *SGHomeSettingsPage(void) {
             ] footer:nil];
         })]),
         SGSection(nil, @[SGOptionRow(@"Enable Library options", nil, gate), library]),
+        SGSection(nil, @[literal]),
     ] footer:nil];
 }
 
 #define ROW(name) SGModRow *name(void) { return SGPageRow(@#name, ^UIViewController *{ return nil; }); }
 NSArray<SGModRow *> *SGAITranslatorRows(void) { return @[SGPageRow(@"SGAITranslatorRows", ^UIViewController *{ return nil; })]; }
-ROW(SGAppIconRow) ROW(SGGlassLyricsRow) ROW(SGLockScreenLyricsRow) ROW(SGLyricsMeaningsRow)
-ROW(SGLyricsTranslationLanguageRow) ROW(SGLyricsWordTimingRow) ROW(SGRLyricsTextSizesRow) ROW(SGLyricsDelayRow)
+ROW(SGAppIconRow) ROW(SGLyricsMeaningsRow)
 ROW(SGSavedTranslationsRow) ROW(SGTranslateEverySongRow)
-ROW(SGLockScreenTranslationRow) ROW(SGLyricsRomanisedReplaceRow) ROW(SGRLyricsHideRow)
+ROW(SGRLyricsHideRow)
 NSArray<SGModRow *> *SGOnDeviceTranslatorRows(void) { return @[SGPageRow(@"SGOnDeviceTranslatorRows", ^UIViewController *{ return nil; })]; }
 NSArray<SGModRow *> *SGAppFontRows(void) { return @[]; }
 NSArray<SGModRow *> *SGNativeAppearanceRows(void) { return @[]; }
 NSArray<SGModRow *> *SGRAppearanceRows(void) { return @[]; }
-SGModSection *SGLyricsSourcesSection(BOOL namingSource) { return SGSection(nil, @[]); }
-NSArray<SGModSection *> *SGNativePlayerScreenSections(void) { return @[]; }
 SGModSection *SGDefaultPlaylistSection(void) { return nil; }
 NSArray<NSDictionary *> *SGBlockedArtists(void) { return @[]; }
+
+PAGE(SGLyricsSourcesPage) PAGE(SGImportedLRCPage) PAGE(SGSponsorBlockSettingsPage)
+SGModRow *SGSpicyLyricsKeyRow(void) { return SGActionRow(@"Spicy Lyrics Key", nil, ^{}); }
+NSArray<NSString *> *SGLyricsOrder(void) { return @[]; }
+SGLyricsProvider *SGLyricsProviderFor(NSString *key) { return nil; }
+NSArray<NSString *> *SGLyricsTranslationLanguageNames(void) { return @[@"Any"]; }
+NSArray<NSString *> *SGImportedLRCFiles(void) { return @[]; }
+NSArray<NSString *> *SGImportedTrackLyricsFiles(void) { return @[]; }
+NSString *SGKaraokePlayingTrack(void) { return nil; }
+void SGKaraokeRefreshImportedTranslation(NSString *trackID) {}
+NSNotificationName const SGTrackLyricsDidChangeNotification = @"SGTrackLyricsDidChangeNotification";
+BOOL SGEeveeLyricsOn(void) { return NO; }
+NSInteger SGKaraokeDelayMs(void) { return 0; }
+NSString *const SGLyricsRomanisedDidChangeNotification = @"SGLyricsRomanisedDidChangeNotification";
+
+NSArray<NSString *> *SGAdBlockLabels(void) { return @[]; }
+NSUInteger SGAdBlockCount(NSString *label) { return 0; }
+NSUInteger SGAdBlockChecked(NSString *label) { return NSNotFound; }
+void SGResetAdBlock(void) {}
+NSArray<NSString *> *SGBlockedLabels(void) { return @[]; }
+NSUInteger SGBlockedCount(NSString *label) { return 0; }
+void SGResetBlocked(void) {}
+NSString *SGSponsorBlockSummary(void) { return nil; }
+void SGSponsorBlockPreferencesDidChange(void) {}
 
 NSString *SGDSPSummary(void) { return @"Off"; }
 NSString *SGAutoMixSummary(void) { return @"Off"; }
@@ -84,7 +115,5 @@ NSArray<SGModRow *> *SGEnvironmentWarningRows(void) {
     if (!SGHarnessWarning) return @[];
     return @[SGWarningRow(@"EeveeSpotify is injected too", @"Tap to see what that changes", ^{})];
 }
-// The Lyrics page's Romanized lyrics row (Shared/Lyrics/Romanise.m).
-SGModRow *SGLyricsRomanisedRow(void) { return SGOptionRow(@"Romanized lyrics", nil, @"spotifyglass.harness.romanised"); }
 // The lock screen's source order row (MotionSources.m), for AnimatedArtworkSettings.m.
 SGModRow *SGMotionSourcesRow(void) { return SGStatRow(@"Sources", ^NSString *{ return @"Canvas, Apple Music"; }); }

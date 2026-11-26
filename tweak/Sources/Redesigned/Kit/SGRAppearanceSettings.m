@@ -1,4 +1,5 @@
 #import "Core/SGCore.h"
+#import "Settings/SGLocalize.h"
 #import "Settings/SGModPage.h"
 #import "Settings/SGPageStyle.h"
 #import "SGRAccent.h"
@@ -16,7 +17,7 @@ static NSArray<NSString *> *presets(void) {
 // it has not, a row that says so, and panes stay a plain blur.
 static SGModRow *legacyGlassRow(void) {
     if (SGLegacyGlassAvailable()) {
-        NSString *subtitle = [NSString stringWithFormat:@"An approximation of iOS 26's glass for the navbar and round buttons, on iOS %@.",
+        NSString *subtitle = [NSString stringWithFormat:SGL(@"An approximation of iOS 26's glass for the navbar and round buttons, on iOS %@."),
                               UIDevice.currentDevice.systemVersion];
         SGModRow *row = SGOptionRow(@"Legacy Liquid Glass", subtitle, SGKeyLegacyGlass);
         // Every pane is made one way or the other at launch (SGUseLegacyGlass), so a change waits for the restart, as
@@ -27,7 +28,7 @@ static SGModRow *legacyGlassRow(void) {
         };
         return SGWithSymbol(row, @"cube.transparent");
     }
-    NSString *reason = [NSString stringWithFormat:@"This phone (iOS %@) doesn't have the private APIs it leans on, so glass panes stay a plain blur.", UIDevice.currentDevice.systemVersion];
+    NSString *reason = [NSString stringWithFormat:SGL(@"This phone (iOS %@) doesn't have the private APIs it leans on, so glass panes stay a plain blur."), UIDevice.currentDevice.systemVersion];
     SGModRow *row = SGStatActionRow(@"Legacy Liquid Glass", nil, ^NSString *{ return @"Unavailable"; }, ^{
         UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Legacy Liquid Glass" message:reason preferredStyle:UIAlertControllerStyleAlert];
         [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleCancel handler:nil]];

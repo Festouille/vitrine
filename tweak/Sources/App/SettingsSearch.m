@@ -1,5 +1,6 @@
 #import "Core/SGCore.h"
 #import "Settings/SGModPage.h"
+#import "Settings/SGLocalize.h"
 #import "Settings/SGPageStyle.h"
 #import "SettingsSearch.h"
 
@@ -8,29 +9,42 @@
 @property (nonatomic, copy) NSArray<SGModPage *> *route;
 @property (nonatomic, copy) NSString *path;
 @property (nonatomic, copy) NSString *text;
+@property (nonatomic, copy) NSString *englishText;
 @end
 
 @implementation SGSettingsMatch
 @end
 
-static void indexPage(NSArray<SGModPage *> *route, NSString *path, NSMutableArray<SGSettingsMatch *> *index) {
+static void indexPage(NSArray<SGModPage *> *route, NSString *path, NSString *englishPath, NSMutableArray<SGSettingsMatch *> *index) {
     [route.lastObject enumerateVisibleRows:^(SGModRow *row, NSString *section) {
-        NSString *location = section.length ? [NSString stringWithFormat:@"%@ › %@", path, section] : path;
+        NSString *location = section.length ? [NSString stringWithFormat:@"%@ › %@", path, SGL(section)] : path;
         if (row.key || row.page || row.action || row.number || row.menu || row.segments.count) {
             SGSettingsMatch *match = [SGSettingsMatch new];
             match.row = row;
             match.route = route;
             match.path = location;
-            match.text = [NSString stringWithFormat:@"%@ %@ %@ %@", row.title, row.subtitle ?: @"", row.info ?: @"", location];
+            NSString *englishLocation = section.length ? [NSString stringWithFormat:@"%@ › %@", englishPath, section] : englishPath;
+            match.text = [NSString stringWithFormat:@"%@ %@ %@ %@",
+                          [row displayText:row.title], [row displayText:row.subtitle] ?: @"", [row displayText:row.info] ?: @"", location];
+            match.englishText = [NSString stringWithFormat:@"%@ %@ %@ %@",
+                                 row.title, row.subtitle ?: @"", row.info ?: @"", englishLocation];
             [index addObject:match];
         }
         if (!row.searchChildren || !row.page || [route.lastObject isWaiting:row] || route.count >= 6) return;
         UIViewController *child = row.page();
         if ([child isKindOfClass:SGModPage.class]) {
             indexPage([route arrayByAddingObject:(SGModPage *)child],
-                      [NSString stringWithFormat:@"%@ › %@", path, row.title], index);
+                      [NSString stringWithFormat:@"%@ › %@", path, [row displayText:row.title]],
+                      [NSString stringWithFormat:@"%@ › %@", englishPath, row.title], index);
         }
     }];
+}
+
+static BOOL containsTerms(NSString *text, NSArray<NSString *> *terms) {
+    for (NSString *term in terms) {
+        if (term.length && [text rangeOfString:term options:NSCaseInsensitiveSearch | NSDiacriticInsensitiveSearch].location == NSNotFound) return NO;
+    }
+    return YES;
 }
 
 @interface SGSettingsSearch : SGPage <UISearchBarDelegate>
@@ -48,7 +62,7 @@ static void indexPage(NSArray<SGModPage *> *route, NSString *path, NSMutableArra
     self.title = @"Search Mod Settings";
     _bar = [[UISearchBar alloc] initWithFrame:CGRectMake(0, 0, self.tableView.bounds.size.width, 56)];
     _bar.searchBarStyle = UISearchBarStyleMinimal;
-    _bar.placeholder = @"Search settings";
+    _bar.placeholder = SGL(@"Search settings");
     _bar.delegate = self;
     self.tableView.tableHeaderView = _bar;
     self.tableView.keyboardDismissMode = UIScrollViewKeyboardDismissModeOnDrag;
@@ -72,19 +86,12 @@ static void indexPage(NSArray<SGModPage *> *route, NSString *path, NSMutableArra
     BOOL hasQuery = [text stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet].length > 0;
     if (hasQuery && !_index) {
         NSMutableArray<SGSettingsMatch *> *index = [NSMutableArray array];
-        indexPage(@[root], @"Mod Settings", index);
+        indexPage(@[root], SGL(@"Mod Settings"), @"Mod Settings", index);
         _index = index;
     }
     NSMutableArray *results = [NSMutableArray array];
     if (hasQuery) for (SGSettingsMatch *match in _index) {
-        BOOL fits = YES;
-        for (NSString *term in terms) {
-            if (term.length && [match.text rangeOfString:term options:NSCaseInsensitiveSearch | NSDiacriticInsensitiveSearch].location == NSNotFound) {
-                fits = NO;
-                break;
-            }
-        }
-        if (fits) [results addObject:match];
+        if (containsTerms(match.text, terms) || containsTerms(match.englishText, terms)) [results addObject:match];
     }
     _results = results;
     self.tableView.tableFooterView = results.count ? nil : SGNote(hasQuery ? @"No settings found." : @"Search by setting name or page.");
@@ -108,7 +115,7 @@ static void indexPage(NSArray<SGModPage *> *route, NSString *path, NSMutableArra
 - (UITableViewCell *)tableView:(UITableView *)table cellForRowAtIndexPath:(NSIndexPath *)path {
     SGSettingsMatch *match = _results[(NSUInteger)path.row];
     UITableViewCell *cell = SGDequeueCell(table, @"result");
-    SGFillCell(cell, match.row.title, match.path, nil, nil);
+    SGFillLiteralCell(cell, [match.row displayText:match.row.title], match.path, nil, nil);
     cell.accessoryView = SGChevronView();
     return cell;
 }

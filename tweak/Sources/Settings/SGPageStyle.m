@@ -1,4 +1,5 @@
 #import "SGPageStyle.h"
+#import "SGLocalize.h"
 #import "Core/SGCore.h"
 
 // The rows' title font of Spotify's settings list ([0]) and of its side drawer ([1]).
@@ -77,7 +78,7 @@ UIImageView *SGSymbolView(NSString *name, CGFloat size, UIImageSymbolWeight weig
 // A gray note in a wrapper view, for the table header and footer.
 UIView *SGNote(NSString *text) {
     UILabel *label = [UILabel new];
-    label.text = text;
+    label.text = SGL(text);
     label.font = SGSubtitleFont();
     label.adjustsFontForContentSizeCategory = YES;
     label.textColor = SGGrey();
@@ -198,6 +199,10 @@ const CGFloat SGSectionGap = 20;
 // Every page below draws the same row: a 13pt white title over an 11pt gray subtitle in Spotify's typeface,
 // with an optional symbol in the leading slot.
 void SGFillCell(UITableViewCell *cell, NSString *title, NSString *subtitle, UIColor *color, NSString *symbolName) {
+    SGFillLiteralCell(cell, SGL(title), SGL(subtitle), color, symbolName);
+}
+
+void SGFillLiteralCell(UITableViewCell *cell, NSString *title, NSString *subtitle, UIColor *color, NSString *symbolName) {
     UIListContentConfiguration *content = [UIListContentConfiguration subtitleCellConfiguration];
     content.text = title;
     content.secondaryText = subtitle;
@@ -220,7 +225,7 @@ void SGFillCell(UITableViewCell *cell, NSString *title, NSString *subtitle, UICo
 
 UIView *SGSectionHeader(UITableView *table, NSString *title) {
     UILabel *label = [UILabel new];
-    label.text = title.uppercaseString;
+    label.text = SGLUppercase(title);
     label.font = SGSubtitleFont();
     label.adjustsFontForContentSizeCategory = YES;
     label.textColor = SGGrey();
@@ -246,6 +251,7 @@ static CGFloat footerTextHeight(UITableView *table, NSString *text) {
 }
 
 UIView *SGSectionFooter(UITableView *table, NSString *text) {
+    text = SGL(text);
     UILabel *label = [UILabel new];
     label.text = text;
     label.font = SGSubtitleFont();
@@ -254,13 +260,13 @@ UIView *SGSectionFooter(UITableView *table, NSString *text) {
     label.numberOfLines = 0;
     label.frame = CGRectMake(16, kFooterTop, table.bounds.size.width - 32, footerTextHeight(table, text));
     label.autoresizingMask = UIViewAutoresizingFlexibleWidth;
-    UIView *footer = [[UIView alloc] initWithFrame:CGRectMake(0, 0, table.bounds.size.width, SGSectionFooterHeight(table, text))];
+    UIView *footer = [[UIView alloc] initWithFrame:CGRectMake(0, 0, table.bounds.size.width, kFooterTop + CGRectGetHeight(label.frame) + kFooterBottom)];
     [footer addSubview:label];
     return footer;
 }
 
 CGFloat SGSectionFooterHeight(UITableView *table, NSString *text) {
-    return kFooterTop + footerTextHeight(table, text) + kFooterBottom;
+    return kFooterTop + footerTextHeight(table, SGL(text)) + kFooterBottom;
 }
 
 UITableViewCell *SGDequeueCell(UITableView *table, NSString *identifier) {
@@ -358,8 +364,8 @@ void SGOpenURL(NSString *url) {
 }
 
 void SGOfferRestart(NSString *message) {
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Restart Spotify" message:message preferredStyle:UIAlertControllerStyleAlert];
-    [alert addAction:[UIAlertAction actionWithTitle:@"Later" style:UIAlertActionStyleCancel handler:nil]];
-    [alert addAction:[UIAlertAction actionWithTitle:@"Restart now" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) { SGRestartSpotify(); }]];
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:SGL(@"Restart Spotify") message:SGL(message) preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:SGL(@"Later") style:UIAlertActionStyleCancel handler:nil]];
+    [alert addAction:[UIAlertAction actionWithTitle:SGL(@"Restart now") style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) { SGRestartSpotify(); }]];
     [SGTopController() presentViewController:alert animated:YES completion:nil];
 }

@@ -1,6 +1,7 @@
 // Imported lyrics, on the Lyrics page beside the sources. The file picker copies in an LRC for matching
 // by name, or links a file to the track playing.
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
+#import "Settings/SGLocalize.h"
 #import "Core/SGCore.h"
 #import "Settings/SGPage.h"
 #import "Settings/SGPageStyle.h"
@@ -101,16 +102,16 @@ static NSString *playingLocalFile(void) {
             NSString *uri = SGURIString(track.URI);
             BOOL canAssign = SGCanImportTrackLyrics(uri);
             NSString *linked = SGTrackLyricsLinkedTo(uri);
-            NSString *detail = linked ? [NSString stringWithFormat:@"%@ · %@", track.trackTitle ?: @"Current track", linked.lastPathComponent]
-                : track.trackTitle ?: @"Start playing a song first";
-            SGFillCell(cell, @"Assign TTML or LRC…", canAssign ? detail : @"Start playing a song first",
+            NSString *detail = linked ? [NSString stringWithFormat:@"%@ · %@", track.trackTitle ?: SGL(@"Current track"), linked.lastPathComponent]
+                : track.trackTitle ?: SGL(@"Start playing a song first");
+            SGFillLiteralCell(cell, SGL(@"Assign TTML or LRC…"), canAssign ? detail : SGL(@"Start playing a song first"),
                        canAssign ? nil : SGGrey(), @"music.note");
         } else if (path.row == SGLRCImportByName) {
             SGFillCell(cell, @"Import LRC…", @"Matched by title and artist", nil, @"square.and.arrow.down");
         } else {
             NSString *uri = playingLocalFile();
-            NSString *title = SGLocalFileInfo(uri)[@"title"] ?: @"The local file playing";
-            SGFillCell(cell, @"Import for current track…", uri ? title : @"Start playing a local track first",
+            NSString *title = SGLocalFileInfo(uri)[@"title"] ?: SGL(@"The local file playing");
+            SGFillLiteralCell(cell, SGL(@"Import for current track…"), uri ? title : SGL(@"Start playing a local track first"),
                        uri ? nil : SGGrey(), @"music.note");
         }
         BOOL enabled = [self tableView:table shouldHighlightRowAtIndexPath:path];
@@ -125,13 +126,13 @@ static NSString *playingLocalFile(void) {
     }
     NSString *name = _files[(NSUInteger)path.row];
     if (name.pathComponents.count > 1) {
-        SGFillCell(cell, name.lastPathComponent, @"Track import", nil, nil);
+        SGFillLiteralCell(cell, name.lastPathComponent, SGL(@"Track import"), nil, nil);
         cell.selectionStyle = UITableViewCellSelectionStyleNone;
         return cell;
     }
     NSInteger offset = SGImportedLRCOffset(name);
-    NSString *detail = offset ? [NSString stringWithFormat:@"Timing offset: %+ld ms", (long)offset] : @"Timing offset: 0 ms";
-    SGFillCell(cell, name, detail, nil, nil);
+    NSString *detail = offset ? [NSString stringWithFormat:SGL(@"Timing offset: %+ld ms"), (long)offset] : SGL(@"Timing offset: 0 ms");
+    SGFillLiteralCell(cell, name, detail, nil, nil);
     cell.selectionStyle = UITableViewCellSelectionStyleDefault;
     return cell;
 }
@@ -221,8 +222,8 @@ static NSString *playingLocalFile(void) {
     [self reloadFiles];
     if (_linkTo) {
         NSString *title = _override ? _trackTitle : SGLocalFileInfo(_linkTo)[@"title"];
-        showAlert(self, @"Lyrics linked", [NSString stringWithFormat:@"%@ now gives the lyrics for %@.", name.lastPathComponent,
-                                                                     title ? [NSString stringWithFormat:@"\"%@\"", title] : @"this track"]);
+        showAlert(self, @"Lyrics linked", [NSString stringWithFormat:SGL(@"%@ now gives the lyrics for %@."), name.lastPathComponent,
+                                                                     title ? [NSString stringWithFormat:@"\"%@\"", title] : SGL(@"this track")]);
     }
 }
 

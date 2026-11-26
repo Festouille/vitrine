@@ -2,6 +2,7 @@
 #import "SGPage.h"
 #import "SGPageStyle.h"
 #import "SGSourcesPage.h"
+#import "SGLocalize.h"
 
 @implementation SGSource
 + (instancetype)sourceWithKey:(NSString *)key name:(NSString *)name detail:(NSString *)detail {
@@ -99,8 +100,9 @@ typedef NS_ENUM(NSInteger, SGSourcesSection) {
     SGSource *provider = [self sourceFor:[self keysIn:path.section][(NSUInteger)path.row]];
     BOOL on = path.section == SGSourcesSectionOn;
     // The asked ones are numbered, so the order reads as an order rather than a list.
-    NSString *title = on ? [NSString stringWithFormat:@"%ld. %@", (long)path.row + 1, provider.name] : provider.name;
-    SGFillCell(cell, title, provider.detail, on ? nil : SGGrey(), on ? @"checkmark.circle.fill" : @"circle");
+    NSString *name = provider.name;
+    NSString *title = on ? [NSString stringWithFormat:@"%ld. %@", (long)path.row + 1, name] : name;
+    SGFillLiteralCell(cell, title, SGL(provider.detail), on ? nil : SGGrey(), on ? @"checkmark.circle.fill" : @"circle");
     cell.selectionStyle = UITableViewCellSelectionStyleDefault;
     return cell;
 }

@@ -2,6 +2,7 @@
 #import "AddTabSheet.h"
 #import "Links.h"
 #import "TabIcons.h"
+#import "Settings/SGLocalize.h"
 #import "Settings/SGPage.h"
 #import "Settings/SGPageStyle.h"
 
@@ -330,7 +331,7 @@ static void showProblem(UIViewController *page, NSString *title, NSString *messa
     NSString *name = _sections[(NSUInteger)path.section][(NSUInteger)path.row];
     BOOL symbols = _sets.selectedSegmentIndex == 1;
     BOOL current = symbols == _draft.symbols && [name isEqualToString:_draft.icon];
-    SGFillCell(cell, name, current ? @"Current icon" : nil, nil, nil);
+    SGFillLiteralCell(cell, name, current ? SGL(@"Current icon") : nil, nil, nil);
     // A preview is one of Spotify's views; setting a new accessory takes the old one off the reused cell.
     cell.accessoryView = previewOf(name, symbols, 28);
     cell.selectionStyle = UITableViewCellSelectionStyleDefault;

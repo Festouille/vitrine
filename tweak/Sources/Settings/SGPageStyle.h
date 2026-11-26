@@ -45,6 +45,7 @@ void SGInsetForBars(UITableView *table);
 CGFloat SGSectionHeaderHeight(void);   // grows with the header's text
 extern const CGFloat SGSectionGap;   // above a section with no header, so its card does not touch the one before
 void SGFillCell(UITableViewCell *cell, NSString *title, NSString *subtitle, UIColor *color, NSString *symbolName);
+void SGFillLiteralCell(UITableViewCell *cell, NSString *title, NSString *subtitle, UIColor *color, NSString *symbolName);
 UIView *SGSectionHeader(UITableView *table, NSString *title);
 UIView *SGSectionFooter(UITableView *table, NSString *text);
 CGFloat SGSectionFooterHeight(UITableView *table, NSString *text);

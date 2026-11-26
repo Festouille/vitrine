@@ -1,6 +1,6 @@
 #!/bin/sh
 # Builds the Mod Settings harness for the simulator: App/ModSettings.x run through Logos, App/Pages.m and the
-# Settings/ framework as they are in the tweak, stubs.m for every page a row opens.
+# Settings/ framework as they are in the tweak, with stubs for unavailable Spotify features.
 set -e
 SRC=$(cd "$(dirname "$0")/../../tweak/Sources" && pwd)
 OUT=$(dirname "$0")/build
@@ -15,10 +15,14 @@ xcrun -sdk iphonesimulator clang -target arm64-apple-ios17.0-simulator -fobjc-ar
     -I"$SRC" -I"$SRC/App" -I"$SRC/Shared/Player" -isysroot "$SDK" -Wall -Werror -Wno-deprecated-declarations -DSG_VERSION=\"1.0.0-harness\" \
     "$(dirname "$0")/main.m" "$(dirname "$0")/../scene.m" "$(dirname "$0")/stubs.m" "$(dirname "$0")/repeat.m" \
     "$OUT"/gen/*.m "$SRC"/App/Pages.m "$SRC"/App/About/Signing.m "$SRC"/Shared/AnimatedArtwork/AnimatedArtworkSettings.m "$SRC"/Shared/Player/HoldSpeed.m \
+    "$SRC"/Shared/AdBlock/AdBlockSettings.m "$SRC"/Shared/Privacy/PrivacySettings.m "$SRC"/Shared/Lyrics/LyricsSettings.m \
+    "$SRC"/Native/Player/PlayerSettings.m \
+    "$SRC"/Redesigned/Lyrics/LyricsText.m "$SRC"/Redesigned/Lyrics/LyricsTextSettings.m \
     "$SRC"/App/SettingsSearch.m "$SRC"/App/SettingsPresets.m \
+    "$SRC"/Settings/SGLocalize.m "$SRC"/Settings/SGStrings_fr.m "$SRC"/Settings/SGStrings_es.m "$SRC"/Settings/SGStrings_tr.m \
     "$SRC"/Settings/SGPage.m "$SRC"/Settings/SGPageStyle.m "$SRC"/Settings/SGModPage.m "$SRC"/Settings/SGGlowSwitch.m \
     "$SRC"/Core/SGLog.m "$SRC"/Core/SGPrefs.m "$SRC"/Core/SGViewTree.m "$SRC"/Core/SGGlass.m "$SRC"/Core/SGLegacyGlass.m "$SRC"/Core/SGGlassTouch.m "$SRC"/Core/SGFlagForce.m "$SRC"/Core/SGUIMode.m \
-    -framework UIKit -framework QuartzCore -framework CoreGraphics -framework Foundation \
+    -framework UIKit -framework QuartzCore -framework CoreGraphics -framework Foundation -framework Speech \
     -o "$OUT/ModSettingsHarness.app/ModSettingsHarness"
 
 cat > "$OUT/ModSettingsHarness.app/Info.plist" <<'PLIST'

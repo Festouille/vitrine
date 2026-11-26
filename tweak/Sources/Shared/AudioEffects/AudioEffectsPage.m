@@ -3,6 +3,7 @@
 // while it is open, none of which a page of fixed rows does. It keeps Settings/'s look all the same: the
 // cards, the 13pt titles over 11pt subtitles, the tiles, the value and the chevron, the checkmark lists.
 #import <CoreText/SFNTLayoutTypes.h>
+#import "Settings/SGLocalize.h"
 #import "Core/SGCore.h"
 #import "Settings/SGPage.h"
 #import "Settings/SGPageStyle.h"
@@ -100,7 +101,7 @@ static NSString *graphicEqSummary(void) {
         points++;
         flat &= parts[1].doubleValue == 0;
     }
-    return flat ? @"Flat" : [NSString stringWithFormat:@"%lu points", (unsigned long)points];
+    return flat ? @"Flat" : [NSString stringWithFormat:SGL(@"%lu points"), (unsigned long)points];
 }
 
 // The effects' cards. The engine runs them in an order of its own (SGDSPEngine.m).
@@ -163,7 +164,7 @@ NSString *SGDSPSummary(void) {
     NSUInteger on = 0;
     for (SGDSPEffect *e in effects()) on += e.key && SGDSPSwitch(e.key);
     if (!on) return @"On";
-    return on == 1 ? @"1 effect" : [NSString stringWithFormat:@"%lu effects", (unsigned long)on];
+    return on == 1 ? SGL(@"1 effect") : [NSString stringWithFormat:SGL(@"%lu effects"), (unsigned long)on];
 }
 
 #pragma mark - numbers
@@ -564,7 +565,7 @@ static UIFont *tabular(UIFont *font) {
 - (UITableViewCell *)tableView:(UITableView *)table cellForRowAtIndexPath:(NSIndexPath *)path {
     if (path.section == 0 && path.row == 1) return [self valueCell:table title:@"Presets" value:@""];
     if (path.section == 0 && path.row == 2) return [self valueCell:table title:@"Headphones" value:SGDSPHeadphoneSummary()];
-    if (path.section == 0 && path.row == 3) return [self valueCell:table title:@"EQ per output" value:SGHidden(SGKeyDSPOutputEQEnabled) ? @"On" : @"Off"];
+    if (path.section == 0 && path.row == 3) return [self valueCell:table title:@"EQ per output" value:SGHidden(SGKeyDSPOutputEQEnabled) ? SGL(@"On") : SGL(@"Off")];
     if (path.section == 0) {
         UITableViewCell *cell = SGDequeueCell(table, @"master");
         [self fillHead:cell title:@"Effects" subtitle:SGDSPStatus()];
@@ -611,10 +612,10 @@ static UIFont *tabular(UIFont *font) {
         case SGDSPRowChoice: {
             NSInteger index = (NSInteger)lround(SGDSPNumber(row.key));
             NSString *name = index >= 0 && index < (NSInteger)row.names.count ? row.names[(NSUInteger)index] : row.names.firstObject;
-            return [self valueCell:table title:row.title value:name];
+            return [self valueCell:table title:row.title value:SGL(name)];
         }
         case SGDSPRowPage:
-            return [self valueCell:table title:row.title value:row.value()];
+            return [self valueCell:table title:row.title value:SGL(row.value())];
     }
     return SGDequeueCell(table, @"row");
 }
@@ -622,7 +623,8 @@ static UIFont *tabular(UIFont *font) {
 // The value under the title, and a chevron.
 - (UITableViewCell *)valueCell:(UITableView *)table title:(NSString *)title value:(NSString *)value {
     UITableViewCell *cell = SGDequeueCell(table, @"value");
-    [self fillHead:cell title:title subtitle:value];
+    SGFillLiteralCell(cell, SGL(title), value.length ? value : nil, nil, nil);
+    cell.separatorInset = UIEdgeInsetsMake(0, 16, 0, 0);
     cell.accessoryView = SGChevronView();
     cell.accessibilityValue = value;
     cell.selectionStyle = UITableViewCellSelectionStyleDefault;

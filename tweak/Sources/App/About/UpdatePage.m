@@ -5,6 +5,7 @@
 // A check that lands rebuilds it where it stands, which is what makes Check now worth having: the
 // changelog of a release nobody had heard of a second ago fills the page in without leaving it.
 #import "Core/SGCore.h"
+#import "Settings/SGLocalize.h"
 #import "Settings/SGPage.h"
 #import "Settings/SGPageStyle.h"
 #import "About.h"
@@ -113,14 +114,14 @@ static NSArray<SGUpdateRelease *> *releasesToShow(void) {
 - (NSString *)introText {
     SGUpdateRelease *newest = SGUpdateNewestRelease();
     if (!newest) return SGUpdateChecked()
-        ? [NSString stringWithFormat:@"This build is %s. GitHub has no newer release.", SG_VERSION]
-        : [NSString stringWithFormat:@"This build is %s. Nothing has been asked of GitHub yet.", SG_VERSION];
+        ? [NSString stringWithFormat:SGL(@"This build is %s. GitHub has no newer release."), SG_VERSION]
+        : [NSString stringWithFormat:SGL(@"This build is %s. Nothing has been asked of GitHub yet."), SG_VERSION];
     NSString *date = longDate(newest.date);
-    NSString *when = date.length ? [@" came out on " stringByAppendingString:date] : @" is out";
+    NSString *when = date.length ? [SGL(@" came out on ") stringByAppendingString:date] : SGL(@" is out");
     if (SGUpdateVersion())
-        return [NSString stringWithFormat:@"%@%@, and this build is %s. Everything in between is below.",
+        return [NSString stringWithFormat:SGL(@"%@%@, and this build is %s. Everything in between is below."),
                 newest.version, when, SG_VERSION];
-    return [NSString stringWithFormat:@"This build, %s, is GitHub's newest release; it%@. What went into it is below.",
+    return [NSString stringWithFormat:SGL(@"This build, %s, is GitHub's newest release; it%@. What went into it is below."),
             SG_VERSION, when];
 }
 

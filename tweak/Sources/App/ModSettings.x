@@ -19,6 +19,7 @@
 #import "Settings/SGPage.h"
 #import "Settings/SGPageStyle.h"
 #import "Settings/SGModPage.h"
+#import "Settings/SGLocalize.h"
 #import "Native/Home/Home.h"
 #import "Redesigned/Home/Home.h"
 #import "Shared/AdBlock/AdBlock.h"
@@ -80,7 +81,12 @@ static UIViewController *modSettingsPage(void) {
         pageRow(@"Appearance", @"paintpalette.fill", UIColor.systemPurpleColor, ^UIViewController *{ return SGAppearancePage(); }),
         pageRow(@"Tab bar", @"rectangle.bottomthird.inset.filled", UIColor.systemGrayColor, ^UIViewController *{ return SGNavbarPage(); }),
     ], SGRestartNote)];
-    [sections addObject:SGSection(nil, @[SGSettingsSearchRow(^SGModPage *{ return root; }), SGSettingsPresetsRow()])];
+    SGModRow *translate = SGWithTile(SGOptionRow(@"Translate Mod Settings", nil, SGKeySettingsTranslate),
+                                    @"globe", UIColor.systemTealColor);
+    SGModRow *language = SGChoiceRow(@"Language", nil, SGKeySettingsLanguage,
+        @[@"Device language", @"Français", @"Español", @"Türkçe"], SGSettingsLanguageDevice);
+    language.waitsOn = SGKeySettingsTranslate;
+    [sections addObject:SGSection(nil, @[SGSettingsSearchRow(^SGModPage *{ return root; }), SGSettingsPresetsRow(), translate, language])];
 
     // Home & Library holds only the native look's switches; the redesign has its album and artist pages instead.
     SGModRow *albums = pageRow(@"Albums", @"square.stack.fill", SGColorRGB(0x34C759), ^UIViewController *{ return SGRAlbumSettingsPage(); });
@@ -171,7 +177,6 @@ static UIViewController *modSettingsPage(void) {
     if (!(self = [super initWithFrame:frame])) return nil;
     _icon = SGSymbolView(@"slider.horizontal.3", 20, UIImageSymbolWeightRegular, 24);
     _title = [UILabel new];
-    _title.text = @"Mod Settings";
     _title.textColor = UIColor.whiteColor;
     _chevron = SGSymbolView(@"chevron.right", 11, UIImageSymbolWeightSemibold, 12);
     for (UIView *v in @[_icon, _title, _chevron]) [self addSubview:v];
@@ -181,6 +186,7 @@ static UIViewController *modSettingsPage(void) {
 
 - (void)layoutSubviews {
     [super layoutSubviews];
+    _title.text = SGL(@"Mod Settings");
     _title.font = SGSpotifyListFont(self.drawer);
     CGFloat width = self.bounds.size.width, height = self.bounds.size.height, lead = self.drawer ? 4 : 0;
     _icon.frame = CGRectMake(12 + lead, (height - 24) / 2, 24, 24);

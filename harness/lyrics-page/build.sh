@@ -19,9 +19,10 @@ xcrun -sdk iphonesimulator clang -target arm64-apple-ios17.0-simulator -fobjc-ar
     "$SRC"/Redesigned/Lyrics/MeaningSheet.m "$SRC"/Shared/LyricsMeanings/Meanings.m "$SRC"/Shared/LyricsSources/SongMatch.m "$SRC"/Shared/LyricsSources/SGTTML.m \
     "$SRC"/Shared/Lyrics/KaraokeTiming.m "$SRC"/Shared/Lyrics/KaraokeBody.m "$SRC"/Shared/Lyrics/Romanise.m "$SRC"/Shared/AdBlock/Protobuf.m \
     "$SRC"/Redesigned/Kit/SGRTokens.m "$SRC"/Redesigned/Kit/SGRGlass.m \
+    "$SRC"/Settings/SGLocalize.m "$SRC"/Settings/SGStrings_fr.m "$SRC"/Settings/SGStrings_es.m "$SRC"/Settings/SGStrings_tr.m \
     "$SRC"/Settings/SGPage.m "$SRC"/Settings/SGPageStyle.m "$SRC"/Settings/SGModPage.m "$SRC"/Settings/SGGlowSwitch.m \
     "$SRC"/Core/SGLog.m "$SRC"/Core/SGPrefs.m "$SRC"/Core/SGGlass.m "$SRC"/Core/SGLegacyGlass.m "$SRC"/Core/SGGlassTouch.m "$SRC"/Core/SGViewTree.m "$SRC"/Core/SGFlagForce.m "$SRC"/Core/SGUIMode.m \
-    -framework UIKit -framework QuartzCore -framework CoreGraphics -framework CoreText -framework Foundation -framework Symbols -framework NaturalLanguage -framework UniformTypeIdentifiers \
+    -framework UIKit -framework QuartzCore -framework CoreGraphics -framework CoreText -framework Foundation -framework Symbols -framework NaturalLanguage -framework UniformTypeIdentifiers -framework Speech \
     -o "$APP/LyricsPageHarness"
 
 cat > "$APP/Info.plist" <<PLIST
