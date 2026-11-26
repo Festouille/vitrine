@@ -605,10 +605,11 @@ static BOOL linesShown(void) {
         BOOL timingEdit = note.object != nil;
         NSString *importedCredit = timingEdit ? SGLyricsProviderFor(SGImportedLRCKey).name : nil;
         BOOL (^refreshes)(NSString *) = ^BOOL(NSString *track) {
-            if (!track || (!SGLocalFileIs(track) && ![imported containsObject:track])) return NO;
-            if (timingEdit && ![imported containsObject:track] && ![SGLyricsCreditFor(track) isEqualToString:importedCredit]) return NO;
-            NSString *picked = timingEdit ? SGLyricsChosenSource(track) : nil;
-            return !picked || [picked isEqualToString:SGImportedLRCKey];
+            if (!track) return NO;
+            if (!timingEdit) return SGLocalFileIs(track) || [imported containsObject:track];
+            NSString *picked = SGLyricsChosenSource(track);
+            if (picked) return [picked isEqualToString:SGImportedLRCKey];
+            return [imported containsObject:track] || [SGLyricsCreditFor(track) isEqualToString:importedCredit];
         };
         NSMutableSet<NSString *> *tracks = [NSMutableSet setWithSet:[sg_requested setByAddingObjectsFromArray:sg_lyrics.allKeys]];
         [tracks unionSet:imported];
@@ -620,6 +621,16 @@ static BOOL linesShown(void) {
             [sg_losses removeObjectForKey:track];
             if (timingEdit) {
                 [NSNotificationCenter.defaultCenter postNotificationName:SGKaraokeLinesInvalidatedNotification object:track];
+                BOOL picked = [SGLyricsChosenSource(track) isEqualToString:SGImportedLRCKey];
+                if (picked || [SGLyricsCreditFor(track) isEqualToString:importedCredit]) {
+                    SGLyricsQuery *query = SGLocalFileIs(track) ? nil : SGLyricsQueryFor(track);
+                    SGLyricsResult *fresh = SGImportedLRCFor(track, query.title, query.artist);
+                    if (!fresh) continue;
+                    if (picked) SGLyricsKeepChosen(track, fresh);
+                    else if ([imported containsObject:track]) SGLyricsRestoreKept(track, fresh);
+                    SGLyricsSetCredit(track, fresh.provider);
+                    keep(track, fresh.karaokeLines);
+                }
             }
         }
         NSString *playing = SGKaraokePlayingTrack();

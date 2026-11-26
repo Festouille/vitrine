@@ -75,6 +75,10 @@ int main(void) {
         found = SGImportedLRCFor(@"spotify:track:x", @"HALO", @"beyonce");
         CHECK(SGImportedLRCOffset(name) == 750);
         CHECK(found.karaokeLines.firstObject.start == 10750 && found.starts.firstObject.integerValue == 10750);
+        NSArray<NSString *> *order = SGLyricsOrder();
+        SGLyricsSetOrder(@[]);
+        CHECK(SGImportedLRCFor(@"spotify:track:x", @"HALO", @"beyonce").karaokeLines.firstObject.start == 10750);
+        SGLyricsSetOrder(order);
         SGSetImportedLRCOffset(name, -10500);
         found = SGImportedLRCFor(@"spotify:track:x", @"HALO", @"beyonce");
         CHECK(found.karaokeLines.firstObject.start == 0 && found.karaokeLines[1].start == 9250);
