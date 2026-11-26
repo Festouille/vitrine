@@ -144,12 +144,28 @@ static void watchHold(UIView *tilt) {
 
 #pragma mark - hooks
 
-// A single tap on the cover is Spotify's way into the tilt mode, the artwork alone in 3D. That is
-// the half of a double tap that misses, so while the zones are on it would open on the way to every
-// gesture; the tap goes back to Spotify with the switch. Full screen cover hidden keeps it from Spotify too.
+@interface SGCoverTapDelegate : NSObject <UIGestureRecognizerDelegate>
+@end
+
+@implementation SGCoverTapDelegate
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)tap shouldReceiveTouch:(UITouch *)touch {
+    return SGFlag(SGKeyGestures, NO);
+}
+
+// A single tap on the cover opens Spotify's tilt mode after the zone's double tap fails.
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)tap shouldBeRequiredToFailByGestureRecognizer:(UIGestureRecognizer *)other {
+    if (![other isKindOfClass:UITapGestureRecognizer.class] || ((UITapGestureRecognizer *)other).numberOfTapsRequired != 1) return NO;
+    Class tilt = NSClassFromString(@"_TtC35CreativeWorkCommons_CoverArtTiltKit16CoverArtTiltView");
+    for (UIView *view = other.view; view && view != tap.view; view = view.superview) {
+        if ([view isKindOfClass:tilt] && [view isDescendantOfView:tap.view]) return YES;
+    }
+    return NO;
+}
+@end
+
 %hook _TtC35CreativeWorkCommons_CoverArtTiltKit16CoverArtTiltView
 - (void)handleTap {
-    if (SGFlag(SGKeyGestures, NO) || SGHidden(SGKeyHideFullScreenCover)) return;
+    if (SGHidden(SGKeyHideFullScreenCover) && inPlayerCover((UIView *)self)) return;
     %orig;
 }
 - (void)layoutSubviews {
@@ -161,7 +177,12 @@ static void watchHold(UIView *tilt) {
 %hook _TtC35NowPlaying_ContentLayerPlatformImpl24AccessibleCollectionView
 - (void)layoutSubviews {
     %orig;
-    SGGestureAttach((UIView *)self);
+    UITapGestureRecognizer *tap = SGGestureAttach((UIView *)self);
+    if (!tap || tap.delegate) return;
+    static SGCoverTapDelegate *delegate;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{ delegate = [SGCoverTapDelegate new]; });
+    tap.delegate = delegate;
 }
 %end
 

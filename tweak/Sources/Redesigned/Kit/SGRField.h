@@ -47,8 +47,8 @@
 - (void)setProvisionalColor:(UIColor *)color;
 // Reads the artwork off the main thread and crossfades the result in (without animation when
 // `animated` is NO or the field is not in a window). The same image, or the same non-nil identity,
-// as the last call is a no-op, and a result that lands after a newer call is dropped. nil keeps
-// what the field shows.
+// as the last call is a no-op, and a result that lands after a newer call is dropped. nil restores
+// the neutral field.
 - (void)setArtwork:(UIImage *)image identity:(NSString *)identity animated:(BOOL)animated;
 
 // A page that comes in whole rather than a piece at a time: until the field has read its first artwork, a veil

@@ -36,6 +36,7 @@
 // Spotify's music video (Switch to video) draws in one of three of its units, each told by its video surface
 // as the video comes and goes: while one shows it, the clip goes and the cover comes back, as for Fluid.
 #import <AVFoundation/AVFoundation.h>
+#import <math.h>
 #import "Core/SGCore.h"
 #import "Redesigned/Kit/SGRKit.h"
 #import "Shared/AnimatedArtwork/AnimatedArtwork.h"
@@ -139,6 +140,13 @@ static UIColor *footColor(CGImageRef poster) {
         for (int c = 0; c < 3; c++) sum[c] += pixels[i * 4 + c];
     }
     return [UIColor colorWithRed:sum[0] / (kWide * 255.0) green:sum[1] / (kWide * 255.0) blue:sum[2] / (kWide * 255.0) alpha:1];
+}
+
+static CGFloat posterAspect(UIImage *poster) {
+    CGSize size = poster.size;
+    if (!poster.CGImage || !isfinite(size.width) || !isfinite(size.height) || size.width <= 0 || size.height <= 0) return 0;
+    CGFloat aspect = size.height / size.width;
+    return isfinite(aspect) ? aspect : 0;
 }
 
 @interface SGRPlayerMotionView : UIView <SGPlayerStateObserver>
@@ -276,6 +284,8 @@ static UIBlurEffect *blurEffect(void) {
 }
 
 - (void)playFile:(NSURL *)file poster:(UIImage *)poster {
+    CGFloat aspect = posterAspect(poster);
+    if (aspect <= 0) return;
     if ([_file isEqual:file] && _still.contents == (__bridge id)poster.CGImage) {
         [self updateMotion];
         return;
@@ -283,7 +293,7 @@ static UIBlurEffect *blurEffect(void) {
     _file = [file copy];
     [_looper disableLooping];
     [_player pause];
-    _aspect = poster.size.height / poster.size.width;
+    _aspect = aspect;
     _foot.backgroundColor = footColor(poster.CGImage).CGColor;
     _still.contents = (__bridge id)poster.CGImage;
     _player = [AVQueuePlayer new];
@@ -601,7 +611,7 @@ UIView *SGRPlayerMotionPreview(void (^arrived)(void)) {
             if (![track isEqualToString:sg_previewTrack]) return;
             void (^done)(void) = sg_previewArrived;
             sg_previewArrived = nil;
-            if (!poster || poster.size.width <= 0) {
+            if (posterAspect(poster) <= 0) {
                 sg_previewTrack = nil;
                 return;
             }
@@ -654,7 +664,7 @@ static void show(NSString *track, NSURL *file) {
     NSUInteger begun = sg_begun;
     SGMotionPoster(file, ^(UIImage *poster) {
         // A walk begun while the poster was read (switched off, Spotify's video) has the say.
-        if (!poster || poster.size.width <= 0 || begun != sg_begun) return;
+        if (begun != sg_begun || posterAspect(poster) <= 0) return;
         clear(YES);
         sg_motion = [[SGRPlayerMotionView alloc] initWithFrame:CGRectZero];
         sg_shown = track;

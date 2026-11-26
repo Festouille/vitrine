@@ -211,7 +211,11 @@ static UIButton *controlButton(NSString *symbol, CGFloat size, NSString *label, 
 - (void)artworkChanged {
     NSString *identity = nil;
     UIImage *art = SGRNowPlayingArtwork(NULL, &identity);
-    if (!art) return;
+    if (!art) {
+        _cover.image = nil;
+        [_field setArtwork:nil identity:nil animated:NO];
+        return;
+    }
     // On the field's clock, so the cover and the colors behind it change as one.
     UIImageView *cover = _cover;
     [UIView transitionWithView:cover duration:SGRCrossfade options:UIViewAnimationOptionTransitionCrossDissolve
