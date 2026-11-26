@@ -20,6 +20,7 @@
 #import "Shared/Player/PlayerState.h"
 #import "Shared/Player/SleepTimer.h"
 #import "Shared/Player/SpeedPitch.h"
+#import "Shared/Player/PlayerShortcuts.h"
 #import "Shared/Lyrics/Lyrics.h"
 #import "Shared/LyricsSources/LyricsSources.h"
 #import "Shared/LocalFiles/LocalLyrics.h"
@@ -282,6 +283,11 @@ static UIMenuElement *sleepTimerMenu(BOOL episode, BOOL endless) {
 
 static NSArray<UIMenuElement *> *playerItems(BOOL dj) {
     NSMutableArray<UIMenuElement *> *items = [NSMutableArray arrayWithObject:soundMenu()];
+    if (!dj) {
+        UIMenu *eq = SGQuickEQMenu(), *next = SGPlayingNextMenu();
+        if (eq) [items addObject:eq];
+        if (next) [items addObject:next];
+    }
     if (SGPlayerMenuOffersAnimatedArtwork()) {
         // Buttons named for what they do, not checkmarks: the HIG's changeable label for a toggled item.
         NSArray<NSArray *> *backgrounds = @[
