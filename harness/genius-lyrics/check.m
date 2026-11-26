@@ -266,6 +266,15 @@ static void checkTiming(void) {
     NSDictionary *allThree = SGKaraokeRecognizedLines(combined, words, late, 20000, separate);
     CHECK(allThree.count == 3 && [allThree[@0] isEqual:separate[@0]] && [allThree[@1] isEqual:separate[@1]]);
     CHECK([allThree[@2] rangeValue].location == 12500);
+
+    NSArray *crowded = SGKaraokeStaticLines(@[@"Opening words here", @"Here comes rain", @"Middle words now", @"One last whisper"]);
+    NSDictionary *spaced = @{@1: [NSValue valueWithRange:NSMakeRange(1000, 1000)], @3: [NSValue valueWithRange:NSMakeRange(4500, 1000)]};
+    NSArray *tooClose = @[[NSValue valueWithRange:NSMakeRange(4000, 100)],
+        [NSValue valueWithRange:NSMakeRange(4200, 100)], [NSValue valueWithRange:NSMakeRange(4300, 100)]];
+    NSDictionary *feasible = SGKaraokeRecognizedLines(crowded, shortPhrase, tooClose, 20000, spaced);
+    CHECK([feasible isEqualToDictionary:spaced]);
+    NSArray<SGKaraokeLine *> *followed = SGKaraokeFollowPlainLines(crowded, 20000, feasible);
+    CHECK(followed[2].end - followed[2].start >= 250 && followed[3].start == 4500 && followed[3].end == 5500);
     puts("speech alignment: ordered lines and replacement of weaker cached matches held");
     puts("plain lyric timing: estimates, vocal gap, slow delivery, and ambiguous lines held");
 }
