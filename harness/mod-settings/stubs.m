@@ -3,8 +3,11 @@
 #import <UIKit/UIKit.h>
 #import "Core/SGCore.h"
 #import "Settings/SGModPage.h"
+#import "Settings/SGPage.h"
+#import "Shared/Haptics/SGHapticRelay.h"
 
 extern BOOL SGHarnessWarning;
+extern BOOL SGHarnessOnboarding;
 
 static UIViewController *blank(NSString *title) {
     return [[SGModPage alloc] initWithTitle:title intro:nil sections:@[] footer:nil];
@@ -42,6 +45,7 @@ NSArray<SGModRow *> *SGAITranslatorRows(void) { return @[SGPageRow(@"SGAITransla
 ROW(SGAppIconRow) ROW(SGGlassLyricsRow) ROW(SGLockScreenLyricsRow) ROW(SGLyricsMeaningsRow)
 ROW(SGLyricsTranslationLanguageRow) ROW(SGLyricsWordTimingRow) ROW(SGRLyricsTextSizesRow) ROW(SGLyricsDelayRow)
 ROW(SGSavedTranslationsRow) ROW(SGTranslateEverySongRow)
+ROW(SGLockScreenTranslationRow) ROW(SGLyricsRomanisedReplaceRow) ROW(SGRLyricsHideRow)
 NSArray<SGModRow *> *SGOnDeviceTranslatorRows(void) { return @[SGPageRow(@"SGOnDeviceTranslatorRows", ^UIViewController *{ return nil; })]; }
 NSArray<SGModRow *> *SGAppFontRows(void) { return @[]; }
 NSArray<SGModRow *> *SGNativeAppearanceRows(void) { return @[]; }
@@ -57,11 +61,21 @@ NSString *SGSingSummary(void) { return @"Off"; }
 BOOL SGSingSpatialAvailable(void) { return YES; }
 BOOL SGSingSpatial(void) { return NO; }
 
+void SGDressPageBar(UIViewController *page) {}
+void SGPlacePageBar(UIViewController *page) {}
+void SGUndressPageBar(UIViewController *page) {}
+BOOL SGHapticAddonOutdated(void) { return NO; }
+BOOL SGHapticEverywhereOffered(void) { return NO; }
+BOOL SGHapticRelayAvailable(void) { return NO; }
+void SGHapticAddonExplain(NSString *feature) {}
+void SGHapticAddonShareSoon(void) {}
+void SGHapticRelaySendLockArt(void) {}
+
 void SGCheckForUpdate(BOOL force) {}
 void SGWatchForUpdates(void) {}
 // Signing.m is the real one: its row stays away while the harness's own signature is sound, and its
 // "Signed until" row shows once the .app holds an embedded.mobileprovision (README).
-BOOL SGOnboardingShowing(void) { return NO; }
+BOOL SGOnboardingShowing(void) { return SGHarnessOnboarding; }
 // Environment.m's red row, as a phone with EeveeSpotify injected too shows it.
 NSArray<SGModRow *> *SGEnvironmentWarningRows(void) {
     if (!SGHarnessWarning) return @[];

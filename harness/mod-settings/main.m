@@ -18,10 +18,12 @@
 // Spotify's settings list and drawer, after each list is emptied of its subviews, counted to the log).
 #import <UIKit/UIKit.h>
 #import <objc/runtime.h>
+#import "App/About/About.h"
 #import "App/SettingsPresets.h"
 #import "Core/SGCore.h"
 #import "Settings/SGPage.h"
 #import "Settings/SGModPage.h"
+#import "Settings/SGPageStyle.h"
 #import "Shared/AnimatedArtwork/AnimatedArtwork.h"
 #import "Shared/Player/PlayerSettings.h"
 
@@ -30,6 +32,7 @@
 @end
 
 BOOL SGHarnessWarning;
+BOOL SGHarnessOnboarding;
 
 static void findViews(UIView *root, Class kind, NSMutableArray *found) {
     if ([root isKindOfClass:kind]) [found addObject:root];
@@ -226,6 +229,28 @@ static UIViewController *gatedPage(void) {
         if ([alert isKindOfClass:UIAlertController.class]) NSLog(@"[harness] alert \"%@\": %@", alert.title, alert.message);
     } else if ([verb isEqualToString:@"top"]) {
         [table setContentOffset:CGPointMake(0, -table.adjustedContentInset.top) animated:NO];
+    } else if ([verb isEqualToString:@"signing-onboarding"]) {
+        SGHarnessOnboarding = YES;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 66 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+            if (SGIsAlertController(SGTopController())) {
+                NSLog(@"[harness] signing onboarding: FAIL; alert while onboarding was open");
+                exit(EXIT_FAILURE);
+            }
+            SGHarnessOnboarding = NO;
+            NSLog(@"[harness] signing onboarding: cleared after 66 seconds without an alert");
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+                [self run:@"signing=profile"];
+            });
+        });
+    } else if ([verb isEqualToString:@"signing"]) {
+        UIViewController *top = SGTopController();
+        UIAlertController *alert = [top isKindOfClass:UIAlertController.class] ? (UIAlertController *)top : nil;
+        BOOL shown = [alert.title isEqualToString:@"Spotify signing expires soon"];
+        BOOL passed = [value isEqualToString:@"profile"]
+            ? shown && [alert.message containsString:@"provisioning profile"]
+            : !shown && SGEnabled(SGKeySigningExpiryReminder) == [value isEqualToString:@"quiet"];
+        NSLog(@"[harness] signing %@: %@; %@", value, passed ? @"PASS" : @"FAIL", alert.message ?: @"no alert");
+        exit(passed ? EXIT_SUCCESS : EXIT_FAILURE);
     } else if ([verb isEqualToString:@"later"]) {
         sg_later = YES;
     } else if ([verb isEqualToString:@"layout"]) {
