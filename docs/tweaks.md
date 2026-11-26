@@ -272,8 +272,12 @@ Shared:
                   (TabIcons.m). The sheet runs in the simulator in harness/addtab/
     Player/       the player's open and close announced (PlayerEvents.x), what the player is doing read through
                   one hook for every feature that wants it (PlayerState.x), the last track played for the settings
-                  pages' previews to show when nothing plays (SGLastTrack.m), the lock screen widget's flags, and in the
-                  more button's menu Speed and pitch: both done to Spotify's audio by Apple's time and pitch unit, put
+                  pages' previews to show when nothing plays (SGLastTrack.m), and the lock screen widget's flags.
+                  Player shortcuts (off by default) adds Quick EQ and Playing Next to the player menu
+                  (PlayerShortcuts.m). Quick EQ uses the Audio Effects presets and bypasses only the equalizer
+                  without clearing its curve. Playing Next previews the first three tracks Spotify reports without
+                  changing the queue. Both the Spotify sheet and the redesigned menu read the current state as they open.
+                  The more button's menu also has Speed and pitch: both done to Spotify's audio by Apple's time and pitch unit, put
                   between its mixer and its RemoteIO unit by taking over the connection Spotify makes between them
                   (SpeedPitchMenu.x, SpeedPitch.x, SGTimePitch.m). Spotify runs a chain per sample rate, so a local
                   file at another rate can have two RemoteIO units running at once: SpeedPitch.x keeps a record

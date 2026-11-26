@@ -25,6 +25,7 @@
 #import "Shared/AdBlock/AdBlock.h"
 #import "Shared/Flags/Flags.h"
 #import "Shared/AudioEffects/AudioEffectsPage.h"
+#import "Shared/Player/PlayerShortcuts.h"
 #import "Shared/AutoMix/AutoMix.h"
 #import "Shared/LiveActivity/LiveActivity.h"
 #import "Shared/ListeningStats/ListeningStats.h"
@@ -103,6 +104,8 @@ static UIViewController *modSettingsPage(void) {
         SGWithTile(SGHideRow(@"Hide podcasts", @"Home, Your Library and Search · Restart to apply", SGKeyHidePodcasts),
                    @"mic.slash.fill", UIColor.systemPurpleColor),
         pageRow(@"Player", @"play.fill", UIColor.systemPinkColor, ^UIViewController *{ return SGPlayerSettingsPage(); }),
+        SGWithTile(SGOptionRow(@"Player shortcuts", @"Quick EQ and a queue preview in the player menu", SGKeyPlayerShortcuts),
+                   @"slider.horizontal.3", UIColor.systemIndigoColor),
         pageRow(@"Lyrics", @"quote.bubble.fill", UIColor.systemOrangeColor, ^UIViewController *{ return SGLyricsSettingsPage(); }),
         albums,
         artists,
