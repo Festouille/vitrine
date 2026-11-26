@@ -38,7 +38,7 @@
 @property (nonatomic) SPTPlayerState *state;
 @property (nonatomic) NSHashTable<id<HarnessPlayerObserver>> *observers;
 @property (nonatomic) NSUInteger repeatCommands;
-@property (nonatomic) BOOL repeatRestricted;
+@property (nonatomic) BOOL repeatRestricted, delayRepeatReport;
 @property (nonatomic, copy) NSString *trackURI, *contextURI;
 - (void)addPlayerObserver:(id)observer;
 - (void)reportContext:(BOOL)context track:(BOOL)track loading:(BOOL)loading;
@@ -87,6 +87,7 @@
 }
 - (id)setOptions:(SPTPlayerOptionOverrides *)options loggingParams:(id)logging {
     self.repeatCommands++;
+    if (self.delayRepeatReport) return @YES;
     [self reportContext:options.repeatingContext ? options.repeatingContext.boolValue : self.state.options.repeatingContext
                   track:options.repeatingTrack ? options.repeatingTrack.boolValue : self.state.options.repeatingTrack loading:NO];
     return @YES;
@@ -124,6 +125,7 @@ BOOL SGHarnessRepeatAction(NSString *verb, NSString *value, UIViewController *pa
         SPTPlayerOptionOverrides *options = [SPTPlayerOptionOverrides new];
         options.repeatingContext = @(context);
         options.repeatingTrack = @(track);
+        sg_repeatPlayer.delayRepeatReport = [parts.lastObject isEqualToString:@"delayed"];
         [sg_repeatPlayer setOptions:options loggingParams:nil];
     } else if ([verb isEqualToString:@"repeat-set-context"]) {
         [sg_repeatPlayer setRepeatingContext:context];

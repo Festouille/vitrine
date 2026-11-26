@@ -14,9 +14,9 @@ typedef NS_OPTIONS(NSUInteger, SGRepeatBits) {
 
 static NSString *const kLastRepeatMode = @"spotifyglass.rememberRepeatMode.last";
 static NSString *sg_track, *sg_context;
-static NSString *sg_requestedTrack, *sg_requestedContext;
+static NSString *sg_requestedContext;
 static SGRepeatBits sg_requested, sg_requestedMask;
-static BOOL sg_captureCurrent;
+static BOOL sg_captureCurrent, sg_requestHasPlayback;
 static _Thread_local BOOL sg_restoring;
 
 static BOOL sameURI(NSString *a, NSString *b) {
@@ -25,7 +25,8 @@ static BOOL sameURI(NSString *a, NSString *b) {
 
 static void clearRequest(void) {
     sg_requested = sg_requestedMask = 0;
-    sg_requestedTrack = sg_requestedContext = nil;
+    sg_requestedContext = nil;
+    sg_requestHasPlayback = NO;
 }
 
 static BOOL readRepeatBits(SPTPlayerState *state, SGRepeatBits *bits) {
@@ -57,10 +58,10 @@ static void rememberRequest(id player, NSNumber *context, NSNumber *track) {
     dispatch_block_t note = ^{
         if (player != SGPlayer() || !SGFlag(SGKeyRememberRepeatMode, NO)) return;
         SPTPlayerState *state = SGPlayerState();
-        NSString *trackURI = SGURIString(state.track.URI), *contextURI = SGURIString(state.contextURI);
-        if (!sameURI(trackURI, sg_requestedTrack) || !sameURI(contextURI, sg_requestedContext)) clearRequest();
-        sg_requestedTrack = trackURI;
+        NSString *contextURI = SGURIString(state.contextURI);
+        if (!sameURI(contextURI, sg_requestedContext)) clearRequest();
         sg_requestedContext = contextURI;
+        sg_requestHasPlayback = SGURIString(state.track.URI).length != 0;
         if (context) {
             sg_requestedMask |= SGRepeatContext;
             sg_requested = (sg_requested & ~SGRepeatContext) | (context.boolValue ? SGRepeatContext : 0);
@@ -97,8 +98,7 @@ static void rememberRequest(id player, NSNumber *context, NSNumber *track) {
         SGSetInt(kLastRepeatMode, bits);
     }
     if (sg_requestedMask) {
-        BOOL samePlayback = !sg_requestedTrack || (sameURI(track, sg_requestedTrack) && sameURI(context, sg_requestedContext));
-        if (!samePlayback) clearRequest();
+        if (sg_requestHasPlayback && !sameURI(context, sg_requestedContext)) clearRequest();
         else if ((bits & sg_requestedMask) == sg_requested) {
             clearRequest();
             SGSetInt(kLastRepeatMode, bits);

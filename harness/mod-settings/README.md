@@ -81,12 +81,13 @@ Each `repeat-check` asserts the reported mode and how many repeat commands the p
     xcrun simctl launch --console <udid> com.vitrine.modsettingsharness remember-repeat=0 repeat-start=context repeat-check=context,0 remember-repeat=toggle remember-repeat=1
     xcrun simctl launch --console <udid> com.vitrine.modsettingsharness remember-repeat=1 repeat-start=off repeat-check=context,1 repeat-set=track repeat-check=track,2
     xcrun simctl launch --console <udid> com.vitrine.modsettingsharness redesign remember-repeat=1 repeat-start=off,restricted repeat-check=off,2 repeat-report=off repeat-check=off,2 repeat-context=off repeat-check=track,4 repeat-next=off repeat-check=track,6
-    xcrun simctl launch --console <udid> com.vitrine.modsettingsharness remember-repeat=1 repeat-start=off repeat-check=track,2 repeat-set=off repeat-set-context=context repeat-check=context,4
+    xcrun simctl launch --console <udid> com.vitrine.modsettingsharness remember-repeat=1 repeat-start=off repeat-check=track,2 repeat-set=off,delayed repeat-check=track,3 repeat-next=off repeat-check=off,3 repeat-context=track repeat-check=off,5 repeat-set-context=context repeat-check=context,6
     xcrun simctl launch --console <udid> com.vitrine.modsettingsharness redesign remember-repeat=1 repeat-start=off repeat-check=context,1 repeat-set=off repeat-check=off,2
     xcrun simctl launch --console <udid> com.vitrine.modsettingsharness remember-repeat=1 repeat-start=track repeat-check=off,2 remember-repeat=toggle remember-repeat=0
     xcrun simctl launch --console <udid> com.vitrine.modsettingsharness redesign remember-repeat=0 repeat-start=track repeat-check=track,0
 
 The first two launches check that enabling the switch captures the current mode without another repeat command.
 The restricted launch rejects the restore in its first context, retries on a different context playing the same
-track, then restores again when the next track in that context resets repeat. Capture the real switch and the mock
-player's reported mode with `xcrun simctl io <udid> screenshot shot.png` after any check.
+track, then restores again when the next track in that context resets repeat. The delayed command is not
+reflected in the player's state until the next track; that user's choice must win both there and in a new context.
+Capture the real switch and the mock player's reported mode with `xcrun simctl io <udid> screenshot shot.png` after any check.
