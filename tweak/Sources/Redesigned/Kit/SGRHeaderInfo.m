@@ -98,7 +98,7 @@ UIImageView *SGRCreatorPicture(UIView *root) {
     // White like the buttons beside it while off -- Spotify's off gray read as a disabled button next to the
     // white download (issue #65) -- and the accent while on, so its state still shows.
     _shuffle.glyphColor = SGRPrimary();
-    _shuffle.onGlyphColor = SGRAccent();
+    _shuffle.usesAccentWhenOn = YES;
     _play = [[SGRPlayCapsule alloc] initWithFrame:CGRectZero];
     _play.fillColor = UIColor.whiteColor;
     _trailing = [[SGRMirrorButton alloc] initWithFrame:CGRectZero];

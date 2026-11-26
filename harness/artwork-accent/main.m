@@ -5,6 +5,7 @@
 #import "Redesigned/Player/Player.h"
 #import "Native/Appearance/Appearance.h"
 #import "Redesigned/Kit/SGRAccent.h"
+#import "Redesigned/Kit/SGRActionRow.h"
 #import "Redesigned/Home/Home.h"
 
 @interface SPTPlayerTrack ()
@@ -102,6 +103,7 @@ static BOOL closeTo(UIColor *a, UIColor *b) {
 @implementation Harness {
     UIImageView *_cover;
     UIImageView *_shuffleGlyph;
+    SGRMirrorButton *_shuffleMirror;
     UILabel *_title;
     UIView *_gradientHost;
     UIButton *_button;
@@ -167,7 +169,14 @@ static BOOL closeTo(UIColor *a, UIColor *b) {
                 UIRectFill(shuffle.bounds);
             }];
         [shuffle addSubview:_shuffleGlyph];
+        UIView *dot = [[UIView alloc] initWithFrame:CGRectMake(10, 20, 4, 4)];
+        dot.backgroundColor = UIColor.whiteColor;
+        [shuffle addSubview:dot];
         [home.view addSubview:shuffle];
+        _shuffleMirror = [[SGRMirrorButton alloc] initWithFrame:CGRectOffset(shuffle.frame, 44, 0)];
+        _shuffleMirror.usesAccentWhenOn = YES;
+        [_shuffleMirror feedFrom:shuffle];
+        [home.view addSubview:_shuffleMirror];
     }
 
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_MSEC * 700), dispatch_get_main_queue(), ^{
@@ -184,7 +193,10 @@ static BOOL closeTo(UIColor *a, UIColor *b) {
     if (step == 1) report(red, cover(red));
     if (step == 4) report(fixture, nil);
     if (step == 5) reportLocal(image);
-    else if (step == 6) SGLocalFileSaveEdit(localURI, @{}, image, YES);
+    else if (step == 6) {
+        SGLocalFileSaveEdit(localURI, @{}, image, YES);
+        image = [UIImage imageWithContentsOfFile:SGLocalFileCoverPath(SGLocalFileEditFor(localURI))];
+    }
     else if (step == 7) SGLocalFileSaveEdit(localURI, @{}, nil, NO);
     else report(fixture, image);
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_MSEC * 450), dispatch_get_main_queue(), ^{
@@ -210,8 +222,18 @@ static BOOL closeTo(UIColor *a, UIColor *b) {
     NSInteger effective = _enabled && sampled >= 0 ? sampled : _redesign ? SGRDefaultAccent : SGSpotifyGreen;
     NSCAssert(closeTo(_button.backgroundColor, color(effective)), @"Existing control not repainted at step %lu", (unsigned long)step);
     NSCAssert(closeTo(color(SGSpotifyGreen), color(effective)), @"New color token wrong at step %lu", (unsigned long)step);
-    if (_redesign) NSCAssert(closeTo(SGRPlayerImageInk(_shuffleGlyph.image), color(effective)),
-                            @"Existing shuffle bitmap not repainted at step %lu", (unsigned long)step);
+    if (_redesign) {
+        NSCAssert(closeTo(SGRPlayerImageInk(_shuffleGlyph.image), color(effective)),
+                  @"Existing shuffle bitmap not repainted at step %lu: %@ expected %@", (unsigned long)step,
+                  SGRPlayerImageInk(_shuffleGlyph.image), color(effective));
+        [_shuffleMirror feedFrom:_shuffleGlyph.superview];
+        UIImageView *mirrored = nil;
+        for (UIView *child in _shuffleMirror.subviews) {
+            if ([child isKindOfClass:UIImageView.class]) mirrored = (UIImageView *)child;
+        }
+        NSCAssert(closeTo(mirrored.tintColor, color(effective)),
+                  @"Header shuffle did not keep the current accent at step %lu", (unsigned long)step);
+    }
     CAGradientLayer *gradient;
     for (UIView *view in _gradientHost.subviews) {
         if ([view.layer isKindOfClass:CAGradientLayer.class]) gradient = (CAGradientLayer *)view.layer;

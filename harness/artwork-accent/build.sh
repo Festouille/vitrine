@@ -20,10 +20,10 @@ done
 
 compile main.m stubs.m ../scene.m build/gen/*.o \
     "$SRC"/Core/SGLog.m "$SRC"/Core/SGPrefs.m "$SRC"/Core/SGUIMode.m "$SRC"/Core/SGViewTree.m \
-    "$SRC"/Native/Home/HomeGradientChoices.m "$SRC"/Redesigned/Kit/SGRTokens.m \
+    "$SRC"/Native/Home/HomeGradientChoices.m "$SRC"/Redesigned/Kit/SGRTokens.m "$SRC"/Redesigned/Kit/SGRActionRow.m \
     "$SRC"/Shared/Player/SGArtworkAccent.m "$SRC"/Shared/Player/SGLastTrack.m \
     "$SRC"/Shared/LocalFiles/LocalCover.m "$SRC"/Shared/LocalFiles/LocalFiles.m \
-    -framework UIKit -framework QuartzCore -framework CoreGraphics -framework Foundation -framework CoreText -framework MediaPlayer \
+    -framework UIKit -framework QuartzCore -framework CoreGraphics -framework Foundation -framework CoreText -framework MediaPlayer -framework Symbols \
     -o "$APP/ArtworkAccentHarness"
 cp Info.plist "$APP/Info.plist"
 codesign -f -s - "$APP"
