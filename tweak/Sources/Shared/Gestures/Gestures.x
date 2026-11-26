@@ -121,7 +121,85 @@ void SGGestureAttach(UIView *host) {
     yieldSingleTaps(host, tap);
 }
 
+#pragma mark - mini player
+
+@interface SGMiniPlayerGestureTarget : NSObject <UIGestureRecognizerDelegate>
+@end
+
+static BOOL miniPlayerGesturesEnabled(void) {
+    return SGFlag(SGKeyMiniPlayerGestures, NO) && sg_player != nil;
+}
+
+@implementation SGMiniPlayerGestureTarget
+
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gesture shouldReceiveTouch:(UITouch *)touch {
+    if (!miniPlayerGesturesEnabled()) return NO;
+    for (UIView *view = touch.view; view && view != gesture.view; view = view.superview) {
+        if ([view isKindOfClass:UIControl.class]) return NO;
+    }
+    return YES;
+}
+
+- (void)swiped:(UISwipeGestureRecognizer *)swipe {
+    if (!miniPlayerGesturesEnabled()) return;
+    perform(swipe.direction == UISwipeGestureRecognizerDirectionLeft ? SGGestureNextTrack : SGGesturePreviousTrack);
+}
+
+- (void)held:(UILongPressGestureRecognizer *)hold {
+    if (hold.state != UIGestureRecognizerStateBegan || !miniPlayerGesturesEnabled()) return;
+    UIView *card = hold.view;
+    UIViewController *presenter = card.window.rootViewController;
+    if (!presenter || presenter.presentedViewController) return;
+    SPTNowPlayingPlaybackControllerImplementation *player = sg_player;
+    UIAlertController *menu = [UIAlertController alertControllerWithTitle:@"Mini player"
+                                                                  message:nil preferredStyle:UIAlertControllerStyleActionSheet];
+    void (^addAction)(NSString *, SGGestureAction, BOOL) = ^(NSString *title, SGGestureAction action, BOOL enabled) {
+        UIAlertAction *item = [UIAlertAction actionWithTitle:title style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *selected) {
+            if (miniPlayerGesturesEnabled()) perform(action);
+        }];
+        item.enabled = enabled;
+        [menu addAction:item];
+    };
+    BOOL paused = player.isPaused;
+    addAction(paused ? @"Play" : @"Pause", SGGesturePlayPause, paused ? !player.disallowResuming : !player.disallowPausing);
+    addAction(player.isShuffling ? @"Turn shuffle off" : @"Turn shuffle on", SGGestureShuffle, YES);
+    addAction(@"Change repeat mode", SGGestureRepeat, YES);
+    [menu addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+    menu.popoverPresentationController.sourceView = card;
+    menu.popoverPresentationController.sourceRect = card.bounds;
+    SGPresentDark(menu);
+    [presenter presentViewController:menu animated:YES completion:nil];
+}
+
+@end
+
+static void attachMiniPlayerGestures(UIViewController *bar) {
+    static char kCardKey, kTargetKey;
+    UIView *card = SGFindRemembered(bar.view, &kCardKey, ^BOOL(UIView *view) {
+        return [view.accessibilityIdentifier isEqualToString:@"SPTNowPlayingBar"];
+    });
+    if (!card || objc_getAssociatedObject(card, &kTargetKey)) return;
+    SGMiniPlayerGestureTarget *handler = [SGMiniPlayerGestureTarget new];
+    objc_setAssociatedObject(card, &kTargetKey, handler, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    for (NSNumber *direction in @[@(UISwipeGestureRecognizerDirectionLeft), @(UISwipeGestureRecognizerDirectionRight)]) {
+        UISwipeGestureRecognizer *swipe = [[UISwipeGestureRecognizer alloc] initWithTarget:handler action:@selector(swiped:)];
+        swipe.direction = direction.unsignedIntegerValue;
+        swipe.delegate = handler;
+        [card addGestureRecognizer:swipe];
+    }
+    UILongPressGestureRecognizer *hold = [[UILongPressGestureRecognizer alloc] initWithTarget:handler action:@selector(held:)];
+    hold.delegate = handler;
+    [card addGestureRecognizer:hold];
+}
+
 #pragma mark - hooks
+
+%hook _TtC18NowPlaying_BarImpl27NowPlayingBarViewController
+- (void)viewDidLayoutSubviews {
+    %orig;
+    attachMiniPlayerGestures((UIViewController *)self);
+}
+%end
 
 %hook SPTNowPlayingPlaybackControllerImplementation
 - (id)initWithPlayer:(id)player testManager:(id)manager inStreamClient:(id)client {
@@ -136,5 +214,6 @@ void SGGestureAttach(UIView *host) {
 // gesture; the tap goes back to Spotify with the switch.
 %ctor {
     %init;
-    SGRequireClasses(@[@"SPTNowPlayingPlaybackControllerImplementation"]);
+    SGRequireClasses(@[@"SPTNowPlayingPlaybackControllerImplementation",
+                       @"_TtC18NowPlaying_BarImpl27NowPlayingBarViewController"]);
 }

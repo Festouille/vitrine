@@ -144,6 +144,7 @@ UIViewController *SGPlayerSettingsPage(void) {
     // AirPods gestures, the lock screen widget and Vibrations have rows of their own on Mod Settings' main page.
     NSMutableArray<SGModSection *> *sections = [NSMutableArray arrayWithObject:SGSection(nil, @[
         SGWithTile(SGPageRow(@"Gestures", ^UIViewController *{ return SGGesturesSettingsPage(); }), @"hand.tap", UIColor.systemBlueColor),
+        SGOptionRow(@"Mini player gestures", @"Swipe left for next, right for previous. Press and hold for playback actions.", SGKeyMiniPlayerGestures),
         SGWithTile(blocked, @"person.crop.circle.badge.xmark", UIColor.systemRedColor),
     ])];
     if (native) {

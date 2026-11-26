@@ -17,6 +17,12 @@ checkout it sits in and links them with the real `Core/` and `SGRTokens.m`; `SRC
 hooks, the tab bar's composition and Mod Settings. iOS 27 ends an app with no scene delegate at
 launch, so the harness has one.
 
+`gestures` sends real touches to the mini player and checks the switch, swipe directions, playback
+restrictions, taps and long-press actions. Run it once per look; each run logs PASS and exits:
+
+    xcrun simctl launch --console-pty <udid> com.vojta.tabbarharness gestures
+    xcrun simctl launch --console-pty <udid> com.vojta.tabbarharness gestures native
+
 The layout is the one 9.1.78 makes in a compact width, with the addresses it was read from:
 
 - `TabBarContainerImpl`'s view has a guide from 49 pt above its safe area's bottom to its bottom

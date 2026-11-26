@@ -3,6 +3,7 @@
 #import <UIKit/UIKit.h>
 
 #define SGKeyGestures @"spotifyglass.gestures"
+#define SGKeyMiniPlayerGestures @"spotifyglass.gestures.miniPlayer"
 #define SGKeyGestureSplit @"spotifyglass.gestures.split"
 #define SGKeyGestureStep @"spotifyglass.gestures.step"
 #define SGKeyGestureZones @"spotifyglass.gestures.zones"
