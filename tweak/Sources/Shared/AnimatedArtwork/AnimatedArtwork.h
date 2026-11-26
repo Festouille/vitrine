@@ -80,6 +80,7 @@ BOOL SGMotionAppleMusicOn(void);
 // The track's Canvas video as its metadata names it (canvas.url, of a canvas.type that is a video, under either
 // name), or nil.
 NSURL *SGMotionCanvasIn(NSDictionary *metadata);
+void SGMotionResolveCanvas(NSString *uri, NSURL *canvas, void (^done)(NSURL *canvas));
 // The first clip the order finds for the track `uri`, as a local file, or nil, and the key of the source it
 // came from. `canvas` is the track's Canvas video, nil when its metadata names none, and then Spotify's
 // Canvas service is asked for it. Main queue.

@@ -105,6 +105,7 @@ static char kBlockKey, kDecidedKey, kWatchedKey, kShownAtKey, kRowsInKey;
 @property (nonatomic) BOOL inFooter;
 // The sliders alone, always open, for the redesign's panel under the ⋯ (SGPlayerShowSpeedPitchPanel).
 @property (nonatomic) BOOL panelOnly;
+- (void)resolveCanvas;
 @end
 
 @implementation SGSpeedPitchView {
@@ -269,20 +270,33 @@ static void placeTick(UISlider *slider) {
         [self addSubview:_animatedRow];
     }
 
-    UIAction *save = SGSaveCanvasAction();
-    if (save) {
-        _saveCanvas = [UIButton buttonWithType:UIButtonTypeSystem primaryAction:save];
+    [self refresh];
+    return self;
+}
+
+- (void)resolveCanvas {
+    __weak SGSpeedPitchView *weakSelf = self;
+    SGResolveSaveCanvasAction(^(UIAction *save) {
+        SGSpeedPitchView *block = weakSelf;
+        UITableView *table = block.table;
+        if (!save || !table) return;
+        UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem primaryAction:save];
         UIButtonConfiguration *config = [UIButtonConfiguration plainButtonConfiguration];
         config.title = save.title;
         config.image = save.image;
         config.imagePadding = kGrid * 2;
         config.baseForegroundColor = primary();
-        _saveCanvas.configuration = config;
-        _saveCanvas.contentHorizontalAlignment = UIControlContentHorizontalAlignmentLeading;
-        [self addSubview:_saveCanvas];
-    }
-    [self refresh];
-    return self;
+        button.configuration = config;
+        button.contentHorizontalAlignment = UIControlContentHorizontalAlignmentLeading;
+        block->_saveCanvas = button;
+        [block addSubview:button];
+        CGRect frame = block.frame;
+        frame.size.height = [block heightOpen:sg_open];
+        block.frame = frame;
+        if (block.inFooter) table.tableFooterView = block;
+        else table.tableHeaderView = block;
+        [table invalidateIntrinsicContentSize];
+    });
 }
 
 - (CGFloat)heightOpen:(BOOL)open {
@@ -754,6 +768,7 @@ static void install(UIViewController *menu) {
         objc_setAssociatedObject(menu, &kBlockKey, block, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         if (block.inFooter) table.tableFooterView = block;
         else table.tableHeaderView = block;
+        [block resolveCanvas];
         [table invalidateIntrinsicContentSize];
         return;
     }

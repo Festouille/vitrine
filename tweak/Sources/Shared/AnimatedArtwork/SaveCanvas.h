@@ -2,4 +2,5 @@
 
 #define SGKeySaveCanvas @"spotifyglass.player.saveCanvas"
 
-UIAction *SGSaveCanvasAction(void);
+void SGResolveSaveCanvasAction(void (^done)(UIAction *action));
+UIMenuElement *SGSaveCanvasMenuElement(void);

@@ -147,9 +147,26 @@ SGModRow *SGPageRow(NSString *title, UIViewController *(^page)(void)) { return n
 SGModRow *SGWithSymbol(SGModRow *row, NSString *symbol) { return row; }
 UIViewController *SGSourcesPageMake(NSString *title, NSString *note, NSArray<SGSource *> *all,
                                    NSArray<NSString *> *(^order)(void), void (^setOrder)(NSArray<NSString *> *)) { return nil; }
-void SGSpclientHeaders(void (^use)(NSDictionary<NSString *, NSString *> *)) {}
-NSData *SGMotionCanvasAsk(NSString *uri) { return nil; }
-NSString *SGMotionCanvasInReply(NSData *reply) { return nil; }
+@interface SGCanvasProtocol : NSURLProtocol
+@end
+@implementation SGCanvasProtocol
++ (BOOL)canInitWithRequest:(NSURLRequest *)request {
+    return [request.URL.host isEqualToString:@"spclient.wg.spotify.com"];
+}
++ (NSURLRequest *)canonicalRequestForRequest:(NSURLRequest *)request { return request; }
+- (void)startLoading {
+    NSHTTPURLResponse *response = [[NSHTTPURLResponse alloc] initWithURL:self.request.URL statusCode:200 HTTPVersion:nil headerFields:nil];
+    [self.client URLProtocol:self didReceiveResponse:response cacheStoragePolicy:NSURLCacheStorageNotAllowed];
+    [self.client URLProtocol:self didLoadData:[@"https://canvaz.scdn.co/test.mp4" dataUsingEncoding:NSUTF8StringEncoding]];
+    [self.client URLProtocolDidFinishLoading:self];
+}
+- (void)stopLoading {}
+@end
+void SGSpclientHeaders(void (^use)(NSDictionary<NSString *, NSString *> *)) {
+    if (is(@"canvas-service")) use(@{});
+}
+NSData *SGMotionCanvasAsk(NSString *uri) { return [uri dataUsingEncoding:NSUTF8StringEncoding]; }
+NSString *SGMotionCanvasInReply(NSData *reply) { return [[NSString alloc] initWithData:reply encoding:NSUTF8StringEncoding]; }
 void SGMotionAlbumCover(NSString *artist, NSString *album, SGMotionShape shape, CGFloat pixels, void (^done)(NSURL *file)) {}
 UIView *SGRPinnedMoreRecentButton(void) { return nil; }
 @class SGRMirrorButton;
@@ -624,9 +641,10 @@ static NSArray<NSString *> *quickTitles(void) {
         sg_canvasState = [SGCanvasMockState new];
         sg_canvasState.track = [SGCanvasMockTrack new];
         sg_canvasState.track.URI = @"spotify:track:canvasFixture";
+        if (is(@"canvas-service")) [NSURLProtocol registerClass:SGCanvasProtocol.class];
         if (is(@"canvas-none")) sg_canvasState.track.metadata = @{@"otherArtwork.url": @"https://example.com/art.mp4"};
         else if (is(@"canvas-still")) sg_canvasState.track.metadata = @{@"canvas.type": @"IMAGE", @"canvas.url": @"https://example.com/still.jpg"};
-        else sg_canvasState.track.metadata = @{@"canvas.type": @"VIDEO", @"canvas.url": @"https://canvaz.scdn.co/test.mp4"};
+        else if (!is(@"canvas-service")) sg_canvasState.track.metadata = @{@"canvas.type": @"VIDEO", @"canvas.url": @"https://canvaz.scdn.co/test.mp4"};
     }
 
     if ([run isEqualToString:@"arrow"]) {
@@ -969,21 +987,23 @@ static NSArray<NSString *> *quickTitles(void) {
         return;
     }
     if ([run hasPrefix:@"canvas"]) {
-        BOOL available = is(@"canvas-video") || is(@"canvas-view");
-        check(menuShows(@"Save Canvas") == available, available ? @"a Spotify Canvas video offers Save Canvas"
-              : @"Save Canvas is absent without an enabled Spotify Canvas video");
-        if (is(@"canvas-view")) return;
-        if (available) {
-            pick(@"Save Canvas");
-            waitFor(^BOOL { return [self.presentedViewController isKindOfClass:UIActivityViewController.class]; }, 3, ^{
-                check([sg_canvasRequested.absoluteString isEqualToString:@"https://canvaz.scdn.co/test.mp4"], @"Save Canvas requests the track’s Canvas URL");
-                check([self.presentedViewController isKindOfClass:UIActivityViewController.class], @"Save Canvas opens the iOS share sheet");
+        BOOL available = is(@"canvas-video") || is(@"canvas-view") || is(@"canvas-service");
+        waitFor(^BOOL { return !available || menuShows(@"Save Canvas"); }, 3, ^{
+            check(menuShows(@"Save Canvas") == available, available ? @"a Spotify Canvas video offers Save Canvas"
+                  : @"Save Canvas is absent without an enabled Spotify Canvas video");
+            if (is(@"canvas-view")) return;
+            if (available) {
+                pick(@"Save Canvas");
+                waitFor(^BOOL { return [self.presentedViewController isKindOfClass:UIActivityViewController.class]; }, 3, ^{
+                    check([sg_canvasRequested.absoluteString isEqualToString:@"https://canvaz.scdn.co/test.mp4"], @"Save Canvas requests the track’s Canvas URL");
+                    check([self.presentedViewController isKindOfClass:UIActivityViewController.class], @"Save Canvas opens the iOS share sheet");
+                    finish();
+                });
+            } else {
+                check(!sg_elements[@"Save Canvas"] && !sg_canvasRequested, @"no export action or download was made");
                 finish();
-            });
-        } else {
-            check(!sg_elements[@"Save Canvas"] && !sg_canvasRequested, @"no export action or download was made");
-            finish();
-        }
+            }
+        });
         return;
     }
     if ([run isEqualToString:@"animated"]) {

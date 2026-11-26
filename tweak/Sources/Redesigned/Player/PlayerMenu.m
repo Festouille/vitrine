@@ -296,7 +296,7 @@ static NSArray<UIMenuElement *> *playerItems(BOOL dj) {
     }
     UIAction *lyrics = lyricsSourceItem();
     if (lyrics) [items addObject:lyrics];
-    UIAction *canvas = dj ? nil : SGSaveCanvasAction();
+    UIMenuElement *canvas = dj ? nil : SGSaveCanvasMenuElement();
     if (canvas) [items addObject:canvas];
     UIMenuElement *sleep = sleepTimerMenu([sheetKind() isEqualToString:@"episode"], dj);
     if (sleep) [items addObject:sleep];

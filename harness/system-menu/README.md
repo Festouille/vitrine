@@ -67,6 +67,7 @@ sheet is the player's, and that the sheet is in the mod's window under the app's
 - `sort`: a row of the mod's own in the sheet's header (as the playlist's Sort) is in More and fires.
 - `animated`: Show Animated Artwork switches it on and the sheet goes.
 - `canvas-video`: Save Canvas appears for a Spotify Canvas video and opens the share sheet for a mock local file.
+  `canvas-service` exercises the same menu and share path for a video resolved asynchronously by the service.
   It is absent in `canvas-none`, `canvas-still` and `canvas-off`; `canvas-view` leaves the menu open.
 - `sleeptimer`: with the Player page's Sleep timer switch on, the mod's Sleep Timer is in the menu reading Off; its
   submenu has 15, 30 and 45 minutes, 1 hour, End of Track and End of Album or Playlist and no Turn Off Timer; 30

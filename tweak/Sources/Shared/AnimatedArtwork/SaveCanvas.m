@@ -28,15 +28,41 @@ static void shareCanvas(NSURL *url) {
     });
 }
 
-UIAction *SGSaveCanvasAction(void) {
-    if (!SGFlag(SGKeySaveCanvas, NO)) return nil;
-    SPTPlayerTrack *track = SGPlayerState().track;
-    NSString *uri = SGURIString(track.URI);
-    if (![uri hasPrefix:@"spotify:track:"]) return nil;
-    NSURL *url = SGMotionCanvasIn(track.metadata);
+static BOOL isCurrentTrack(NSString *uri) {
+    return SGFlag(SGKeySaveCanvas, NO) && [uri isEqualToString:SGURIString(SGPlayerState().track.URI)];
+}
+
+static UIAction *saveAction(NSString *uri, NSURL *url) {
     if (![url.scheme.lowercaseString isEqualToString:@"https"] || !url.host.length) return nil;
     return [UIAction actionWithTitle:@"Save Canvas" image:[UIImage systemImageNamed:@"square.and.arrow.down"]
                           identifier:nil handler:^(UIAction *action) {
-        if (SGFlag(SGKeySaveCanvas, NO) && [uri isEqualToString:SGURIString(SGPlayerState().track.URI)]) shareCanvas(url);
+        if (isCurrentTrack(uri)) shareCanvas(url);
+    }];
+}
+
+void SGResolveSaveCanvasAction(void (^done)(UIAction *action)) {
+    SPTPlayerTrack *track = SGPlayerState().track;
+    NSString *uri = SGURIString(track.URI);
+    if (!SGFlag(SGKeySaveCanvas, NO) || ![uri hasPrefix:@"spotify:track:"]) {
+        done(nil);
+        return;
+    }
+    SGMotionResolveCanvas(uri, SGMotionCanvasIn(track.metadata), ^(NSURL *canvas) {
+        done(isCurrentTrack(uri) ? saveAction(uri, canvas) : nil);
+    });
+}
+
+UIMenuElement *SGSaveCanvasMenuElement(void) {
+    SPTPlayerTrack *track = SGPlayerState().track;
+    NSString *uri = SGURIString(track.URI);
+    if (!SGFlag(SGKeySaveCanvas, NO) || ![uri hasPrefix:@"spotify:track:"]) return nil;
+    NSURL *canvas = SGMotionCanvasIn(track.metadata);
+    if (canvas) return saveAction(uri, canvas);
+    return [UIDeferredMenuElement elementWithUncachedProvider:^(void (^completion)(NSArray<UIMenuElement *> *)) {
+        if (!isCurrentTrack(uri)) {
+            completion(@[]);
+            return;
+        }
+        SGResolveSaveCanvasAction(^(UIAction *action) { completion(action ? @[action] : @[]); });
     }];
 }
