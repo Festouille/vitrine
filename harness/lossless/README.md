@@ -66,6 +66,20 @@ They do not prove Spotify clock continuity, stage composition, seamless switchin
 low memory use, background playback, hi-res output, or any provider's compatibility. See
 [the integration investigation](../../docs/lossless-playback.md) for those remaining steps.
 
+## Local ALAC reader retest
+
+On the current arm64 iOS 26.5 and iOS 27.0 simulators, local ALAC still decodes and seeks through
+`ExtAudioFile` (576,000 frames at 48 kHz and 1,024 frames after seeking). For both the tail-metadata
+and fast-start fixtures, however, `AVAssetReader` loads the track and starts, then fails on the first
+read: `AVFoundationErrorDomain -11855` (`Cannot Decode`), `readerStatus=3`, zero frames. CD FLAC
+completes the same reader test. On iOS 26.5, an ALAC fixture encoded with Apple's `afconvert`
+also failed the reader test with the same error.
+
+The earlier iOS 27.0 results above did pass this probe; no physical-device retest was performed.
+This points to a difference in the current test environment's AVFoundation decode path, not a
+failure of Vitrine's local decoder. `check.py` still requires the reader to pass and reports the
+failure without skipping it.
+
 ## Audio handoff prototype
 
 `handoff-build.sh` builds a second app from the worktree's production `SGPreparedPCM`,
