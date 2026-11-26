@@ -481,6 +481,29 @@ int main(int argc, char **argv) {
         pump(^BOOL { return settledDone; });
         CHECK([settledGot.provider isEqualToString:@"NetEase"] && settledGot.wordTimed);
 
+        // 10. Toggling SGKeyLyricsAutoSelect invalidates non-picked cached answers while keeping manual picks.
+        SGLyricsSetAutoSelectWindow(0.2);
+        [sg_answers removeAllObjects];
+        sg_answers[@"lrclib"] = lines(YES);
+        sg_answers[@"netease"] = wordLines(NO, NO, NO);
+        [NSUserDefaults.standardUserDefaults setVolatileDomain:@{SGKeyLyricsProviders: @[@"lrclib", @"netease"]}
+                                                       forName:NSArgumentDomain];
+        SGPrefsChanged();
+        got = fetch(@"auto_toggle");
+        CHECK([got.provider isEqualToString:@"LRCLIB"] && !got.wordTimed);
+        // Flip switch on -> re-fetching the same track upgrades to word-timed instead of returning stale cache.
+        [NSUserDefaults.standardUserDefaults setVolatileDomain:@{SGKeyLyricsProviders: @[@"lrclib", @"netease"],
+                                                                 SGKeyLyricsAutoSelect: @YES}
+                                                       forName:NSArgumentDomain];
+        SGPrefsChanged();
+        [chosenNotes removeAllObjects];
+        got = fetch(@"auto_toggle");
+        CHECK([got.provider isEqualToString:@"LRCLIB"]);
+        pump(^BOOL { return [chosenNotes containsObject:@"auto_toggle"]; });
+        CHECK([fetch(@"auto_toggle").provider isEqualToString:@"NetEase"] && fetch(@"auto_toggle").wordTimed);
+        // Manual pick on auto_pick survived the switch toggle.
+        CHECK([fetch(@"auto_pick").provider isEqualToString:@"Musixmatch"] && fetch(@"auto_pick").picked);
+
         [NSNotificationCenter.defaultCenter removeObserver:observer];
         SGLyricsSetAutoSelectWindow(2.5);
 

@@ -313,10 +313,15 @@ static NSMutableDictionary<NSString *, NSMutableArray *> *sg_settledWaiting;
 static NSMutableSet<NSString *> *sg_autoUpgrading;
 static NSMutableSet<NSString *> *sg_missing;
 static NSMutableDictionary<NSString *, NSString *> *sg_credits;
+static BOOL sg_lastAutoSelect;
 // Spotify's own has_lyrics per track, as its metadata said. The player's metadata is read many
 // times a second while a list scrolls, so a value already noted costs one lookup and no write.
 static NSMutableDictionary<NSString *, NSNumber *> *sg_spotifyHas;
 static const NSUInteger kNotedTracks = 200;
+
+static BOOL autoSelectEnabled(void) {
+    return SGFlag(SGKeyLyricsAutoSelect, NO);
+}
 
 static void setUp(void) {
     static dispatch_once_t once;
@@ -328,11 +333,20 @@ static void setUp(void) {
         sg_missing = [NSMutableSet set];
         sg_credits = [NSMutableDictionary dictionary];
         sg_spotifyHas = [NSMutableDictionary dictionary];
+        sg_lastAutoSelect = autoSelectEnabled();
     });
 }
 
-static BOOL autoSelectEnabled(void) {
-    return SGFlag(SGKeyLyricsAutoSelect, NO);
+// Invalidates non-picked cached answers when the Automatic best source switch flips so replaying a
+// previously fetched track re-runs source selection under the new setting.
+static void syncAutoSelectCache(void) {
+    BOOL enabled = autoSelectEnabled();
+    if (enabled == sg_lastAutoSelect) return;
+    sg_lastAutoSelect = enabled;
+    for (NSString *trackID in sg_kept.allKeys) {
+        if (!SGLyricsChosenSource(trackID)) [sg_kept removeObjectForKey:trackID];
+    }
+    @synchronized (sg_missing) { [sg_missing removeAllObjects]; }
 }
 
 static BOOL hasPronunciation(NSArray<SGKaraokeLine *> *lines, BOOL *wordTimed) {
@@ -823,6 +837,7 @@ void SGLyricsFetch(NSString *trackID, void (^done)(SGLyricsResult *result)) {
             done(nil);
             return;
         }
+        syncAutoSelectCache();
         id kept = sg_kept[trackID];
         if (kept) {
             done(kept == NSNull.null ? nil : kept);
@@ -845,6 +860,7 @@ void SGLyricsFetchSettled(NSString *trackID, void (^done)(SGLyricsResult *result
             done(nil);
             return;
         }
+        syncAutoSelectCache();
         if (![sg_autoUpgrading containsObject:trackID]) {
             id kept = sg_kept[trackID];
             if (kept) {
