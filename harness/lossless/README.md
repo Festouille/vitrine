@@ -83,3 +83,19 @@ Require a final `RESULT failures=0`, not just successful launch. The app has a 3
 The default decoder probe above and its `check.py` remain separate; they use a different log format.
 The handoff checks do not run actual Spotify or Sing's ML/look-ahead engine. The production source
 selector has no automatic registration or settings switch.
+
+On the tested arm64 iOS 26.5 and 27.0 simulators, the chain's RemoteIO fails initialization and
+start with `OSStatus -10851` (`kAudioUnitErr_InvalidPropertyValue`). The run ends at
+`RESULT failures=6 nativeFrames=0 replacementFrames=0 stageFrames=0`; the downstream render
+assertions cannot establish whether handoff works.
+
+After installing the app, launch this control on the same simulator:
+
+```sh
+SIMCTL_CHILD_HANDOFF_REMOTEIO_CONTROL=1 xcrun simctl launch --terminate-running-process --console <udid> dev.vitrine.lossless-handoff
+```
+
+With the playback session active, a stand-alone Apple RemoteIO unit, with no input from the mixer
+and no registered source selector, reports `CONTROL RemoteIO initialize: OSStatus -10851` and
+`CONTROL RemoteIO start: OSStatus -10851` on both runtimes. No work-around is applied and the
+normal handoff still requires `RESULT failures=0`. No physical-device run was performed.
