@@ -298,8 +298,15 @@ static void checkLockScreenLyrics(void) {
 
     SGKaraokeLine *longLine = SGKaraokeEstimatedLines(@[@1000], @[@"abcdefghijkl mnopqrstuvwx ABCDEFGHIJKL MNOPQRSTUVWX"]).firstObject;
     CHECK([SGLockScreenLyricText(longLine, longLine.words[2].start - 1, &next) isEqualToString:@"abcdefghijkl mnopqrstuvwx"]);
-    CHECK([SGLockScreenLyricText(longLine, next, &next) isEqualToString:@"ABCDEFGHIJKL"] && next == longLine.words[3].start);
-    puts("lock screen lyrics: timed words, estimated words, seeks and long lines held");
+    CHECK([SGLockScreenLyricText(longLine, next, &next) isEqualToString:@"mnopqrstuvwx ABCDEFGHIJKL"] && next == longLine.words[3].start);
+
+    longLine.words[0].start = 1000;
+    longLine.words[1].start = 1140;
+    longLine.words[2].start = 1180;
+    longLine.words[3].start = 1500;
+    CHECK([SGLockScreenLyricText(longLine, 1000, &next) isEqualToString:@"abcdefghijkl"] && next == 1140);
+    CHECK([SGLockScreenLyricText(longLine, 1200, &next) isEqualToString:@"mnopqrstuvwx ABCDEFGHIJKL"] && next == 1500);
+    puts("lock screen lyrics: timed words, estimates, seeks and fast boundary words held");
 }
 
 int main(int argc, char **argv) {

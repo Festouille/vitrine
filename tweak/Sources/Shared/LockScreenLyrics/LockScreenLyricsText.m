@@ -4,26 +4,24 @@
 static const NSUInteger kMaxChars = 30;
 
 NSString *SGLockScreenLyricText(SGKaraokeLine *line, NSInteger position, NSInteger *next) {
-    NSUInteger length = SGKaraokeLineText(line).length;
-    NSUInteger count = MAX((length + kMaxChars - 1) / kMaxChars, 1);
-    NSUInteger target = (length + count - 1) / count;
-    NSUInteger pieces = 1;
-    NSMutableString *shown = [NSMutableString string];
-    *next = -1;
-    for (SGKaraokeWord *word in line.words) {
-        if (word.start > position) {
-            *next = word.start;
-            break;
-        }
-        NSUInteger gap = shown.length && !word.joined ? 1 : 0;
-        NSUInteger withWord = shown.length + gap + word.text.length;
-        if (shown.length && (withWord > kMaxChars || (withWord > target && pieces < count))) {
-            [shown setString:@""];
-            pieces++;
-            gap = 0;
-        }
-        if (gap) [shown appendString:@" "];
-        [shown appendString:word.text ?: @""];
+    NSArray<SGKaraokeWord *> *words = line.words;
+    NSUInteger end = 0;
+    while (end < words.count && words[end].start <= position) end++;
+    *next = end < words.count ? words[end].start : -1;
+    if (!end) return nil;
+
+    NSUInteger start = end - 1;
+    NSUInteger length = words[start].text.length;
+    while (start > 0) {
+        NSUInteger extra = words[start - 1].text.length + (words[start].joined ? 0 : 1);
+        if (length + extra > kMaxChars) break;
+        length += extra;
+        start--;
+    }
+    NSMutableString *shown = [NSMutableString stringWithCapacity:length];
+    for (NSUInteger i = start; i < end; i++) {
+        if (shown.length && !words[i].joined) [shown appendString:@" "];
+        [shown appendString:words[i].text ?: @""];
     }
     return shown.length ? shown : nil;
 }
