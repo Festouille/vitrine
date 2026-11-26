@@ -17,7 +17,9 @@ jobs:
   release-please:
     needs: verify
     runs-on: ubuntu-latest
-    concurrency: release-main
+    concurrency:
+      group: release-main
+      queue: max
     permissions:
       checks: read
       contents: write
