@@ -1,4 +1,5 @@
 #import "SGArtworkAccent.h"
+#import "Shared/LocalFiles/LocalFiles.h"
 #import "PlayerState.h"
 #import "SGLastTrack.h"
 
@@ -49,6 +50,8 @@ NSInteger SGArtworkAccentRGB(UIImage *image) {
 @implementation SGArtworkAccentObserver {
     SPTPlayerTrack *_track;
     NSURL *_url;
+    NSString *_localURI;
+    BOOL _waitingForLocalCover;
     NSUInteger _request;
     NSInteger _rgb;
 }
@@ -69,29 +72,60 @@ NSInteger SGArtworkAccentRGB(UIImage *image) {
 }
 
 - (void)playerStateDidReport:(SPTPlayerState *)state {
-    if (_track == state.track) return;
+    if (_track == state.track) {
+        if (_waitingForLocalCover) [self readLocalCover];
+        return;
+    }
     _track = state.track;
     SGShownTrack *track = SGShownTrackNow();
     NSURL *url = track.current ? track.artworkURL : nil;
-    if (_url == url || [_url isEqual:url]) return;
+    NSString *localURI = !url && SGLocalFileIs(track.uri) && track.current ? track.uri : nil;
+    if ((_url == url || [_url isEqual:url]) &&
+        (_localURI == localURI || [_localURI isEqualToString:localURI])) {
+        if (_waitingForLocalCover) [self readLocalCover];
+        return;
+    }
     _url = url;
+    _localURI = localURI;
+    _waitingForLocalCover = localURI != nil;
     NSUInteger request = ++_request;
     if (!url) {
-        [self applyRGB:-1];
+        if (!_waitingForLocalCover || ![self readLocalCover]) [self applyRGB:-1];
         return;
     }
     SGShownTrackArtwork(track, ^(UIImage *image) {
-        if (self->_request != request) return;
-        if (!image) {
-            [self applyRGB:-1];
-            return;
-        }
-        dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
-            NSInteger rgb = SGArtworkAccentRGB(image);
-            dispatch_async(dispatch_get_main_queue(), ^{
-                if (self->_request == request) [self applyRGB:rgb];
-            });
+        [self sample:image request:request];
+    });
+}
+
+- (BOOL)readLocalCover {
+    UIImage *image = SGLocalFileFallbackCover(_track);
+    if (!image) return NO;
+    _waitingForLocalCover = NO;
+    [self sample:image request:_request];
+    return YES;
+}
+
+- (void)sample:(UIImage *)image request:(NSUInteger)request {
+    if (_request != request) return;
+    if (!image) {
+        [self applyRGB:-1];
+        return;
+    }
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        NSInteger rgb = SGArtworkAccentRGB(image);
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (self->_request == request) [self applyRGB:rgb];
         });
+    });
+}
+
+- (void)localFileEdited:(NSNotification *)note {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        SPTPlayerState *state = SGPlayerState();
+        if (![note.object isEqual:SGURIString(state.track.URI)]) return;
+        self->_track = nil;
+        [self playerStateDidReport:state];
     });
 }
 
@@ -102,5 +136,7 @@ void SGObserveArtworkAccent(void (^changed)(NSInteger rgb)) {
     observer = [SGArtworkAccentObserver new];
     observer.changed = changed;
     SGAddPlayerStateObserver(observer);
+    [NSNotificationCenter.defaultCenter addObserver:observer selector:@selector(localFileEdited:)
+                                               name:SGLocalFileEditsDidChangeNotification object:nil];
     [observer playerStateDidReport:SGPlayerState()];
 }

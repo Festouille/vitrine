@@ -2,8 +2,8 @@
 #import "Redesigned/Kit/SGRKit.h"
 #import "Redesigned/Home/Home.h"
 
-NSString *SGLocalFileCoverInURL(NSString *url) { return [NSURL URLWithString:url].isFileURL ? [NSURL URLWithString:url].path : nil; }
 NSURL *SGMotionCanvasIn(NSDictionary *metadata) { return nil; }
+void SGNowPlayingSetExtras(NSString *owner, NSDictionary *extras, NSString *title) {}
 
 BOOL SGRHomeLook(void) { return YES; }
 CFTimeInterval SGRHomeProbeBegin(void) { return 0; }

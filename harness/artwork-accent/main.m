@@ -1,6 +1,7 @@
 #import "Core/SGCore.h"
 #import "Shared/Player/PlayerState.h"
 #import "Shared/Player/SGArtworkAccent.h"
+#import "Shared/LocalFiles/LocalFiles.h"
 #import "Native/Appearance/Appearance.h"
 #import "Redesigned/Kit/SGRAccent.h"
 #import "Redesigned/Home/Home.h"
@@ -46,6 +47,7 @@
 @implementation HomeHeaderView @end
 
 static const NSInteger red = 0xB62031, blue = 0x1767CE, grey = 0x777777;
+static NSString *const localURI = @"spotify:local:Artist:Album:Title:240";
 
 static UIColor *color(NSInteger rgb) {
     return [UIColor colorWithRed:(rgb >> 16) / 255.0 green:((rgb >> 8) & 0xFF) / 255.0 blue:(rgb & 0xFF) / 255.0 alpha:1];
@@ -65,12 +67,24 @@ static void report(NSInteger rgb, UIImage *image) {
         SPTPlayerTrack *track = [SPTPlayerTrack new];
         track.URI = [NSString stringWithFormat:@"spotify:track:%06lX", (long)rgb];
         if (image) {
-            NSURL *url = [NSURL fileURLWithPath:[NSTemporaryDirectory() stringByAppendingPathComponent:[track.URI stringByAppendingString:@".png"]]];
-            NSCAssert([UIImagePNGRepresentation(image) writeToURL:url atomically:YES], @"Fixture write failed");
-            track.metadata = @{@"image_url": url.absoluteString};
+            NSString *dir = SGLocalFileCoversDirectory();
+            [NSFileManager.defaultManager createDirectoryAtPath:dir withIntermediateDirectories:YES attributes:nil error:NULL];
+            NSString *path = [dir stringByAppendingPathComponent:[NSString stringWithFormat:@"fixture-%06lX.png", (long)rgb]];
+            NSCAssert([UIImagePNGRepresentation(image) writeToFile:path atomically:YES], @"Fixture write failed");
+            track.metadata = @{@"image_url": SGLocalFileCoverURL(path)};
         }
         state.track = track;
     }
+    [[_TtC23NowPlaying_PlatformImpl28StatefulPlayerImplementation new] player:nil stateDidChange:state];
+}
+
+static void reportLocal(UIImage *image) {
+    SGLocalFileSaveEdit(localURI, @{}, nil, NO);
+    SPTPlayerTrack *track = [SPTPlayerTrack new];
+    track.URI = localURI;
+    track.metadata = @{@"image_small_url": image};
+    SPTPlayerState *state = [SPTPlayerState new];
+    state.track = track;
     [[_TtC23NowPlaying_PlatformImpl28StatefulPlayerImplementation new] player:nil stateDidChange:state];
 }
 
@@ -149,18 +163,21 @@ static BOOL closeTo(UIColor *a, UIColor *b) {
 }
 
 - (void)runStep:(NSUInteger)step {
-    const NSInteger fixtures[] = {red, blue, grey, -1, blue};
+    const NSInteger fixtures[] = {red, blue, grey, -1, blue, red, blue, red};
     NSInteger fixture = fixtures[step];
     UIImage *image = fixture < 0 ? nil : cover(fixture);
     _cover.image = image;
     if (step == 1) report(red, cover(red));
     if (step == 4) report(fixture, nil);
-    report(fixture, image);
+    if (step == 5) reportLocal(image);
+    else if (step == 6) SGLocalFileSaveEdit(localURI, @{}, image, YES);
+    else if (step == 7) SGLocalFileSaveEdit(localURI, @{}, nil, NO);
+    else report(fixture, image);
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_MSEC * 450), dispatch_get_main_queue(), ^{
         [self verify:step fixture:fixture image:image];
-        if (step < 4) [self runStep:step + 1];
+        if (step < 7) [self runStep:step + 1];
         else {
-            NSString *result = [NSString stringWithFormat:@"PASS %@ accent %@: track changes, late artwork, gray and missing fallback",
+            NSString *result = [NSString stringWithFormat:@"PASS %@ accent %@: track changes, late artwork, fallback and local cover edits",
                                 self->_redesign ? @"redesigned" : @"native", self->_enabled ? @"on" : @"off"];
             NSLog(@"%@", result);
             [result writeToFile:[NSHomeDirectory() stringByAppendingPathComponent:@"Documents/result.txt"]
