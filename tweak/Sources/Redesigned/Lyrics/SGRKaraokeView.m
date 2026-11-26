@@ -1322,6 +1322,12 @@ static BOOL anyUntranslated(NSArray<SGKaraokeLine *> *lines) {
     }
 }
 
+- (double)playbackSpeed {
+    if (_sample) return 1.0;
+    double speed = SGPlayerState().playbackSpeed;
+    return speed > 0 ? speed : 1.0;
+}
+
 // The player's position run on by the frame times the display will show and eased toward each new
 // reading, so the sweep follows neither the callback's jitter nor the small jumps of the core's
 // corrections. A seek or a new track is too far off to ease and is taken at once.
@@ -1345,8 +1351,9 @@ static BOOL anyUntranslated(NSArray<SGKaraokeLine *> *lines) {
         [self stir];
     }
     else if (!_stillSince) _stillSince = shown;
-    double reported = raw + (running ? (shown - CACurrentMediaTime()) * 1000 : 0);
-    double predicted = _clock + (running ? (shown - _clockTime) * 1000 : 0);
+    double speed = [self playbackSpeed];
+    double reported = raw + (running ? (shown - CACurrentMediaTime()) * 1000 * speed : 0);
+    double predicted = _clock + (running ? (shown - _clockTime) * 1000 * speed : 0);
     double error = reported - predicted;
     _clock = raw < 0 || fabs(error) > kClockSnapMs ? reported : predicted + error * kClockPull;
     _reported = raw;
@@ -1413,7 +1420,7 @@ static BOOL anyUntranslated(NSArray<SGKaraokeLine *> *lines) {
     [self arrangeAt:now glide:_sample != nil];   // the preview coming round glides back to its first line
     for (NSUInteger i = 0; i < _sungCount; i++) [_shown[@(_sung[i])] showTime:now];
     CFTimeInterval frame = [self frameTime];
-    if (_dots.superview) [_dots showTime:now running:!_stillSince || frame - _stillSince < kStillFor at:frame];
+    if (_dots.superview) [_dots showTime:now running:!_stillSince || frame - _stillSince < kStillFor speed:[self playbackSpeed] at:frame];
 }
 
 // What is sung at `now` lit and the stack arranged around it; a jump of more than a couple of lines is

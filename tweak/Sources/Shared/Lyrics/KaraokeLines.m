@@ -1081,17 +1081,22 @@ static double smoothstep(double p) {
 }
 
 - (void)showTime:(double)ms running:(BOOL)running at:(CFTimeInterval)shown {
+    [self showTime:ms running:running speed:1.0 at:shown];
+}
+
+- (void)showTime:(double)ms running:(BOOL)running speed:(double)speed at:(CFTimeInterval)shown {
+    float rate = speed > 0 ? (float)speed : 1.0f;
     double local = kBreakEpoch + (ms - _start) / 1000.0;
     CFTimeInterval parent = [self.layer convertTime:shown fromLayer:nil];
     BOOL stopped = _clock.speed == 0;
     double now = stopped ? _clock.timeOffset : (parent - _clock.beginTime) * _clock.speed + _clock.timeOffset;
-    if (stopped != running && fabs(now - local) < kBreakSlack) return;
+    if (stopped != running && (!running || fabsf(_clock.speed - rate) < 0.01f) && fabs(now - local) < kBreakSlack) return;
     [CATransaction begin];
     [CATransaction setDisableActions:YES];
     if (running) {
-        _clock.speed = 1;
+        _clock.speed = rate;
         _clock.timeOffset = 0;
-        _clock.beginTime = parent - local;
+        _clock.beginTime = parent - local / rate;
     } else {
         _clock.speed = 0;
         _clock.beginTime = 0;

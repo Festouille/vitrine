@@ -12,6 +12,7 @@
 #import "Shared/Lyrics/Lyrics.h"
 #import "Shared/LyricsMeanings/Meanings.h"
 #import "Shared/Player/ABLoop.h"
+#import "Shared/Player/HoldSpeed.h"
 #import "Shared/Player/PlayerSettings.h"
 #import "Shared/Sing/Sing.h"
 #import "Native/Appearance/Appearance.h"
@@ -149,6 +150,7 @@ UIViewController *SGPlayerSettingsPage(void) {
         SGOptionRow(@"Mini player gestures", @"Swipe left for next, right for previous. Press and hold for playback actions.", SGKeyMiniPlayerGestures),
         SGWithTile(blocked, @"person.crop.circle.badge.xmark", UIColor.systemRedColor),
     ])];
+    [sections addObject:SGHoldSpeedSection()];
     if (native) {
         [sections addObject:SGSection(nil, @[
             SGWithTile(SGPageRow(@"Now playing bar", ^UIViewController *{ return SGNowPlayingBarSettingsPage(); }), @"rectangle.bottomthird.inset.filled", UIColor.systemPinkColor),

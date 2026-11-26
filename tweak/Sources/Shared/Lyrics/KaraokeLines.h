@@ -106,4 +106,5 @@ NSArray<NSNumber *> *SGKaraokeLineTops(NSArray<SGKaraokeLine *> *lines, CGFloat 
 - (void)playFrom:(NSInteger)start to:(NSInteger)end;
 // The song at `ms`, running or not, as of `shown` (a frame's target timestamp, in media time).
 - (void)showTime:(double)ms running:(BOOL)running at:(CFTimeInterval)shown;
+- (void)showTime:(double)ms running:(BOOL)running speed:(double)speed at:(CFTimeInterval)shown;
 @end

@@ -38,9 +38,10 @@
 #import <UIKit/UIKit.h>
 #import <objc/runtime.h>
 #import <objc/message.h>
-#import "Core/SGPrefs.h"
+#import "Core/SGCore.h"
 #import "Settings/SGModPage.h"
 #import "Shared/Lyrics/Lyrics.h"
+#import "Shared/Player/HoldSpeed.h"
 #import "Redesigned/Player/Player.h"
 #import "Shared/AnimatedArtwork/AnimatedArtwork.h"
 #import "Redesigned/Kit/SGRBridges.h"
@@ -829,6 +830,28 @@ static void logLandscape(NSString *step, NSString *want) {
     });
     after(4, ^{
         check(@"let go", !badge().superview);
+        // Switch to 1.5x and verify badge label & capsule width update live.
+        SGSetInt(SGKeyHoldSpeed, 0);
+        check(@"1.5x pref", SGPlayerHoldSpeed() == 1.5 && [SGPlayerHoldSpeedLabel() isEqualToString:@"1.5×"]);
+        [hold showBadge:YES on:tilt];
+    });
+    after(4.5, ^{
+        UILabel *label = [hold valueForKey:@"badgeLabel"];
+        check(@"1.5x badge fits", [label.attributedText.string hasPrefix:@"1.5×"] && label.intrinsicContentSize.width <= badge().bounds.size.width);
+        [hold showBadge:NO on:tilt];
+        SGSetInt(SGKeyHoldSpeed, 2);
+        check(@"3x pref", SGPlayerHoldSpeed() == 3.0 && [SGPlayerHoldSpeedLabel() isEqualToString:@"3×"]);
+        [hold showBadge:YES on:tilt];
+    });
+    after(5.0, ^{
+        UILabel *label = [hold valueForKey:@"badgeLabel"];
+        check(@"3x badge fits", [label.attributedText.string hasPrefix:@"3×"] && label.intrinsicContentSize.width <= badge().bounds.size.width);
+        [hold showBadge:NO on:tilt];
+        SGSetEnabled(SGKeyHoldSpeedEnabled, NO);
+        check(@"disabled pref", !SGPlayerHoldSpeedEnabled());
+        SGSetEnabled(SGKeyHoldSpeedEnabled, YES);
+        SGSetInt(SGKeyHoldSpeed, 1);
+        check(@"restored default", SGPlayerHoldSpeedEnabled() && SGPlayerHoldSpeed() == 2.0);
         NSLog(@"[harness] badge checks: %lu of %lu right -- %@", (unsigned long)right, (unsigned long)checks, right == checks ? @"PASS" : @"FAIL");
     });
 }
