@@ -125,6 +125,29 @@ UIColor *SGRPlayerImageInk(UIImage *image) {
     return ink;
 }
 
+void SGRPlayerRepaintAccentImages(UIView *control, UIColor *(^repaint)(UIColor *ink)) {
+    SGForEachView(control, ^(UIView *view) {
+        if (![view isKindOfClass:UIImageView.class]) return;
+        UIImageView *glyph = (UIImageView *)view;
+        UIImage *tinted = objc_getAssociatedObject(glyph, &kTintedKey);
+        BOOL showingCover = tinted && glyph.image == tinted;
+        UIImage *image = showingCover ? objc_getAssociatedObject(glyph, &kOriginalKey) : glyph.image;
+        if (!image.CGImage || image.renderingMode == UIImageRenderingModeAlwaysTemplate) return;
+        UIColor *ink = repaint(SGRPlayerImageInk(image));
+        if (!ink) return;
+        UIImage *colored = [image imageWithTintColor:ink renderingMode:UIImageRenderingModeAlwaysOriginal];
+        UIGraphicsImageRendererFormat *format = [UIGraphicsImageRendererFormat formatForTraitCollection:glyph.traitCollection];
+        format.scale = image.scale;
+        UIImage *made = [[[UIGraphicsImageRenderer alloc] initWithSize:image.size format:format]
+            imageWithActions:^(UIGraphicsImageRendererContext *context) {
+                [colored drawInRect:(CGRect){CGPointZero, image.size}];
+            }];
+        made = [made imageWithAlignmentRectInsets:image.alignmentRectInsets];
+        if (showingCover) objc_setAssociatedObject(glyph, &kOriginalKey, made, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        else glyph.image = made;
+    });
+}
+
 // Whether an image is drawn in the accent, judged once and kept on it.
 static BOOL imageAccentLike(UIImage *image) {
     NSNumber *known = objc_getAssociatedObject(image, &kAccentImageKey);

@@ -12,7 +12,7 @@ compile() {
         -isysroot "$SDK" -Wno-deprecated-declarations -I"$SRC" "$@"
 }
 for source in Shared/Player/PlayerState Shared/LocalFiles/LocalFileInfo Native/Appearance/Accent Native/Appearance/Repaint \
-    Native/Home/HomeGradient Redesigned/Kit/SGRAccent Redesigned/Home/HomeHeader; do
+    Native/Home/HomeGradient Redesigned/Kit/SGRAccent Redesigned/Home/HomeHeader Redesigned/Player/PlayerCoverAccent; do
     name=${source##*/}
     "$THEOS/bin/logos.pl" -c generator=internal "$SRC/$source.x" > "build/gen/$name.m"
     compile -I"$SRC/${source%/*}" -c "build/gen/$name.m" -o "build/gen/$name.o"

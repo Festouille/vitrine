@@ -9,6 +9,7 @@
 #import "Core/SGCore.h"
 #import "Shared/Player/SGArtworkAccent.h"
 #import "Redesigned/Home/Home.h"
+#import "Redesigned/Player/Player.h"
 #import "SGRAccent.h"
 
 // The greens the app is known to build from literals: the token, and the older brand green the
@@ -198,6 +199,11 @@ static void repaintLayer(CALayer *layer, NSInteger before, NSInteger after) {
 
 static void repaintViews(UIWindow *window, NSInteger before, NSInteger after) {
     SGForEachView(window, ^(UIView *view) {
+        NSString *identifier = view.accessibilityIdentifier;
+        if ([identifier isEqualToString:@"Components.UI.ShuffleButton"] ||
+            [identifier isEqualToString:@"Nowplaying-RepeatButton"]) {
+            SGRPlayerRepaintAccentImages(view, ^UIColor *(UIColor *ink) { return repaintColor(ink, before, after); });
+        }
         UIColor *tint = repaintColor(view.tintColor, before, after);
         if (tint) view.tintColor = tint;
         if ([view isKindOfClass:UILabel.class]) {

@@ -2,6 +2,7 @@
 #import "Shared/Player/PlayerState.h"
 #import "Shared/Player/SGArtworkAccent.h"
 #import "Shared/LocalFiles/LocalFiles.h"
+#import "Redesigned/Player/Player.h"
 #import "Native/Appearance/Appearance.h"
 #import "Redesigned/Kit/SGRAccent.h"
 #import "Redesigned/Home/Home.h"
@@ -100,6 +101,7 @@ static BOOL closeTo(UIColor *a, UIColor *b) {
 
 @implementation Harness {
     UIImageView *_cover;
+    UIImageView *_shuffleGlyph;
     UILabel *_title;
     UIView *_gradientHost;
     UIButton *_button;
@@ -155,6 +157,18 @@ static BOOL closeTo(UIColor *a, UIColor *b) {
     [_button setTitle:@"▶  Now playing" forState:UIControlStateNormal];
     [_button setTitleColor:UIColor.blackColor forState:UIControlStateNormal];
     [home.view addSubview:_button];
+    if (_redesign) {
+        UIView *shuffle = [[UIView alloc] initWithFrame:CGRectMake(22, CGRectGetMaxY(_button.frame) + 8, 24, 24)];
+        shuffle.accessibilityIdentifier = @"Components.UI.ShuffleButton";
+        _shuffleGlyph = [[UIImageView alloc] initWithFrame:shuffle.bounds];
+        _shuffleGlyph.image = [[[UIGraphicsImageRenderer alloc] initWithSize:shuffle.bounds.size]
+            imageWithActions:^(UIGraphicsImageRendererContext *context) {
+                [color(SGSpotifyGreen) setFill];
+                UIRectFill(shuffle.bounds);
+            }];
+        [shuffle addSubview:_shuffleGlyph];
+        [home.view addSubview:shuffle];
+    }
 
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_MSEC * 700), dispatch_get_main_queue(), ^{
         [self runStep:0];
@@ -196,6 +210,8 @@ static BOOL closeTo(UIColor *a, UIColor *b) {
     NSInteger effective = _enabled && sampled >= 0 ? sampled : _redesign ? SGRDefaultAccent : SGSpotifyGreen;
     NSCAssert(closeTo(_button.backgroundColor, color(effective)), @"Existing control not repainted at step %lu", (unsigned long)step);
     NSCAssert(closeTo(color(SGSpotifyGreen), color(effective)), @"New color token wrong at step %lu", (unsigned long)step);
+    if (_redesign) NSCAssert(closeTo(SGRPlayerImageInk(_shuffleGlyph.image), color(effective)),
+                            @"Existing shuffle bitmap not repainted at step %lu", (unsigned long)step);
     CAGradientLayer *gradient;
     for (UIView *view in _gradientHost.subviews) {
         if ([view.layer isKindOfClass:CAGradientLayer.class]) gradient = (CAGradientLayer *)view.layer;

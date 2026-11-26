@@ -4,6 +4,8 @@
 
 NSURL *SGMotionCanvasIn(NSDictionary *metadata) { return nil; }
 void SGNowPlayingSetExtras(NSString *owner, NSDictionary *extras, NSString *title) {}
+__weak UIView *sgr_nowPlayingRoot;
+BOOL SGRObserveImage(UIImageView *view, void (^changed)(UIImageView *view)) { return NO; }
 
 BOOL SGRHomeLook(void) { return YES; }
 CFTimeInterval SGRHomeProbeBegin(void) { return 0; }
