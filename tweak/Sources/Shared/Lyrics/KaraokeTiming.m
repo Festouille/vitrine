@@ -415,23 +415,36 @@ NSDictionary<NSNumber *, NSValue *> *SGKaraokeRecognizedLines(NSArray<SGKaraokeL
         if (phrase.count < 3) continue;
         byPhrase[phrase] = byPhrase[phrase] ? @(-1) : @(i);
     }
-    NSMutableDictionary<NSNumber *, NSValue *> *found = [NSMutableDictionary dictionary];
-    NSMutableSet<NSNumber *> *repeated = [NSMutableSet set];
+    NSMutableDictionary<NSNumber *, NSMutableArray<NSValue *> *> *matches = [NSMutableDictionary dictionary];
+    NSMutableData *coverage = [NSMutableData dataWithLength:(heard.count + 1) * sizeof(NSUInteger)];
+    NSUInteger *ends = coverage.mutableBytes;
     [byPhrase enumerateKeysAndObjectsUsingBlock:^(NSArray<NSString *> *phrase, NSNumber *index, BOOL *stop) {
-        if (index.integerValue < 0 || phrase.count > heard.count) return;
+        if (phrase.count > heard.count) return;
         for (NSUInteger i = 0; i + phrase.count <= heard.count; i++) {
             if (![heard[i] isEqual:phrase.firstObject]) continue;
             NSUInteger j = 1;
             for (; j < phrase.count && [heard[i + j] isEqual:phrase[j]]; j++) {
                 if (spans[i + j].rangeValue.location > NSMaxRange(spans[i + j - 1].rangeValue) + 1800) break;
             }
-            if (j != phrase.count || [repeated containsObject:index]) continue;
+            if (j != phrase.count) continue;
+            ends[i + 1] = MAX(ends[i + 1], i + j);
+            if (index.integerValue < 0) continue;
+            if (!matches[index]) matches[index] = [NSMutableArray array];
+            [matches[index] addObject:[NSValue valueWithRange:NSMakeRange(i, j)]];
+        }
+    }];
+    for (NSUInteger i = 1; i <= heard.count; i++) ends[i] = MAX(ends[i], ends[i - 1]);
+    NSMutableDictionary<NSNumber *, NSValue *> *found = [NSMutableDictionary dictionary];
+    [matches enumerateKeysAndObjectsUsingBlock:^(NSNumber *index, NSArray<NSValue *> *ranges, BOOL *stop) {
+        for (NSValue *value in ranges) {
+            NSRange range = value.rangeValue;
+            NSUInteger endToken = NSMaxRange(range);
+            if (ends[range.location] >= endToken || ends[range.location + 1] > endToken) continue;
             if (found[index]) {
                 [found removeObjectForKey:index];
-                [repeated addObject:index];
-                continue;
+                break;
             }
-            NSUInteger start = spans[i].rangeValue.location, end = NSMaxRange(spans[i + j - 1].rangeValue);
+            NSUInteger start = spans[range.location].rangeValue.location, end = NSMaxRange(spans[endToken - 1].rangeValue);
             if (end > start) found[index] = [NSValue valueWithRange:NSMakeRange(start, end - start)];
         }
     }];

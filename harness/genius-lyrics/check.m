@@ -238,6 +238,13 @@ static void checkTiming(void) {
     CHECK([SGKaraokeLineText(aligned[1]) isEqualToString:@"Slowly fades away"]);
     CHECK(SGKaraokeRecognizedLines(SGKaraokeStaticLines(@[@"Here comes rain", @"Here comes rain"]), words, spans).count == 0);
     CHECK(SGKaraokeRecognizedLines(plain, @[@"here", @"comes", @"rain"], @[spans[0], spans[3], spans[4]]).count == 0);
+    NSArray *embedded = SGKaraokeStaticLines(@[@"Here comes rain", @"I know here comes rain"]);
+    NSDictionary *inside = SGKaraokeRecognizedLines(embedded, @[@"I", @"know", @"here", @"comes", @"rain"],
+        @[[NSValue valueWithRange:NSMakeRange(1600, 100)], [NSValue valueWithRange:NSMakeRange(1800, 100)],
+            spans[0], spans[1], spans[2]]);
+    CHECK(inside.count == 1 && !inside[@0] && inside[@1]);
+    NSDictionary *alone = SGKaraokeRecognizedLines(embedded, @[@"here", @"comes", @"rain"], @[spans[3], spans[4], spans[5]]);
+    CHECK(alone.count == 1 && [alone[@0] rangeValue].location == 9000);
     puts("plain lyric timing: estimates, vocal gap, slow delivery, and ambiguous lines held");
 }
 
