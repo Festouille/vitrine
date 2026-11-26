@@ -21,9 +21,20 @@ for Native's alpha-only transition on the same legacy animator. Try both at `MOR
 `MORPH_T=0.7`. Wait for `MORPH READY`: before holding the frame the harness checks both
 endpoints, reverses back to the same progress, and checks an animator with no context.
 
+For Spotify 9.2's Compact path, build a variant without the legacy animator class:
+
+    MORPH_COMPACT=1 THEOS=$HOME/theos ./build.sh
+    xcrun simctl install booted build/compact/MorphHarness.app
+    SIMCTL_CHILD_MORPH_NATIVE=1 SIMCTL_CHILD_MORPH_POLISH=1 SIMCTL_CHILD_MORPH_T=0.3 \
+        xcrun simctl launch --console-pty booted com.vojta.morphharness
+
+The Compact mock uses a real UIKit property animator. It checks presentation progress on an
+interactive close and an open, stock alpha restoration on cancellation, and a missing snapshot.
+After `MORPH READY: native compact`, take the screenshot. Repeat with polish set to 0 for stock.
+
 A recording shows the move: `xcrun simctl io booted recordVideo -f run.mp4`, then
 `ffmpeg -ss T -t 0.5 -i run.mp4 -vf "fps=24,scale=160:-1,tile=8x1" -frames:v 1 strip.png`.
 
 What it does not cover: Spotify's real player and list, the tab bar's stand-in, the bar's glass on the
-closing stand-in (`BarTransition.x`), UIKit's compact animator, a drag, and the field's color
+closing stand-in (`BarTransition.x`), Spotify's real compact animator, a drag, and the field's color
 (the sheet is black here).

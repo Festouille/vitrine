@@ -47,10 +47,65 @@ void SGRequireClasses(NSArray *names) {}
 
 @interface SGHarnessContext : NSObject
 @property (nonatomic, strong) UIView *containerView;
-@end
-@implementation SGHarnessContext
+@property (nonatomic, strong) UIView *player;
+@property (nonatomic, getter=isInteractive) BOOL interactive;
+@property (nonatomic) BOOL opening;
 @end
 
+@interface SGHarnessIncomingPlayer : UIViewController
+@end
+@implementation SGHarnessIncomingPlayer
+- (BOOL)isBeingPresented { return YES; }
+@end
+
+@implementation SGHarnessContext
+- (UIViewController *)viewControllerForKey:(UITransitionContextViewControllerKey)key {
+    return self.opening && [key isEqual:UITransitionContextToViewControllerKey] ? [SGHarnessIncomingPlayer new] : nil;
+}
+- (UIView *)viewForKey:(UITransitionContextViewKey)key {
+    return [key isEqual:self.opening ? UITransitionContextToViewKey : UITransitionContextFromViewKey] ? self.player : nil;
+}
+@end
+
+#if MORPH_COMPACT
+@interface _TtC19MainUI_TabBarUIImpl24CompactOverlayTransition : NSObject {
+    UIView *npbSnapshotView;
+    CGRect npbFrame;
+}
+@property (nonatomic, strong) UIView *npbSnapshotView;
+@property (nonatomic) CGRect npbFrame;
+@property (nonatomic, strong) UIViewPropertyAnimator *animator;
+- (void)animateTransition:(SGHarnessContext *)context;
+- (void)startInteractiveTransition:(SGHarnessContext *)context;
+@end
+
+@implementation _TtC19MainUI_TabBarUIImpl24CompactOverlayTransition
+@synthesize npbSnapshotView, npbFrame;
+
+- (void)prepare:(SGHarnessContext *)context {
+    UIView *player = context.player, *bar = self.npbSnapshotView;
+    CGRect open = context.containerView.bounds;
+    CGRect closed = CGRectOffset(open, 0, CGRectGetMinY(self.npbFrame));
+    BOOL opening = context.opening;
+    player.frame = opening ? closed : open;
+    player.alpha = opening ? 0 : 1;
+    bar.alpha = opening ? 1 : 0;
+    self.animator = [[UIViewPropertyAnimator alloc] initWithDuration:1 curve:UIViewAnimationCurveLinear animations:^{
+        player.frame = opening ? open : closed;
+        player.alpha = opening ? 1 : 0;
+        bar.alpha = opening ? 0 : 1;
+    }];
+}
+- (void)animateTransition:(SGHarnessContext *)context {
+    [self prepare:context];
+    [self.animator startAnimation];
+}
+- (void)startInteractiveTransition:(SGHarnessContext *)context {
+    [self prepare:context];
+    [self.animator pauseAnimation];
+}
+@end
+#else
 @interface SPTBarOverlayPresentationTransition : NSObject
 @property (nonatomic, strong) SGHarnessContext *transitioningContext;
 @property (nonatomic, strong) UIView *overlayView, *barSnapshotView, *bottomBarView, *tabBarSnapshotView;
@@ -137,6 +192,7 @@ void SGRequireClasses(NSArray *names) {}
     self.transitioningContext = nil;
 }
 @end
+#endif
 
 #pragma mark - the page
 
@@ -242,13 +298,78 @@ static UILabel *label(NSString *text, CGRect frame, CGFloat size, UIColor *color
     [self.view addSubview:_container];
     // SIMCTL_CHILD_MORPH_T=0.4 holds the open at that progress, for a screenshot.
     NSString *hold = NSProcessInfo.processInfo.environment[@"MORPH_T"];
+#if MORPH_COMPACT
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC / 2), dispatch_get_main_queue(), ^{
+        [self holdCompactAt:hold ? hold.doubleValue : 0.3];
+    });
+#else
     if (hold) {
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC / 2), dispatch_get_main_queue(), ^{ [self holdAt:hold.doubleValue]; });
         return;
     }
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC), dispatch_get_main_queue(), ^{ [self cycle]; });
+#endif
 }
 
+#if MORPH_COMPACT
+- (void)holdCompactAt:(double)progress {
+    typedef _TtC19MainUI_TabBarUIImpl24CompactOverlayTransition Compact;
+    NSCAssert(!NSClassFromString(@"SPTBarOverlayPresentationTransition"), @"Compact must run without a legacy animator");
+    static Compact *held;
+    static SGHarnessContext *context;
+    held = [Compact new];
+    context = [SGHarnessContext new];
+    context.containerView = _container;
+    context.player = _player;
+    context.opening = YES;
+    context.interactive = YES;
+    held.npbFrame = [_container convertRect:_bar.bounds fromView:_bar];
+    [_container addSubview:_player];
+    [held startInteractiveTransition:context];
+    NSCAssert(held.animator.state == UIViewAnimatingStateActive, @"A missing snapshot must not stop the stock animator");
+    [held.animator stopAnimation:YES];
+    held.npbSnapshotView = [_bar snapshotViewAfterScreenUpdates:NO];
+    held.npbSnapshotView.frame = held.npbFrame;
+    [_container addSubview:held.npbSnapshotView];
+    _bar.hidden = YES;
+    context.opening = NO;
+    [held startInteractiveTransition:context];
+    held.animator.fractionComplete = 1 - progress;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC / 5), dispatch_get_main_queue(), ^{
+        [self checkCompact:held progress:progress];
+        context.interactive = NO;
+        [held.animator stopAnimation:NO];
+        [held.animator finishAnimationAtPosition:UIViewAnimatingPositionStart];
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC / 5), dispatch_get_main_queue(), ^{
+            NSCAssert(self->_player.layer.presentationLayer.opacity == 1 &&
+                      held.npbSnapshotView.layer.presentationLayer.opacity == 0, @"Cancellation must restore stock opacity");
+            context.opening = YES;
+            [held animateTransition:context];
+            [held.animator pauseAnimation];
+            context.interactive = YES;
+            held.animator.fractionComplete = progress;
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC / 5), dispatch_get_main_queue(), ^{
+                [self checkCompact:held progress:progress];
+                NSLog(@"MORPH READY: native compact %@ %.1f bar %.3f player %.3f -- PASS",
+                      SGFlag(SGKeyPlayerAMPolish, NO) ? @"on" : @"off", progress,
+                      held.npbSnapshotView.layer.presentationLayer.opacity, self->_player.layer.presentationLayer.opacity);
+            });
+        });
+    });
+}
+
+- (void)checkCompact:(_TtC19MainUI_TabBarUIImpl24CompactOverlayTransition *)transition progress:(double)progress {
+    CALayer *drawn = _player.layer.presentationLayer;
+    CGFloat rest = CGRectGetMinY(transition.npbFrame);
+    NSCAssert(drawn && fabs(drawn.frame.origin.y - rest * (1 - progress)) < 1, @"Only rendered geometry may drive the effect");
+    NSCAssert(_player.layer.mask == nil && _player.alpha != drawn.opacity, @"Compact must retain stock model alpha and geometry");
+    CGFloat t = MIN(1, MAX(0, progress / 0.85));
+    CGFloat expected = SGFlag(SGKeyPlayerAMPolish, NO) ? t * t * (3 - 2 * t) : progress;
+    NSCAssert(fabs(drawn.opacity - expected) < 0.005 &&
+              fabs(transition.npbSnapshotView.layer.presentationLayer.opacity - (1 - expected)) < 0.005,
+              @"Expected player opacity %.3f; got %.3f (animations: %@)", expected, drawn.opacity, _player.layer.animationKeys);
+}
+#else
 - (void)transition:(BOOL)presenting done:(void (^)(void))done {
     SPTBarOverlayPresentationTransition *t = [SPTBarOverlayPresentationTransition new];
     t.presenting = presenting;
@@ -317,6 +438,7 @@ static UILabel *label(NSString *text, CGRect frame, CGFloat size, UIColor *color
         });
     }];
 }
+#endif
 @end
 
 @interface AppDelegate : UIResponder <UIApplicationDelegate>

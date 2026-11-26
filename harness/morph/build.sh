@@ -2,11 +2,15 @@
 set -e
 SRC=$(cd "$(dirname "$0")/../../tweak/Sources" && pwd)
 OUT=$(dirname "$0")/build
+if [ "${MORPH_COMPACT:-0}" = 1 ]; then
+    OUT=$(dirname "$0")/build/compact
+fi
 rm -rf "$OUT"; mkdir -p "$OUT/gen" "$OUT/MorphHarness.app"
 "$THEOS/bin/logos.pl" -c generator=internal "$SRC/Redesigned/Player/PlayerMorph.x" > "$OUT/gen/PlayerMorph.m"
 "$THEOS/bin/logos.pl" -c generator=internal "$SRC/Native/Player/PlayerTransition.x" > "$OUT/gen/PlayerTransition.m"
 SDK=$(xcrun --sdk iphonesimulator --show-sdk-path)
 xcrun -sdk iphonesimulator clang -target arm64-apple-ios17.0-simulator -fobjc-arc -g -O0 \
+    -DMORPH_COMPACT="${MORPH_COMPACT:-0}" \
     -I"$SRC" -I"$SRC/Redesigned/Player" -I"$SRC/Native/Player" -isysroot "$SDK" -Wno-deprecated-declarations \
     "$(dirname "$0")/main.m" "$(dirname "$0")/../scene.m" "$OUT"/gen/*.m "$SRC/Core/SGPrefs.m" \
     -framework UIKit -framework QuartzCore -framework CoreGraphics -framework Foundation \
