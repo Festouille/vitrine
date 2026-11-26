@@ -1,4 +1,4 @@
-// A lyrics button on the player's footer for a local file with an LRC file linked to it (LocalLyrics.h).
+// A lyrics button on the player's footer for a track with a lyrics file linked to it (LocalLyrics.h).
 //
 // NowPlaying_ModesImpl's units are child controllers whose views hold one row each (Native/Player/
 // Player.x); the footer's is FooterElementsUnit (-viewDidLoad, objc-methods). The button is the mod's
@@ -20,7 +20,8 @@
 static NSHashTable<UIButton *> *sg_buttons;
 
 static BOOL playingLinked(void) {
-    return SGImportedLRCLinkedTo(SGURIString(SGPlayerState().track.URI)) != nil;
+    NSString *uri = SGURIString(SGPlayerState().track.URI);
+    return SGTrackLyricsLinkedTo(uri) || SGImportedLRCLinkedTo(uri);
 }
 
 static void showButtons(void) {
@@ -95,6 +96,8 @@ static void addButton(UIViewController *unit) {
     SGAddPlayerStateObserver(observer);
     // An import for the track playing, or the delete of its file, changes the button with no new track.
     [NSNotificationCenter.defaultCenter addObserverForName:SGImportedLRCDidChangeNotification object:nil queue:nil
+                                                usingBlock:^(NSNotification *note) { showButtons(); }];
+    [NSNotificationCenter.defaultCenter addObserverForName:SGTrackLyricsDidChangeNotification object:nil queue:nil
                                                 usingBlock:^(NSNotification *note) { showButtons(); }];
     SGRequireClasses(@[@"_TtC20NowPlaying_ModesImpl18FooterElementsUnit", @"SPTPlayerTrack"]);
 }

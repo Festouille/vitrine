@@ -15,13 +15,17 @@ SGModSection *SGLyricsSourcesSection(BOOL namingSource) {
         NSString *first = SGLyricsProviderFor(order.firstObject).name;
         return order.count == 1 ? first : [NSString stringWithFormat:@"%@ +%lu", first, (unsigned long)order.count - 1];
     };
-    SGModRow *imported = SGPageRow(@"Imported LRC files", ^UIViewController *{ return SGImportedLRCPage(); });
+    SGModRow *imported = SGPageRow(@"Imported lyrics", ^UIViewController *{ return SGImportedLRCPage(); });
     imported.value = ^NSString *{
-        NSUInteger count = SGImportedLRCFiles().count;
+        NSUInteger count = SGImportedLRCFiles().count + SGImportedTrackLyricsFiles().count;
         return count ? @(count).stringValue : @"None";
     };
+    SGModRow *trackImport = SGOptionRow(@"Import lyrics for any track", @"Use your own TTML or LRC instead of online lyrics", SGKeyTrackLyricsImport);
+    trackImport.changed = ^(BOOL on) {
+        [NSNotificationCenter.defaultCenter postNotificationName:SGTrackLyricsDidChangeNotification object:nil];
+    };
     SGModRow *words = SGOptionRow(@"Prefer word-by-word timing", @"Asks down the order past lines timed by the line", SGKeyLyricsPreferWordTiming);
-    NSMutableArray<SGModRow *> *rows = [NSMutableArray arrayWithObjects:sources, words, imported,
+    NSMutableArray<SGModRow *> *rows = [NSMutableArray arrayWithObjects:sources, words, trackImport, imported,
         SGSwitchRow(@"Lyrics for every track", @"Even where Spotify has none", SGKeyLyricsAllTracks), SGSpicyLyricsKeyRow(), nil];
     // Spicy Lyrics' terms ask for its credit wherever its lines show (Shared/LyricsSources/SpicyLyrics.m), so the switch
     // says so, or its credit under the lyrics reads as the switch not working (issue #20).

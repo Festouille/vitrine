@@ -12,6 +12,8 @@ SDK=$(xcrun --sdk iphonesimulator --show-sdk-path)
 xcrun -sdk iphonesimulator clang -target arm64-apple-ios17.0-simulator -fobjc-arc -g -O0 -DSG_HARNESS_SETTINGS \
     -I"$SRC" -I"$SRC/Redesigned/Lyrics" -isysroot "$SDK" -Wall -Wno-deprecated-declarations \
     "$HERE/main.m" "$HERE/../scene.m" "$HERE/../lyrics/stubs.m" "$HERE/../sing/button/sing-stubs.m" \
+    "$HERE/import.m" "$SRC/Shared/LocalFiles/LocalFiles.m" "$SRC/Shared/LocalFiles/LocalLyrics.m" "$SRC/Shared/LocalFiles/LocalLyricsPage.m" \
+    "$SRC/Native/LocalFiles/LocalLyricsPage.m" "$SRC/Shared/Lyrics/LyricsSettings.m" \
     "$SRC"/Redesigned/Lyrics/LyricsLookSettings.m "$SRC"/Redesigned/Lyrics/LyricsLook.m \
     "$SRC"/Redesigned/Lyrics/SGRKaraokeView.m "$SRC"/Shared/Lyrics/KaraokeLines.m "$SRC"/Redesigned/Lyrics/LyricsText.m "$SRC"/Redesigned/Lyrics/SGRSingButton.m \
     "$SRC"/Redesigned/Lyrics/MeaningSheet.m "$SRC"/Shared/LyricsMeanings/Meanings.m "$SRC"/Shared/LyricsSources/SongMatch.m "$SRC"/Shared/LyricsSources/SGTTML.m \
@@ -19,7 +21,7 @@ xcrun -sdk iphonesimulator clang -target arm64-apple-ios17.0-simulator -fobjc-ar
     "$SRC"/Redesigned/Kit/SGRTokens.m "$SRC"/Redesigned/Kit/SGRGlass.m \
     "$SRC"/Settings/SGPage.m "$SRC"/Settings/SGPageStyle.m "$SRC"/Settings/SGModPage.m "$SRC"/Settings/SGGlowSwitch.m \
     "$SRC"/Core/SGLog.m "$SRC"/Core/SGPrefs.m "$SRC"/Core/SGGlass.m "$SRC"/Core/SGLegacyGlass.m "$SRC"/Core/SGGlassTouch.m "$SRC"/Core/SGViewTree.m "$SRC"/Core/SGFlagForce.m "$SRC"/Core/SGUIMode.m \
-    -framework UIKit -framework QuartzCore -framework CoreGraphics -framework CoreText -framework Foundation -framework Symbols -framework NaturalLanguage \
+    -framework UIKit -framework QuartzCore -framework CoreGraphics -framework CoreText -framework Foundation -framework Symbols -framework NaturalLanguage -framework UniformTypeIdentifiers \
     -o "$APP/LyricsPageHarness"
 
 cat > "$APP/Info.plist" <<PLIST
@@ -44,5 +46,6 @@ cat > "$APP/Info.plist" <<PLIST
 </dict>
 </dict></plist>
 PLIST
+cp "$HERE/../lyrics/fixtures/duet.ttml" "$HERE/../lyrics/fixtures/plain.lrc" "$APP/"
 codesign -f -s - "$APP" >/dev/null 2>&1
 echo "built $APP"

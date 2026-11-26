@@ -1,3 +1,11 @@
+# TTML and LRC import scenario
+
+Build with `./harness/lyrics-page/build.sh` and install the app on a booted iOS simulator. Launch
+`com.vojta.lyricspageharness -import native` or `-import redesigned` with `xcrun simctl launch` to check
+LRC and TTML assignment to a simulated Spotify track and show the imported TTML in the chosen player.
+Use `native-settings` or `redesigned-settings` to show the real Mod Settings switch, or `native-files`
+to show the assignment UI used by both looks. The console prints the assertions for each run.
+
 # Lyrics page harness
 
 The redesign's Lyrics page as `App/Pages.m` opens it (`Redesigned/Lyrics/LyricsLookSettings.m`): the preview

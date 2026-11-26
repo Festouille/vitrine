@@ -182,13 +182,14 @@ static void completed(NSURLSessionTask *task, NSError *error) {
     NSArray<SGKaraokeLine *> *lines = SGKaraokeLinesFromBody(body);
     SGLog(@"karaoke: lyrics for %@, %lu bytes, %lu synced lines", track, (unsigned long)body.length, (unsigned long)lines.count);
     dispatch_async(dispatch_get_main_queue(), ^{
+        if (SGNativeUI() && SGTrackLyricsLinkedTo(track)) return;
         SGKaraokeKeepPageLines(track, lines);
         if (lines) keep(track, lines);
     });
 }
 
 NSArray<SGKaraokeLine *> *SGKaraokeLinesForTrack(NSString *trackID) {
-    return trackID ? sg_lyrics[trackID] : nil;
+    return trackID ? SGTrackLyricsOverride(trackID).karaokeLines ?: sg_lyrics[trackID] : nil;
 }
 
 // Main queue only. The track stays asked for through the pause, so the readers asking on every tick
@@ -357,7 +358,7 @@ static BOOL askLrcLib(NSString *trackID, void (^done)(SGLyricsResult *lyrics)) {
 
 // Main queue only.
 static void requestLyrics(NSString *trackID, BOOL allowRemote) {
-    if (!trackID || sg_lyrics[trackID] || [sg_requested containsObject:trackID]) return;
+    if (!trackID || SGKaraokeLinesForTrack(trackID) || [sg_requested containsObject:trackID]) return;
     // spclient has nothing for a local file, which only the sources can name. A file of the user's own,
     // linked to it or matching its names, comes before every source.
     BOOL local = SGLocalFileIs(trackID);
@@ -590,6 +591,14 @@ static BOOL linesShown(void) {
     sg_losses = [NSMutableDictionary dictionary];
     sg_looking = [NSMutableSet set];
     sg_ownSources = SGLyricsEnabled();
+    [NSNotificationCenter.defaultCenter addObserverForName:SGTrackLyricsDidChangeNotification object:nil queue:nil
+                                                usingBlock:^(NSNotification *note) {
+        NSString *playing = SGKaraokePlayingTrack();
+        if (!playing || (note.object && ![note.object isEqual:playing])) return;
+        [NSNotificationCenter.defaultCenter postNotificationName:SGKaraokeLinesInvalidatedNotification object:playing];
+        if (linesShown() || sg_prefetchLocalLyrics) SGKaraokeRequestLyrics(playing);
+        announce(playing);
+    }];
     // A rename gives the file playing a new lyrics key at once, with no new state from the player to
     // bring it here, so the new key is asked for now; the redesign's lyrics view shows what comes in.
     // Posted on the main thread.

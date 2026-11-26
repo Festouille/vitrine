@@ -61,6 +61,7 @@ void SGLyricsPageLines(NSArray<SGKaraokeLine *> *lines, NSArray<NSNumber *> **st
     *texts = @[];
 }
 SPTPlayerTrack *SGKaraokeTrackFor(NSString *trackID) { return nil; }
+NSString *SGLyricsTranslationLanguage(void) { return nil; }
 NSInteger SGKaraokeDelayMs(void) { return [NSUserDefaults.standardUserDefaults integerForKey:SGKeyLyricsDelay]; }
 void SGKaraokeSeek(NSInteger ms) { sg_sought = ms; }
 

@@ -22,6 +22,7 @@
 #import "Shared/Player/SpeedPitch.h"
 #import "Shared/Lyrics/Lyrics.h"
 #import "Shared/LyricsSources/LyricsSources.h"
+#import "Shared/LocalFiles/LocalLyrics.h"
 #import "Settings/SGPageStyle.h"
 #import "Shared/AnimatedArtwork/SaveCanvas.h"
 #import "Player.h"
@@ -216,6 +217,7 @@ static UIAction *lyricsSourceItem(void) {
         SGPresentPopover(panel, sg_moreButton);
     }];
     open.subtitle = SGLyricsCreditFor(track);
+    if (SGTrackLyricsLinkedTo(track)) open.attributes = UIMenuElementAttributesDisabled;
     return open;
 }
 

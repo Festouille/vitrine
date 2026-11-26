@@ -1,6 +1,5 @@
-// The native look's lyrics for a local file with an imported LRC file linked to it (Shared/LocalFiles/
-// LocalLyrics.h): Spotify turns its own lyrics off for local files before it asks its lyrics service,
-// so the player's footer gets a button of the mod's that opens a page of its own.
+// The native look's viewer for an imported lyrics file (Shared/LocalFiles/LocalLyrics.h).
+// The player's footer opens it even when Spotify has no lyrics affordance for the track.
 //
 //     LocalLyricsButton.x   the button on the footer, and has_lyrics for a linked local file
 //     LocalLyricsPage.m     the page: the lines on black, following the song

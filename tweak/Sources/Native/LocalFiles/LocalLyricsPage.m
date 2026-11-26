@@ -58,6 +58,7 @@ static UILabel *label(UIFontTextStyle style, UIFontWeight weight, CGFloat size, 
 - (void)viewDidLoad {
     [super viewDidLoad];
     [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(importedLyricsChanged:) name:SGImportedLRCDidChangeNotification object:nil];
+    [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(importedLyricsChanged:) name:SGTrackLyricsDidChangeNotification object:nil];
     UIView *view = self.view;
     view.backgroundColor = UIColor.blackColor;
 
@@ -164,7 +165,7 @@ static UILabel *label(UIFontTextStyle style, UIFontWeight weight, CGFloat size, 
     // The file is read off the main thread the first time; after that it is kept.
     NSUInteger request = ++_lyricsRequest;
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
-        SGLyricsResult *lyrics = SGImportedLRCFor(uri, title, artist);
+        SGLyricsResult *lyrics = SGTrackLyricsOverride(uri) ?: SGImportedLRCFor(uri, title, artist);
         dispatch_async(dispatch_get_main_queue(), ^{
             if (request == self->_lyricsRequest) [self show:lyrics];
         });
@@ -175,7 +176,8 @@ static UILabel *label(UIFontTextStyle style, UIFontWeight weight, CGFloat size, 
     _lines = lyrics.karaokeLines;
     _timed = SGKaraokeLinesTiming(_lines) != SGKaraokeTimingNone;
     if (!_lines.count) {
-        _status.text = SGImportedLRCLinkedTo(_uri) ? @"This LRC file has no lines to show." : @"No imported lyrics for this track.";
+        _status.text = (SGTrackLyricsLinkedTo(_uri) || SGImportedLRCLinkedTo(_uri))
+            ? @"This file has no lyrics to show." : @"No imported lyrics for this track.";
         return;
     }
     _status.hidden = YES;
