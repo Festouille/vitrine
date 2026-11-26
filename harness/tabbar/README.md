@@ -22,6 +22,9 @@ restrictions, taps and long-press actions. Run it once per look; each run logs P
 
     xcrun simctl launch --console-pty <udid> com.vojta.tabbarharness gestures
     xcrun simctl launch --console-pty <udid> com.vojta.tabbarharness gestures native
+    xcrun simctl launch --console-pty <udid> com.vojta.tabbarharness gestures sheet
+
+The `sheet` run checks that the long-press menu opens over a presented sheet containing the mini player.
 
 The layout is the one 9.1.78 makes in a compact width, with the addresses it was read from:
 

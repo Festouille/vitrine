@@ -737,16 +737,29 @@ static void after(double seconds, dispatch_block_t block) {
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(seconds * NSEC_PER_SEC)), dispatch_get_main_queue(), block);
 }
 
-static void testMiniPlayerGestures(SGHarnessChrome *chrome) {
+static void testMiniPlayerGestures(UIViewController *presenter, UIView *barRoot, BOOL inSheet) {
     sgPlayback = [[SPTNowPlayingPlaybackControllerImplementation alloc] initWithPlayer:nil testManager:nil inStreamClient:nil];
     SGSetEnabled(SGKeyMiniPlayerGestures, NO);
-    [chrome.view layoutIfNeeded];
+    [presenter.view layoutIfNeeded];
     static char cardKey;
-    UIView *card = SGFindIdentifier(chrome.npb, @"SPTNowPlayingBar", &cardKey);
+    UIView *card = SGFindIdentifier(barRoot, @"SPTNowPlayingBar", &cardKey);
     NSCAssert(card.window, @"Mini player must be visible");
     UIWindow *window = card.window;
     CGPoint left = [card convertPoint:CGPointMake(60, CGRectGetMidY(card.bounds)) toView:window];
     CGPoint right = [card convertPoint:CGPointMake(200, CGRectGetMidY(card.bounds)) toView:window];
+    if (inSheet) {
+        NSCAssert([[window hitTest:right withEvent:nil] isDescendantOfView:card], @"A touch on the sheet's mini player must reach it");
+        SGSetEnabled(SGKeyMiniPlayerGestures, YES);
+        SGHarnessHold(window, right, 0.65);
+        after(1.25, ^{
+            UIAlertController *menu = (UIAlertController *)presenter.presentedViewController;
+            NSCAssert([menu isKindOfClass:UIAlertController.class] && [menu.title isEqualToString:@"Mini player"],
+                      @"Long press on the sheet's mini player must open the actions over the sheet");
+            NSLog(@"[harness] mini player gestures PASS (in sheet)");
+            exit(0);
+        });
+        return;
+    }
     __block UIButton *button;
     SGForEachView(card, ^(UIView *view) {
         if ([view isKindOfClass:UIButton.class]) button = (UIButton *)view;
@@ -758,7 +771,7 @@ static void testMiniPlayerGestures(SGHarnessChrome *chrome) {
     SGHarnessDrag(window, right, left, 0.16);
     after(0.35, ^{ SGHarnessHold(window, right, 0.65); });
     after(1.15, ^{
-        NSCAssert(!sgPlayback.next && !chrome.presentedViewController, @"Disabled gestures must do nothing");
+        NSCAssert(!sgPlayback.next && !presenter.presentedViewController, @"Disabled gestures must do nothing");
         sgCardTaps = 0;
         SGSetEnabled(SGKeyMiniPlayerGestures, YES);
         SGHarnessDrag(window, right, left, 0.16);
@@ -785,11 +798,11 @@ static void testMiniPlayerGestures(SGHarnessChrome *chrome) {
         SGHarnessHold(window, play, 0.65);
     });
     after(3.50, ^{
-        NSCAssert(!chrome.presentedViewController, @"Long press on a control must not show the menu");
+        NSCAssert(!presenter.presentedViewController, @"Long press on a control must not show the menu");
         SGHarnessHold(window, right, 0.65);
     });
     after(4.75, ^{
-        UIAlertController *menu = (UIAlertController *)chrome.presentedViewController;
+        UIAlertController *menu = (UIAlertController *)presenter.presentedViewController;
         NSCAssert([menu isKindOfClass:UIAlertController.class] && [menu.title isEqualToString:@"Mini player"],
                   @"Long press on the card must open the actions");
         NSCAssert(([[menu.actions valueForKey:@"title"] isEqual:@[@"Pause", @"Turn shuffle on", @"Change repeat mode", @"Cancel"]]),
@@ -801,12 +814,12 @@ static void testMiniPlayerGestures(SGHarnessChrome *chrome) {
         NSCAssert(pause.window, @"The Pause action must be visible");
         CGPoint point = [pause convertPoint:CGPointMake(CGRectGetMidX(pause.bounds), CGRectGetMidY(pause.bounds)) toView:pause.window];
         SGHarnessTap(pause.window, point);
-    });
-    after(5.35, ^{
-        NSCAssert(sgPlayback.paused && sgCardTaps == 1, @"Pause must act without opening the player (paused=%d, card taps=%lu)",
-                  sgPlayback.paused, (unsigned long)sgCardTaps);
-        NSLog(@"[harness] mini player gestures PASS (%@)", SGRedesignedUI() ? @"redesigned" : @"native");
-        exit(0);
+        after(0.60, ^{
+            NSCAssert(sgPlayback.paused && sgCardTaps == 1, @"Pause must act without opening the player (paused=%d, card taps=%lu)",
+                      sgPlayback.paused, (unsigned long)sgCardTaps);
+            NSLog(@"[harness] mini player gestures PASS (%@)", SGRedesignedUI() ? @"redesigned" : @"native");
+            exit(0);
+        });
     });
 }
 
@@ -822,7 +835,24 @@ static void testMiniPlayerGestures(SGHarnessChrome *chrome) {
     NSArray<NSString *> *args = NSProcessInfo.processInfo.arguments;
     NSString *mode = args.count > 1 ? args[1] : @"none";
     if ([mode isEqualToString:@"gestures"]) {
-        after(0.5, ^{ testMiniPlayerGestures(chrome); });
+        [UIView setAnimationsEnabled:NO];
+        if ([args containsObject:@"sheet"]) {
+            UIViewController *sheet = [UIViewController new];
+            sheet.modalPresentationStyle = UIModalPresentationPageSheet;
+            sheet.view.accessibilityIdentifier = @"sheet-view";
+            sheet.view.backgroundColor = UIColor.systemBlueColor;
+            UIViewController *bar = [_TtC18NowPlaying_BarImpl36NowPlayingBarContainerViewController new];
+            [sheet addChildViewController:bar];
+            bar.view.frame = CGRectMake(0, 60, sheet.view.bounds.size.width, 56);
+            bar.view.autoresizingMask = UIViewAutoresizingFlexibleWidth;
+            [sheet.view addSubview:bar.view];
+            [bar didMoveToParentViewController:sheet];
+            [chrome presentViewController:sheet animated:NO completion:^{
+                after(0.5, ^{ testMiniPlayerGestures(sheet, bar.view, YES); });
+            }];
+        } else {
+            after(0.5, ^{ testMiniPlayerGestures(chrome, chrome.npb, NO); });
+        }
         return;
     }
     // `jam`: in a Jam from the start, and out of it at 3.5 s.
