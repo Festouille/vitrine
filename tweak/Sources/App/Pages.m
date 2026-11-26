@@ -102,10 +102,13 @@ UIViewController *SGAppearancePage(void) {
     NSMutableArray<SGModRow *> *everywhere = [NSMutableArray arrayWithArray:SGAppFontRows()];
     SGModRow *icon = SGAppIconRow();
     if (icon) [everywhere addObject:icon];
-    return [[SGModPage alloc] initWithTitle:@"Appearance" intro:SGRestartNote sections:@[
-        SGSection(nil, SGRedesignedUIStored() ? SGRAppearanceRows() : SGNativeAppearanceRows()),
-        SGSection(nil, everywhere),
-    ] footer:nil];
+    NSArray<SGModRow *> *look = SGRedesignedUIStored() ? SGRAppearanceRows() : SGNativeAppearanceRows();
+    SGModSection *theme = SGSettingsThemeSection();
+    NSArray<SGModSection *> *sections = theme ? @[theme, SGNotedSection(nil, look, SGRestartNote), SGSection(nil, everywhere)]
+                                             : @[SGSection(nil, look), SGSection(nil, everywhere)];
+    SGModPage *page = [[SGModPage alloc] initWithTitle:@"Appearance" intro:theme ? nil : SGRestartNote sections:sections footer:nil];
+    page.usesSettingsTheme = theme != nil;
+    return page;
 }
 
 UIViewController *SGNavbarPage(void) {

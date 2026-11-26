@@ -895,7 +895,11 @@ under the signing and environment warnings: Redesigned UI, Appearance and Tab ba
 Library in the native look), Player, Lyrics, Albums and Artists; Karaoke, Spatial voice (where the iPhone reads headphone
 motion), Audio effects, AutoMix, Live Activity, AirPods gestures and Listening stats; Lock screen, Vibrations and Premium, ads &
 privacy; Labs and All flags; Mod. It is checked in the simulator
-against harness/mod-settings/. The Appearance page has, in the native look, AMOLED (the redesign is always black),
+against harness/mod-settings/. On iOS 17 and later, Appearance offers Experimental themes (off by default).
+Light, Dark and System update the Vitrine overview and Appearance lists immediately in either look.
+System follows the scene's iOS appearance, including changes while the list is open. Spotify screens,
+the player and other settings pages keep their existing appearance.
+The Appearance page has, in the native look, AMOLED (the redesign is always black),
 then Album art accent in either look (off until asked for; restart to apply). It takes the accent and Home
 gradient tint from the current cover, leaving the saved colors alone. With no colorful cover, the saved accent
 and the look's usual gradient tint return. In the native look it also turns on the Home wash and keeps its

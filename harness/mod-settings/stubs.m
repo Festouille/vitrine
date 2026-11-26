@@ -54,13 +54,11 @@ UIViewController *SGHomeSettingsPage(void) {
 
 #define ROW(name) SGModRow *name(void) { return SGPageRow(@#name, ^UIViewController *{ return nil; }); }
 NSArray<SGModRow *> *SGAITranslatorRows(void) { return @[SGPageRow(@"SGAITranslatorRows", ^UIViewController *{ return nil; })]; }
-ROW(SGAppIconRow) ROW(SGLyricsMeaningsRow)
+ROW(SGLyricsMeaningsRow)
 ROW(SGSavedTranslationsRow) ROW(SGTranslateEverySongRow)
 ROW(SGRLyricsHideRow)
 NSArray<SGModRow *> *SGOnDeviceTranslatorRows(void) { return @[SGPageRow(@"SGOnDeviceTranslatorRows", ^UIViewController *{ return nil; })]; }
-NSArray<SGModRow *> *SGAppFontRows(void) { return @[]; }
-NSArray<SGModRow *> *SGNativeAppearanceRows(void) { return @[]; }
-NSArray<SGModRow *> *SGRAppearanceRows(void) { return @[]; }
+SGModRow *SGAppIconRow(void) { return nil; }
 SGModSection *SGDefaultPlaylistSection(void) { return nil; }
 NSArray<NSDictionary *> *SGBlockedArtists(void) { return @[]; }
 
@@ -95,9 +93,6 @@ NSString *SGSingSummary(void) { return @"Off"; }
 BOOL SGSingSpatialAvailable(void) { return YES; }
 BOOL SGSingSpatial(void) { return NO; }
 
-void SGDressPageBar(UIViewController *page) {}
-void SGPlacePageBar(UIViewController *page) {}
-void SGUndressPageBar(UIViewController *page) {}
 BOOL SGHapticAddonOutdated(void) { return NO; }
 BOOL SGHapticEverywhereOffered(void) { return NO; }
 BOOL SGHapticRelayAvailable(void) { return NO; }
