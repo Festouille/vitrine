@@ -16,6 +16,7 @@
 #import "Shared/Player/HoldSpeed.h"
 #import "Shared/Player/PlayerSettings.h"
 #import "Shared/Player/QueueHelpers.h"
+#import "Shared/Player/RepeatMode.h"
 #import "Shared/Sing/Sing.h"
 #import "Native/Appearance/Appearance.h"
 #import "Native/Navbar/Navbar.h"
@@ -173,8 +174,11 @@ UIViewController *SGPlayerSettingsPage(void) {
         : @[SGHideRow(@"Shuffle", nil, SGRKeyPlayerHideShuffle), SGHideRow(@"Repeat", nil, SGRKeyPlayerHideRepeat), video, tilt];
     [sections addObject:SGSection(native ? nil : @"Hide on the player", hidden)];
 
+    SGModRow *rememberRepeat = SGOptionRow(@"Remember repeat mode", @"Keep your repeat setting across tracks and launches", SGKeyRememberRepeatMode);
+    rememberRepeat.changed = ^(BOOL on) { SGRepeatModeSettingChanged(on); };
     [sections addObject:SGSection(@"Playback", @[
         SGOptionRow(@"A–B Loop", @"Repeat part of a track from the Now Playing menu", SGKeyABLoop),
+        rememberRepeat,
     ])];
     [sections addObject:SGNotedSection(@"Queue helpers", @[
         SGOptionRow(@"Reshuffle button", @"Show Spotify’s Reshuffle action when the queue supports it", SGKeyQueueReshuffle),
