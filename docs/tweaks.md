@@ -113,6 +113,11 @@ Shared:
                   the provider pins 9.1.88's ios-reprise-liquid-glass-override.mode to default in both looks (after an All flags
                   override) and logs the server's own value once, as a force_disabled would take the glass off the redesign.
                   It also pins 9.1.90's ios-navigationui-tabbar-impl.is_liquid_glass_tab_bar_enabled off in both looks.
+    DefaultPlaylist/ Mod Settings › Player enables Spotify's own Default save locations feature at launch
+                  (spotifyglass.defaultPlaylist, off). Choose default playlist opens Spotify's picker, where
+                  the Music category can be changed to a playlist instead of Liked Songs. Spotify owns the
+                  button state and the track it saves in either look. The section is shown only when Spotify
+                  ships the picker and curation support (verified on 9.2.2).
     Gestures/     the double tap zones on the player: the grid, what each cell does, the recognizer (each look hooks it on)
     Lyrics/       the lyrics engine for the redesign's Apple Music style lyrics and the lock screen: lines read from
                   color-lyrics and the player's clock (KaraokeSource.x), words timed by estimate inside Spotify's line

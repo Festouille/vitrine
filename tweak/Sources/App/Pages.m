@@ -8,6 +8,7 @@
 #import "Settings/SGPageStyle.h"
 #import "Pages.h"
 #import "Shared/ArtistBlock/ArtistBlock.h"
+#import "Shared/DefaultPlaylist/DefaultPlaylist.h"
 #import "Shared/Gestures/Gestures.h"
 #import "Shared/Lyrics/Lyrics.h"
 #import "Shared/LyricsMeanings/Meanings.h"
@@ -151,6 +152,8 @@ UIViewController *SGPlayerSettingsPage(void) {
         SGWithTile(blocked, @"person.crop.circle.badge.xmark", UIColor.systemRedColor),
     ])];
     [sections addObject:SGHoldSpeedSection()];
+    SGModSection *defaultPlaylist = SGDefaultPlaylistSection();
+    if (defaultPlaylist) [sections addObject:defaultPlaylist];
     if (native) {
         [sections addObject:SGSection(nil, @[
             SGWithTile(SGPageRow(@"Now playing bar", ^UIViewController *{ return SGNowPlayingBarSettingsPage(); }), @"rectangle.bottomthird.inset.filled", UIColor.systemPinkColor),
