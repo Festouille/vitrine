@@ -6,6 +6,52 @@
 #import "Core/SGCore.h"
 
 NSString *const SGRestartNote = @"Changes apply after you restart Spotify.";
+NSString *const SGKeySettingsThemes = @"spotifyglass.settings.themes";
+NSString *const SGKeySettingsTheme = @"spotifyglass.settings.theme";
+
+typedef NS_ENUM(NSInteger, SGSettingsTheme) {
+    SGSettingsThemeSystem, SGSettingsThemeLight, SGSettingsThemeDark,
+};
+
+static SGSettingsTheme settingsTheme(void) {
+    NSInteger theme = SGInt(SGKeySettingsTheme, SGSettingsThemeSystem);
+    return theme >= SGSettingsThemeSystem && theme <= SGSettingsThemeDark ? (SGSettingsTheme)theme : SGSettingsThemeDark;
+}
+
+SGModSection *SGSettingsThemeSection(void) {
+    if (@available(iOS 17.0, *)) {
+        NSArray<NSString *> *choices = @[@"System", @"Light", @"Dark"];
+        SGModRow *enable = SGOptionRow(@"Experimental themes", nil, SGKeySettingsThemes);
+        SGModRow *theme = SGMenuRow(@"Settings theme", choices, ^NSString *{ return choices[settingsTheme()]; },
+            ^(NSInteger index) { SGSetInt(SGKeySettingsTheme, index); });
+        theme.visible = ^BOOL { return SGHidden(SGKeySettingsThemes); };
+        return SGNotedSection(nil, @[enable, theme],
+            @"Changes the Vitrine overview and this page immediately. Other screens keep their current appearance.");
+    }
+    return nil;
+}
+
+static UIColor *settingsColor(UIColor *dark, UIColor *light) {
+    return [UIColor colorWithDynamicProvider:^UIColor *(UITraitCollection *traits) {
+        UIColor *color = traits.userInterfaceStyle == UIUserInterfaceStyleLight ? light : dark;
+        return [color resolvedColorWithTraitCollection:traits];
+    }];
+}
+
+static UIColor *settingsSecondary(void) {
+    return settingsColor(SGGrey(), SGColorRGB(0x5C5C66));
+}
+
+@interface SGSettingsSwatch : UIImageView
+@end
+
+@implementation SGSettingsSwatch
+- (void)traitCollectionDidChange:(UITraitCollection *)previous {
+    [super traitCollectionDidChange:previous];
+    BOOL light = self.traitCollection.userInterfaceStyle == UIUserInterfaceStyleLight;
+    self.layer.borderColor = [UIColor colorWithWhite:light ? 0 : 1 alpha:light ? 0.25 : 0.30].CGColor;
+}
+@end
 
 @implementation SGModRow
 - (NSString *)displayText:(NSString *)text {
@@ -339,15 +385,16 @@ static NSString *stackedValue(SGModRow *row) {
     return row.subtitle.length ? [NSString stringWithFormat:@"%@\n%@", [row displayText:row.subtitle], value] : value;
 }
 
-static UIView *valueAndChevron(NSString *text) {
+static UIView *valueAndChevron(NSString *text, BOOL themed) {
     UILabel *label = [UILabel new];
     label.font = SGTitleFont();
-    label.textColor = SGGrey();
+    label.textColor = themed ? settingsSecondary() : SGGrey();
     label.text = text;
     label.lineBreakMode = NSLineBreakByTruncatingTail;
     [label sizeToFit];
     if (label.bounds.size.width > kValueMaxWidth) label.bounds = CGRectMake(0, 0, kValueMaxWidth, label.bounds.size.height);
     UIImageView *chevron = SGChevronView();
+    if (themed) chevron.tintColor = settingsColor(UIColor.whiteColor, UIColor.secondaryLabelColor);
     CGFloat height = MAX(label.bounds.size.height, chevron.bounds.size.height);
     UIView *box = [[UIView alloc] initWithFrame:CGRectMake(0, 0, label.bounds.size.width + 6 + chevron.bounds.size.width, height)];
     label.center = CGPointMake(label.bounds.size.width / 2, height / 2);
@@ -360,10 +407,10 @@ static UIView *valueAndChevron(NSString *text) {
 // What a row with a value and no page shows on the right: the value, after a swatch of the row's color
 // when it has one, rounded like the cards and edged with a hairline so a dark color still shows on them.
 // The swatch is drawn into an image, past the accent hooks on layer backgrounds (see SGColorRGB).
-static UIView *valueView(SGModRow *row) {
+static UIView *valueView(SGModRow *row, BOOL themed) {
     UILabel *label = [UILabel new];
     label.font = SGTitleFont();
-    label.textColor = SGGrey();
+    label.textColor = themed ? settingsSecondary() : SGGrey();
     label.text = [row displayValue:row.value()];
     [label sizeToFit];
     if (!row.swatch) return label;
@@ -373,13 +420,13 @@ static UIView *valueView(SGModRow *row) {
         [fill setFill];
         [context fillRect:CGRectMake(0, 0, side, side)];
     }];
-    UIImageView *swatch = [[UIImageView alloc] initWithImage:image];
+    UIImageView *swatch = themed ? [[SGSettingsSwatch alloc] initWithImage:image] : [[UIImageView alloc] initWithImage:image];
     swatch.frame = CGRectMake(0, (height - side) / 2, side, side);
     swatch.clipsToBounds = YES;
     swatch.layer.cornerRadius = 4;
     swatch.layer.cornerCurve = kCACornerCurveContinuous;
     swatch.layer.borderWidth = 1 / UIScreen.mainScreen.scale;
-    swatch.layer.borderColor = [UIColor colorWithWhite:1 alpha:0.3].CGColor;
+    swatch.layer.borderColor = [UIColor colorWithWhite:1 alpha:0.30].CGColor;
     UIView *box = [[UIView alloc] initWithFrame:CGRectMake(0, 0, side + 8 + label.bounds.size.width, height)];
     label.center = CGPointMake(side + 8 + label.bounds.size.width / 2, height / 2);
     [box addSubview:swatch];
@@ -757,6 +804,8 @@ static void showWaiting(UITableViewCell *cell, BOOL waiting, SGModRow *dependenc
     BOOL _live;
     NSIndexPath *_nudgeAfterScroll;   // the switch a waiting row's tap is scrolling to
     SGModRow *_rowToReveal;
+    __weak UIWindowScene *_themeScene;
+    id _themeRegistration;
 }
 
 - (instancetype)initWithTitle:(NSString *)title intro:(NSString *)intro sections:(NSArray<SGModSection *> *)sections footer:(NSString *)footer {
@@ -963,6 +1012,42 @@ static void showWaiting(UITableViewCell *cell, BOOL waiting, SGModRow *dependenc
     [super viewDidLoad];
     self.tableView.tableHeaderView = _intro;
     self.tableView.tableFooterView = _footer;
+    if (self.usesSettingsTheme) {
+        self.tableView.backgroundColor = settingsColor(SGPageBackground(), UIColor.systemGroupedBackgroundColor);
+        self.tableView.separatorColor = settingsColor([UIColor colorWithWhite:1 alpha:0.1], UIColor.separatorColor);
+        ((UILabel *)_intro.subviews.firstObject).textColor = settingsSecondary();
+        ((UILabel *)_footer.subviews.firstObject).textColor = settingsSecondary();
+    }
+}
+
+- (void)refreshSettingsTheme {
+    if (!self.usesSettingsTheme) return;
+    if (@available(iOS 17.0, *)) {
+        BOOL enabled = SGHidden(SGKeySettingsThemes);
+        SGSettingsTheme theme = enabled ? settingsTheme() : SGSettingsThemeDark;
+        UIWindowScene *scene = self.viewIfLoaded.window.windowScene ?: self.navigationController.viewIfLoaded.window.windowScene;
+        UIWindowScene *observed = theme == SGSettingsThemeSystem ? scene : nil;
+        if (_themeScene != observed) {
+            if (_themeRegistration) [_themeScene unregisterForTraitChanges:_themeRegistration];
+            _themeScene = observed;
+            __weak typeof(self) weakSelf = self;
+            _themeRegistration = [observed registerForTraitChanges:@[UITraitUserInterfaceStyle.class]
+                withHandler:^(__kindof UIWindowScene *changedScene, UITraitCollection *previous) {
+                    [weakSelf refreshSettingsTheme];
+                }];
+        }
+        // The scene follows iOS even when Spotify sets a dark override on its own window or controller.
+        BOOL light = theme == SGSettingsThemeLight ||
+            (theme == SGSettingsThemeSystem && scene.traitCollection.userInterfaceStyle == UIUserInterfaceStyleLight);
+        // Do not override the host's window or navigation controller.
+        self.tableView.overrideUserInterfaceStyle = light ? UIUserInterfaceStyleLight : UIUserInterfaceStyleUnspecified;
+    }
+}
+
+- (void)dealloc {
+    if (@available(iOS 17.0, *)) {
+        if (_themeRegistration) [_themeScene unregisterForTraitChanges:_themeRegistration];
+    }
 }
 
 - (void)viewWillLayoutSubviews {
@@ -985,6 +1070,7 @@ static void showWaiting(UITableViewCell *cell, BOOL waiting, SGModRow *dependenc
 
 - (void)viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
+    [self refreshSettingsTheme];
     SGDressPageBar(self);
     // Reloaded whether or not anything ticks: a choice row is showing whatever was picked on the
     // page it opened, which is gone by the time this one comes back, and may bring rows or take them.
@@ -1016,6 +1102,7 @@ static void showWaiting(UITableViewCell *cell, BOOL waiting, SGModRow *dependenc
 
 - (void)viewDidAppear:(BOOL)animated {
     [super viewDidAppear:animated];
+    [self refreshSettingsTheme];
     if (_rowToReveal) {
         NSIndexPath *path = [self pathOfRow:_rowToReveal];
         _rowToReveal = nil;
@@ -1078,12 +1165,13 @@ static void showWaiting(UITableViewCell *cell, BOOL waiting, SGModRow *dependenc
             NSString *text = [row displayValue:row.value()];
             UILabel *shown = (UILabel *)cell.accessoryView.subviews.firstObject;
             if (![shown isKindOfClass:UILabel.class] || [shown.text isEqualToString:text]) continue;
-            cell.accessoryView = valueAndChevron(text);
+            cell.accessoryView = valueAndChevron(text, self.usesSettingsTheme);
             continue;
         }
         if (row.swatch) {
             UILabel *shown = (UILabel *)cell.accessoryView.subviews.lastObject;
-            if ([shown isKindOfClass:UILabel.class] && ![shown.text isEqualToString:[row displayValue:row.value()]]) cell.accessoryView = valueView(row);
+            if ([shown isKindOfClass:UILabel.class] && ![shown.text isEqualToString:[row displayValue:row.value()]])
+                cell.accessoryView = valueView(row, self.usesSettingsTheme);
             continue;
         }
         UILabel *label = (UILabel *)cell.accessoryView;
@@ -1121,7 +1209,9 @@ static void showWaiting(UITableViewCell *cell, BOOL waiting, SGModRow *dependenc
 
 - (UIView *)tableView:(UITableView *)table viewForHeaderInSection:(NSInteger)section {
     NSString *title = _sections[(NSUInteger)section].title;
-    return title && ![self isEmpty:section] ? SGSectionHeader(table, title) : nil;
+    UIView *header = title && ![self isEmpty:section] ? SGSectionHeader(table, title) : nil;
+    if (self.usesSettingsTheme) ((UILabel *)header.subviews.firstObject).textColor = settingsSecondary();
+    return header;
 }
 
 - (CGFloat)tableView:(UITableView *)table heightForHeaderInSection:(NSInteger)section {
@@ -1131,7 +1221,9 @@ static void showWaiting(UITableViewCell *cell, BOOL waiting, SGModRow *dependenc
 
 - (UIView *)tableView:(UITableView *)table viewForFooterInSection:(NSInteger)section {
     NSString *footer = _sections[(NSUInteger)section].footer;
-    return footer && ![self isEmpty:section] ? SGSectionFooter(table, footer) : nil;
+    UIView *note = footer && ![self isEmpty:section] ? SGSectionFooter(table, footer) : nil;
+    if (self.usesSettingsTheme) ((UILabel *)note.subviews.firstObject).textColor = settingsSecondary();
+    return note;
 }
 
 - (CGFloat)tableView:(UITableView *)table heightForFooterInSection:(NSInteger)section {
@@ -1164,6 +1256,14 @@ static void showWaiting(UITableViewCell *cell, BOOL waiting, SGModRow *dependenc
     BOOL tile = row.symbol && !row.color && self.tiles;
     if (tile) content.image = row.tint ? SGTileImageTinted(row.symbol, row.tint) : SGTileImage(row.symbol);
     else if (!row.color) content.image = nil;
+    if (self.usesSettingsTheme) {
+        UIColor *primary = row.color ? settingsColor(row.color, SGColorRGB(0xA4251C)) :
+            settingsColor(UIColor.whiteColor, UIColor.labelColor);
+        content.textProperties.color = primary;
+        content.secondaryTextProperties.color = row.color ? primary : settingsSecondary();
+        content.imageProperties.tintColor = primary;
+        cell.backgroundColor = settingsColor(SGCardBackground(), UIColor.secondarySystemGroupedBackgroundColor);
+    }
     cell.contentConfiguration = content;
     cell.separatorInset = UIEdgeInsetsMake(0, tile ? SGTileRowInset : row.symbol && row.color ? 48 : 16, 0, 0);
 
@@ -1193,13 +1293,15 @@ static void showWaiting(UITableViewCell *cell, BOOL waiting, SGModRow *dependenc
         cell.accessoryView = row.info ? [self infoButtonBeside:toggle] : toggle;
         cell.selectionStyle = locked ? UITableViewCellSelectionStyleDefault : UITableViewCellSelectionStyleNone;
     } else if (row.page) {
-        UIView *link = row.value && !SGAccessibilityTextSize() ? valueAndChevron([row displayValue:row.value()]) : SGChevronView();
+        UIView *link = row.value && !SGAccessibilityTextSize() ? valueAndChevron([row displayValue:row.value()], self.usesSettingsTheme) : SGChevronView();
+        if (self.usesSettingsTheme && [link isKindOfClass:UIImageView.class])
+            link.tintColor = settingsColor(UIColor.whiteColor, UIColor.secondaryLabelColor);
         cell.accessoryView = row.info ? [self infoButtonBeside:link] : link;
         cell.selectionStyle = UITableViewCellSelectionStyleDefault;
     } else if (row.menu) {
         cell.accessoryView = [self menuButtonFor:row];
     } else if (row.value) {
-        cell.accessoryView = SGAccessibilityTextSize() ? nil : valueView(row);
+        cell.accessoryView = SGAccessibilityTextSize() ? nil : valueView(row, self.usesSettingsTheme);
         cell.selectionStyle = row.action ? UITableViewCellSelectionStyleDefault : UITableViewCellSelectionStyleNone;
     } else if (row.action) {
         cell.selectionStyle = UITableViewCellSelectionStyleDefault;
@@ -1247,6 +1349,7 @@ static void showWaiting(UITableViewCell *cell, BOOL waiting, SGModRow *dependenc
     [row.menu enumerateObjectsUsingBlock:^(NSString *name, NSUInteger i, BOOL *stop) {
         UIAction *item = [UIAction actionWithTitle:[row displayValue:name] image:nil identifier:nil handler:^(UIAction *action) {
             if (row.chosen) row.chosen((NSInteger)i);
+            [weakSelf refreshSettingsTheme];
             [weakSelf.tableView reloadData];
         }];
         item.state = [name isEqualToString:current] ? UIMenuElementStateOn : UIMenuElementStateOff;
@@ -1258,7 +1361,7 @@ static void showWaiting(UITableViewCell *cell, BOOL waiting, SGModRow *dependenc
     look.image = [UIImage systemImageNamed:@"chevron.up.chevron.down" withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:11 weight:UIImageSymbolWeightSemibold]];
     look.imagePlacement = NSDirectionalRectEdgeTrailing;
     look.imagePadding = 5;
-    look.baseForegroundColor = SGGrey();
+    look.baseForegroundColor = self.usesSettingsTheme ? settingsSecondary() : SGGrey();
     look.contentInsets = NSDirectionalEdgeInsetsMake(8, 8, 8, 0);
     UIButton *button = [UIButton buttonWithConfiguration:look primaryAction:nil];
     button.menu = [UIMenu menuWithChildren:items];
@@ -1275,7 +1378,7 @@ static void showWaiting(UITableViewCell *cell, BOOL waiting, SGModRow *dependenc
     UIButton *info = [UIButton buttonWithType:UIButtonTypeSystem];
     UIImageSymbolConfiguration *symbol = [UIImageSymbolConfiguration configurationWithPointSize:17 weight:UIImageSymbolWeightRegular];
     [info setImage:[UIImage systemImageNamed:@"info.circle" withConfiguration:symbol] forState:UIControlStateNormal];
-    info.tintColor = SGGrey();
+    info.tintColor = self.usesSettingsTheme ? settingsSecondary() : SGGrey();
     info.accessibilityLabel = SGL(@"About this setting");
     [info addTarget:self action:@selector(infoTapped:) forControlEvents:UIControlEventTouchUpInside];
     [toggle sizeToFit];
@@ -1328,6 +1431,7 @@ static const NSTimeInterval kGlassSwitchSettle = 0.95;
     if (row.flag) SGSetFlagOverride(row.key, on ? @(!row.forceOff) : nil);
     else SGSetEnabled(row.key, on != row.inverted);
     if (row.changed) row.changed(on);
+    if ([row.key isEqualToString:SGKeySettingsThemes]) [self refreshSettingsTheme];
     // A glowing switch is let finish its slide before the reload puts a new one in its place; rows coming
     // or going are let finish first too. So is iOS 26's switch below iOS 26 (SGGlassSwitch.x): its drop crosses the
     // track and falls back over about 0.7 s, and a reload at once put a fresh switch in its place mid-way, so all
