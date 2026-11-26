@@ -75,7 +75,17 @@ int main(void) {
         found = SGImportedLRCFor(@"spotify:track:x", @"HALO", @"beyonce");
         CHECK(SGImportedLRCOffset(name) == 750);
         CHECK(found.karaokeLines.firstObject.start == 10750 && found.starts.firstObject.integerValue == 10750);
+        SGLyricsQuery *query = [SGLyricsQuery new];
+        query.trackID = @"spotify:track:x";
+        query.title = @"HALO";
+        query.artist = @"beyonce";
+        __block SGLyricsResult *answer;
+        SGImportedLRCAsk(query, ^(SGLyricsResult *result) { answer = result; });
+        CHECK(answer.karaokeLines.firstObject.start == 10750);
         NSArray<NSString *> *order = SGLyricsOrder();
+        SGLyricsSetOrder(@[@"lrclib"]);
+        SGImportedLRCAsk(query, ^(SGLyricsResult *result) { answer = result; });
+        CHECK(!answer);
         SGLyricsSetOrder(@[]);
         CHECK(SGImportedLRCFor(@"spotify:track:x", @"HALO", @"beyonce").karaokeLines.firstObject.start == 10750);
         SGLyricsSetOrder(order);

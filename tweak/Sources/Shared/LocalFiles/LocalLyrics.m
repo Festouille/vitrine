@@ -330,6 +330,10 @@ SGLyricsResult *SGImportedLRCFor(NSString *trackID, NSString *title, NSString *a
 }
 
 SGLyricsAsk SGImportedLRCAsk = ^(SGLyricsQuery *query, void (^done)(SGLyricsResult *result)) {
+    if (![SGLyricsOrder() containsObject:SGImportedLRCKey]) {
+        done(nil);
+        return;
+    }
     done(SGImportedLRCFor(query.trackID, query.title, query.artist));
 };
 

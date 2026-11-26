@@ -623,13 +623,19 @@ static BOOL linesShown(void) {
                 [NSNotificationCenter.defaultCenter postNotificationName:SGKaraokeLinesInvalidatedNotification object:track];
                 BOOL picked = [SGLyricsChosenSource(track) isEqualToString:SGImportedLRCKey];
                 if (picked || [SGLyricsCreditFor(track) isEqualToString:importedCredit]) {
-                    SGLyricsQuery *query = SGLocalFileIs(track) ? nil : SGLyricsQueryFor(track);
-                    SGLyricsResult *fresh = SGImportedLRCFor(track, query.title, query.artist);
-                    if (!fresh) continue;
-                    if (picked) SGLyricsKeepChosen(track, fresh);
-                    else if ([imported containsObject:track]) SGLyricsRestoreKept(track, fresh);
-                    SGLyricsSetCredit(track, fresh.provider);
-                    keep(track, fresh.karaokeLines);
+                    BOOL local = SGLocalFileIs(track);
+                    BOOL useSource = !local || [SGLyricsOrder() containsObject:SGImportedLRCKey];
+                    void (^reload)(SGLyricsResult *) = ^(SGLyricsResult *fresh) {
+                        if (!fresh) return;
+                        if (useSource) {
+                            if (picked) SGLyricsKeepChosen(track, fresh);
+                            else if ([imported containsObject:track]) SGLyricsRestoreKept(track, fresh);
+                        }
+                        SGLyricsSetCredit(track, fresh.provider);
+                        keep(track, fresh.karaokeLines);
+                    };
+                    if (local) reload(SGImportedLRCFor(track, nil, nil));
+                    else SGImportedLRCAsk(SGLyricsQueryFor(track), reload);
                 }
             }
         }
