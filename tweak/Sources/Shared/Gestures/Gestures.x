@@ -149,7 +149,9 @@ static BOOL miniPlayerGesturesEnabled(void) {
     if (hold.state != UIGestureRecognizerStateBegan || !miniPlayerGesturesEnabled()) return;
     UIView *card = hold.view;
     UIViewController *presenter = card.window.rootViewController;
-    if (!presenter || presenter.presentedViewController) return;
+    while (presenter.presentedViewController) presenter = presenter.presentedViewController;
+    UIView *presentationView = presenter.viewIfLoaded;
+    if (!presentationView || presenter.isBeingDismissed || ![card isDescendantOfView:presentationView]) return;
     SPTNowPlayingPlaybackControllerImplementation *player = sg_player;
     UIAlertController *menu = [UIAlertController alertControllerWithTitle:@"Mini player"
                                                                   message:nil preferredStyle:UIAlertControllerStyleActionSheet];
