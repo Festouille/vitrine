@@ -3,9 +3,14 @@
 // lines and the clock come from Karaoke.
 #import <Foundation/Foundation.h>
 
+@class SGKaraokeLine;
+
 #define SGKeyLockScreenLyrics @"spotifyglass.lockScreenLyrics"
 // The line's translation in its place, for lines that already have one (as the Live Activity's Translations).
 #define SGKeyLockScreenTranslation @"spotifyglass.lockScreenLyrics.translation"
+
+// The revealed part of the line that fits in the artist row; next is the next word's start, or -1.
+NSString *SGLockScreenLyricText(SGKaraokeLine *line, NSInteger position, NSInteger *next);
 
 // Moving artwork with lyrics: the moving artwork clip found for the track `uri`, a local file, which
 // LyricsArtwork.x draws the lines over while that track plays. Main queue.

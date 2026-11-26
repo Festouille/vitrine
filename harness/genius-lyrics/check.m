@@ -6,6 +6,7 @@
 // wrong answer.
 #import <UIKit/UIKit.h>
 #import "Shared/LyricsSources/LyricsSources.h"
+#import "Shared/LockScreenLyrics/LockScreenLyrics.h"
 #import "Settings/SGModPage.h"
 
 #define CHECK(cond) do { if (!(cond)) { fprintf(stderr, "FAILED line %d: %s\n", __LINE__, #cond); exit(1); } } while (0)
@@ -279,12 +280,52 @@ static void checkTiming(void) {
     puts("plain lyric timing: estimates, vocal gap, slow delivery, and ambiguous lines held");
 }
 
+static void checkLockScreenLyrics(void) {
+    SGKaraokeLine *line = SGKaraokeEstimatedLines(@[@1000], @[@"One two three"]).firstObject;
+    NSInteger next;
+    CHECK(SGLockScreenLyricText(line, 999, &next) == nil && next == 1000);
+    CHECK([SGLockScreenLyricText(line, 1000, &next) isEqualToString:@"One"] && next == line.words[1].start);
+    CHECK([SGLockScreenLyricText(line, line.words[1].start, &next) isEqualToString:@"One two"] && next == line.words[2].start);
+    CHECK([SGLockScreenLyricText(line, line.end, &next) isEqualToString:@"One two three"] && next == -1);
+    CHECK([SGLockScreenLyricText(line, 1000, &next) isEqualToString:@"One"]);
+
+    SGKaraokeLine *joined = SGKaraokeStaticLines(@[@"春夏秋"]).firstObject;
+    joined.timing = SGKaraokeTimingWords;
+    joined.words[0].start = 1000;
+    joined.words[1].start = 1700;
+    joined.words[2].start = 2500;
+    CHECK([SGLockScreenLyricText(joined, 2499, &next) isEqualToString:@"春夏"] && next == 2500);
+
+    SGKaraokeLine *longLine = SGKaraokeEstimatedLines(@[@1000], @[@"abcdefghijkl mnopqrstuvwx ABCDEFGHIJKL MNOPQRSTUVWX"]).firstObject;
+    CHECK([SGLockScreenLyricText(longLine, longLine.words[2].start - 1, &next) isEqualToString:@"abcdefghijkl mnopqrstuvwx"]);
+    CHECK([SGLockScreenLyricText(longLine, next, &next) isEqualToString:@"mnopqrstuvwx ABCDEFGHIJKL"] && next == longLine.words[3].start);
+
+    longLine.words[0].start = 1000;
+    longLine.words[1].start = 1140;
+    longLine.words[2].start = 1180;
+    longLine.words[3].start = 1500;
+    CHECK([SGLockScreenLyricText(longLine, 1000, &next) isEqualToString:@"abcdefghijkl"] && next == 1140);
+    CHECK([SGLockScreenLyricText(longLine, 1200, &next) isEqualToString:@"mnopqrstuvwx ABCDEFGHIJKL"] && next == 1500);
+
+    SGKaraokeLine *syllables = SGKaraokeEstimatedLines(@[@1000], @[@"every thing will be all right today"]).firstObject;
+    syllables.timing = SGKaraokeTimingWords;
+    syllables.words[1].joined = YES;
+    CHECK([SGLockScreenLyricText(syllables, syllables.words[1].start, &next) isEqualToString:@"everything"]);
+    CHECK([SGLockScreenLyricText(syllables, syllables.end, &next) isEqualToString:@"will be all right today"]);
+
+    SGKaraokeLine *unspaced = SGKaraokeEstimatedLines(@[@1000], @[[@"春夏秋冬" stringByPaddingToLength:32 withString:@"春夏秋冬" startingAtIndex:0]]).firstObject;
+    unspaced.timing = SGKaraokeTimingWords;
+    CHECK(SGLockScreenLyricText(unspaced, unspaced.end, &next).length == 30 && next == -1);
+    puts("lock screen lyrics: fast boundaries, joined syllables and unspaced text held");
+}
+
 int main(int argc, char **argv) {
     @autoreleasepool {
         sg_live = argc > 1 && !strcmp(argv[1], "live");
         checkPicks();
         checkEmbed();
         checkTiming();
+        checkLockScreenLyrics();
         if (sg_live) checkLive();
         printf("all good\n");
     }
