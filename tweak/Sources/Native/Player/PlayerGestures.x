@@ -9,16 +9,16 @@
 #import "Core/SGCore.h"
 #import "Shared/Gestures/Gestures.h"
 #import "Shared/Haptics/Haptics.h"
+#import "Shared/Player/HoldSpeed.h"
 #import "Shared/Player/SpeedPitch.h"
 #import "Shared/Player/PlayerSettings.h"
 
 #pragma mark - hold to play faster
 
-// Holding either side of the cover plays at kHoldSpeed until the finger lifts, and the speed set before
-// comes back. The middle third is left alone, and a hold that starts to move is a swipe to the next track.
-// It is a speed like the menu's, so with Pitch follows speed on (until switched off) it also plays an
-// octave higher, the way a record does.
-static const double kHoldSpeed = 2;
+// Holding either side of the cover plays at the chosen hold speed (Shared/Player/HoldSpeed.h, 2x until changed)
+// until the finger lifts, and the speed set before comes back. The middle third is left alone, and a hold that
+// starts to move is a swipe to the next track. It is a speed like the menu's, so with Pitch follows speed on
+// (until switched off) it also plays higher, the way a record does.
 // The now playing bar's cover has a tilt view of its own, 40pt; the player's is about 354.
 static const CGFloat kCoverMinWidth = 200;
 static char kHoldKey;
@@ -40,16 +40,16 @@ static const NSTimeInterval kBadgeEnter = 0.2, kBadgeExit = 0.15;
     UIView *cover = self.view;
     if (self.state == UIGestureRecognizerStateBegan) {
         CGFloat x = [self locationInView:cover].x, third = cover.bounds.size.width / 3;
-        if ((x > third && x < 2 * third) || !SGPlayerSpeedAllowed()) {
+        if (!SGPlayerHoldSpeedEnabled() || (x > third && x < 2 * third) || !SGPlayerSpeedAllowed()) {
             self.enabled = NO;
             self.enabled = YES;   // cancels this hold
             return;
         }
         _before = SGPlayerSpeed();
-        SGSetPlayerSpeed(kHoldSpeed);
+        SGSetPlayerSpeed(SGPlayerHoldSpeed());
         SGPlayFeedback(SGFeedbackGrab);
         [self showBadge:YES on:cover];
-        UIAccessibilityPostNotification(UIAccessibilityAnnouncementNotification, @"Playing at 2 times speed");
+        UIAccessibilityPostNotification(UIAccessibilityAnnouncementNotification, SGPlayerHoldSpeedAnnouncement());
     } else if (self.state == UIGestureRecognizerStateEnded || self.state == UIGestureRecognizerStateCancelled
                || self.state == UIGestureRecognizerStateFailed) {
         if (_before > 0) SGSetPlayerSpeed(_before);
@@ -58,28 +58,37 @@ static const NSTimeInterval kBadgeEnter = 0.2, kBadgeExit = 0.15;
     }
 }
 
-// "2×" and a forward glyph on a capsule of the look's glass (SGGlassEffect: Liquid Glass from iOS 26, the dark
-// chrome blur before) at the top of the cover while it is held. What fades is the effect, never an alpha
-// over it, which UIKit draws a blur under wrongly or not at all.
+// The chosen speed (e.g. "2×") and a forward glyph on a capsule of the look's glass (SGGlassEffect: Liquid Glass
+// from iOS 26, the dark chrome blur before) at the top of the cover while it is held. What fades is the effect,
+// never an alpha over it, which UIKit draws a blur under wrongly or not at all.
 - (void)showBadge:(BOOL)shown on:(UIView *)cover {
-    if (shown && !_badge) {
-        _badgeLabel = [UILabel new];
+    if (shown) {
+        if (!_badge) {
+            _badgeLabel = [UILabel new];
+            _badgeLabel.textAlignment = NSTextAlignmentCenter;
+            _badge = [[UIVisualEffectView alloc] initWithEffect:nil];
+            _badge.overrideUserInterfaceStyle = UIUserInterfaceStyleDark;
+            _badge.userInteractionEnabled = NO;
+            _badge.frame = CGRectMake(0, 0, 92, 34);
+            SGShapeGlass(_badge, 17, YES);
+            _badgeLabel.frame = _badge.bounds;
+            _badgeLabel.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+            [_badge.contentView addSubview:_badgeLabel];
+        }
         UIFont *font = [UIFont systemFontOfSize:15 weight:UIFontWeightSemibold];
         NSTextAttachment *arrows = [NSTextAttachment textAttachmentWithImage:[[UIImage systemImageNamed:@"forward.fill"
             withConfiguration:[UIImageSymbolConfiguration configurationWithFont:font]] imageWithTintColor:UIColor.whiteColor
             renderingMode:UIImageRenderingModeAlwaysOriginal]];
-        NSMutableAttributedString *text = [[NSMutableAttributedString alloc] initWithString:@"2×  "
+        NSMutableAttributedString *text = [[NSMutableAttributedString alloc] initWithString:[SGPlayerHoldSpeedLabel() stringByAppendingString:@"  "]
             attributes:@{NSFontAttributeName: font, NSForegroundColorAttributeName: UIColor.whiteColor}];
         [text appendAttributedString:[NSAttributedString attributedStringWithAttachment:arrows]];
         _badgeLabel.attributedText = text;
-        _badgeLabel.textAlignment = NSTextAlignmentCenter;
-        _badge = [[UIVisualEffectView alloc] initWithEffect:nil];
-        _badge.overrideUserInterfaceStyle = UIUserInterfaceStyleDark;
-        _badge.userInteractionEnabled = NO;
-        _badge.frame = CGRectMake(0, 0, 92, 34);
-        SGShapeGlass(_badge, 17, YES);
-        _badgeLabel.frame = _badge.bounds;
-        [_badge.contentView addSubview:_badgeLabel];
+        CGFloat width = MAX(92, ceil(_badgeLabel.intrinsicContentSize.width) + 28);
+        if (fabs(_badge.bounds.size.width - width) > 0.5) {
+            _badge.bounds = CGRectMake(0, 0, width, 34);
+            SGShapeGlass(_badge, 17, YES);
+            _badgeLabel.frame = _badge.bounds;
+        }
     }
     if (!_badge) return;
     _badgeShown = shown;
@@ -87,12 +96,12 @@ static const NSTimeInterval kBadgeEnter = 0.2, kBadgeExit = 0.15;
     UILabel *label = _badgeLabel;
     if (shown) {
         if (badge.superview != cover) {
-            badge.center = CGPointMake(CGRectGetMidX(cover.bounds), 30);
             badge.effect = nil;
             label.alpha = 0;
             badge.transform = UIAccessibilityIsReduceMotionEnabled() ? CGAffineTransformIdentity : CGAffineTransformMakeScale(0.9, 0.9);
             [cover addSubview:badge];
         }
+        badge.center = CGPointMake(CGRectGetMidX(cover.bounds), 30);
         [UIView animateWithDuration:kBadgeEnter delay:0 options:UIViewAnimationOptionCurveEaseOut | UIViewAnimationOptionBeginFromCurrentState
                          animations:^{
             badge.effect = SGGlassEffect();

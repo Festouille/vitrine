@@ -504,7 +504,8 @@ Native:
     NowPlayingBar/ the device button hidden, the bar's flags
     Player/       the full screen player (Player.x), its cards and buttons hidden and a hidden lyric preview's room given
                   to the cover (PlayerDeclutter.x), the glass lyrics card (LyricsCard.x), the gestures' hookup and the hold
-                  on either side of the cover that plays at 2x until the finger lifts (PlayerGestures.x), the list's pull
+                  on either side of the cover that plays faster until the finger lifts (PlayerGestures.x, configured by
+                  Shared/Player/HoldSpeed.m: on/off and 1.5x, 2x, 3x in Mod Settings), the list's pull
                   held off while the progress bar is scrubbed (PlayerScrub.x), the Queue & devices flags. The scrub and
                   the cover's room are checked in the simulator against harness/native-player/
     Lyrics/       the full screen lyrics page on glass, and a tap on the lyrics' footer opening the pages a credit
@@ -589,7 +590,8 @@ Redesigned:
                   Pitch follows speed in a popover from the ⋯ (SpeedPitchMenu.x; below iOS 26 its background is the ⋯ menu's
                   glass, PlayerPanelGlass.m), and the backgrounds it can switch
                   to (PlayerMenu.m), and a hold on either side of the
-                  cover plays at 2x until the finger lifts (PlayerArtwork.x), an octave higher while Pitch follows
+                  cover plays faster until the finger lifts (PlayerArtwork.x, configured by Shared/Player/HoldSpeed.m:
+                  on/off and 1.5x, 2x, 3x in Mod Settings), pitched higher while Pitch follows
                   speed is on. Hide on the player's Shuffle and Repeat (spotifyglass.redesign.player.hideShuffle,
                   .hideRepeat, read at launch) take those buttons off the controls by alpha in their slots, as the
                   Music app keeps them off its own (PlayerControls.x); with both off, previous and next are translated
