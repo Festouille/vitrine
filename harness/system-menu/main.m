@@ -19,6 +19,7 @@
 #import "Settings/SGSourcesPage.h"
 #import "Shared/AnimatedArtwork/AnimatedArtwork.h"
 #import "Shared/AnimatedArtwork/SaveCanvas.h"
+#import "Shared/LocalFiles/LocalLyrics.h"
 #import "Shared/LyricsSources/LyricsSources.h"
 #import "Shared/Player/ABLoop.h"
 #import "Shared/Player/PlayerState.h"
@@ -30,6 +31,7 @@ void SGAlbumQueueInstall(UIViewController *menu) {}
 void SGBatchTranslationInstall(UIViewController *menu) {}
 BOOL SGIsAlertController(UIViewController *controller) { return [controller isKindOfClass:UIAlertController.class]; }
 void SGPlayerStylePanel(UIView *content) {}
+NSString *SGTrackLyricsLinkedTo(NSString *track) { return nil; }
 
 void SGRPlayerMenuWatch(UIView *button);
 // touch.m: a finger's touches, through UIKit's own recognizers.
