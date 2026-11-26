@@ -602,10 +602,10 @@ static UIFont *tabular(UIFont *font) {
         case SGDSPRowChoice: {
             NSInteger index = (NSInteger)lround(SGDSPNumber(row.key));
             NSString *name = index >= 0 && index < (NSInteger)row.names.count ? row.names[(NSUInteger)index] : row.names.firstObject;
-            return [self valueCell:table title:row.title value:name];
+            return [self valueCell:table title:row.title value:SGL(name)];
         }
         case SGDSPRowPage:
-            return [self valueCell:table title:row.title value:row.value()];
+            return [self valueCell:table title:row.title value:SGL(row.value())];
     }
     return SGDequeueCell(table, @"row");
 }
@@ -613,7 +613,8 @@ static UIFont *tabular(UIFont *font) {
 // The value under the title, and a chevron.
 - (UITableViewCell *)valueCell:(UITableView *)table title:(NSString *)title value:(NSString *)value {
     UITableViewCell *cell = SGDequeueCell(table, @"value");
-    [self fillHead:cell title:title subtitle:value];
+    SGFillLiteralCell(cell, SGL(title), value.length ? value : nil, nil, nil);
+    cell.separatorInset = UIEdgeInsetsMake(0, 16, 0, 0);
     cell.accessoryView = SGChevronView();
     cell.accessibilityValue = value;
     cell.selectionStyle = UITableViewCellSelectionStyleDefault;

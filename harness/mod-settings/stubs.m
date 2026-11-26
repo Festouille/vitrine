@@ -39,6 +39,8 @@ UIViewController *SGHomeSettingsPage(void) {
         ] footer:nil];
     });
     library.waitsOn = gate;
+    SGModRow *literal = SGActionRow(@"Calm", nil, ^{});
+    literal.literal = YES;
     return [[SGModPage alloc] initWithTitle:@"Home & Library" intro:nil sections:@[
         SGSection(nil, @[SGPageRow(@"Gradient", ^UIViewController *{
             return [[SGModPage alloc] initWithTitle:@"Gradient" intro:nil sections:@[
@@ -46,6 +48,7 @@ UIViewController *SGHomeSettingsPage(void) {
             ] footer:nil];
         })]),
         SGSection(nil, @[SGOptionRow(@"Enable Library options", nil, gate), library]),
+        SGSection(nil, @[literal]),
     ] footer:nil];
 }
 

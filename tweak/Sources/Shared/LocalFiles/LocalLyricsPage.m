@@ -99,8 +99,8 @@ static NSString *playingLocalFile(void) {
             SGFillCell(cell, @"Import LRC…", @"Matched by title and artist", nil, @"square.and.arrow.down");
         } else {
             NSString *uri = playingLocalFile();
-            NSString *title = SGLocalFileInfo(uri)[@"title"] ?: @"The local file playing";
-            SGFillCell(cell, @"Import for current track…", uri ? title : @"Start playing a local track first",
+            NSString *title = SGLocalFileInfo(uri)[@"title"] ?: SGL(@"The local file playing");
+            SGFillLiteralCell(cell, SGL(@"Import for current track…"), uri ? title : SGL(@"Start playing a local track first"),
                        uri ? nil : SGGrey(), @"music.note");
         }
         BOOL enabled = path.row == SGLRCImportByName || playingLocalFile();
@@ -116,7 +116,7 @@ static NSString *playingLocalFile(void) {
     NSString *name = _files[(NSUInteger)path.row];
     NSInteger offset = SGImportedLRCOffset(name);
     NSString *detail = offset ? [NSString stringWithFormat:SGL(@"Timing offset: %+ld ms"), (long)offset] : SGL(@"Timing offset: 0 ms");
-    SGFillCell(cell, name, detail, nil, nil);
+    SGFillLiteralCell(cell, name, detail, nil, nil);
     return cell;
 }
 

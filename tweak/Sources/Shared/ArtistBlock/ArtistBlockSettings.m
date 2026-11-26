@@ -96,7 +96,7 @@ typedef NS_ENUM(NSInteger, SGArtistSection) {
                 break;
             }
             NSDictionary *artist = _blocked[(NSUInteger)path.row];
-            SGFillCell(cell, artist[SGArtistName], artist[SGArtistURI], nil, nil);
+            SGFillLiteralCell(cell, artist[SGArtistName], artist[SGArtistURI], nil, nil);
             break;
     }
     return cell;

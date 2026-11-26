@@ -5,13 +5,15 @@
 #import "Shared/LocalFiles/LocalLyrics.h"
 #import "Shared/LockScreenLyrics/LockScreenLyrics.h"
 #import "Shared/LyricsSources/LyricsSources.h"
+#import "Settings/SGLocalize.h"
 
 SGModSection *SGLyricsSourcesSection(BOOL namingSource) {
     SGModRow *sources = SGPageRow(@"Sources", ^UIViewController *{ return SGLyricsSourcesPage(); });
+    sources.literalValue = YES;
     sources.value = ^NSString *{
         // The first one asked and how many follow it, short enough to sit beside the title.
         NSArray<NSString *> *order = SGLyricsOrder();
-        if (!order.count) return @"Off";
+        if (!order.count) return SGL(@"Off");
         NSString *first = SGLyricsProviderFor(order.firstObject).name;
         return order.count == 1 ? first : [NSString stringWithFormat:@"%@ +%lu", first, (unsigned long)order.count - 1];
     };

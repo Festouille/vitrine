@@ -120,7 +120,9 @@ static NSArray<NSString *> *userPresetNames(void) {
         return cell;
     }
     BOOL builtIn = path.section == 0;
-    SGFillCell(cell, (builtIn ? _builtIn : _mine)[(NSUInteger)path.row], builtIn ? SGDSPBuiltInPresetDetail(path.row) : nil, nil, nil);
+    NSString *name = (builtIn ? _builtIn : _mine)[(NSUInteger)path.row];
+    if (builtIn) SGFillCell(cell, name, SGDSPBuiltInPresetDetail(path.row), nil, nil);
+    else SGFillLiteralCell(cell, name, nil, nil, nil);
     cell.selectionStyle = UITableViewCellSelectionStyleDefault;
     tick(cell, [path isEqual:_picked]);
     return cell;
@@ -383,7 +385,7 @@ static BOOL headphoneInUse(void) {
 
 // A remembered output's correction, by name.
 static NSString *correctionName(NSString *path) {
-    return path.length ? SGAutoEqNameOf(path) : @"None";
+    return path.length ? SGAutoEqNameOf(path) : SGL(@"None");
 }
 
 - (UITableViewCell *)tableView:(UITableView *)table cellForRowAtIndexPath:(NSIndexPath *)path {
@@ -393,7 +395,7 @@ static NSString *correctionName(NSString *path) {
         NSString *uid = SGAutoEqOutputUID();
         BOOL remembered = SGAutoEqOutputRemembered(uid);
         NSString *current = correctionName(headphoneInUse() ? SGDSPString(SGKeyDSPGraphicEqHeadphone) : nil);
-        SGFillCell(cell, [NSString stringWithFormat:@"Use for %@", SGAutoEqOutputName()],
+        SGFillLiteralCell(cell, [NSString stringWithFormat:SGL(@"Use for %@"), SGAutoEqOutputName()],
                    remembered ? [NSString stringWithFormat:SGL(@"%@ while it plays"), current] : [NSString stringWithFormat:SGL(@"Remember %@ for this output"), current], nil, nil);
         cell.selectionStyle = UITableViewCellSelectionStyleNone;
         UISwitch *toggle = [UISwitch new];
@@ -407,7 +409,7 @@ static NSString *correctionName(NSString *path) {
     if (path.section == SGDSPHeadphoneRemembered) {
         NSDictionary<NSString *, NSString *> *output = _remembered[(NSUInteger)path.row];
         BOOL now = [output[@"uid"] isEqualToString:SGAutoEqOutputUID()];
-        SGFillCell(cell, output[@"name"], now ? [NSString stringWithFormat:SGL(@"%@ · playing now"), correctionName(output[@"path"])] : correctionName(output[@"path"]), nil, nil);
+        SGFillLiteralCell(cell, output[@"name"], now ? [NSString stringWithFormat:SGL(@"%@ · playing now"), correctionName(output[@"path"])] : correctionName(output[@"path"]), nil, nil);
         cell.selectionStyle = UITableViewCellSelectionStyleNone;
         cell.accessibilityTraits = UIAccessibilityTraitNone;
         cell.accessibilityHint = @"Swipe left to remove";
@@ -432,7 +434,7 @@ static NSString *correctionName(NSString *path) {
         return cell;
     }
     SGAutoEqHeadphone *headphone = _shown[(NSUInteger)path.row];
-    SGFillCell(cell, headphone.name, headphone.source, nil, nil);
+    SGFillLiteralCell(cell, headphone.name, headphone.source, nil, nil);
     cell.selectionStyle = UITableViewCellSelectionStyleDefault;
     if ([headphone.path isEqualToString:_applying]) {
         UIActivityIndicatorView *spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];
@@ -502,5 +504,5 @@ UIViewController *SGDSPHeadphonesPage(void) {
 
 NSString *SGDSPHeadphoneSummary(void) {
     NSString *path = SGDSPString(SGKeyDSPGraphicEqHeadphone);
-    return path.length && SGDSPSwitch(SGKeyDSPGraphicEq) ? SGAutoEqNameOf(path) : @"None";
+    return path.length && SGDSPSwitch(SGKeyDSPGraphicEq) ? SGAutoEqNameOf(path) : SGL(@"None");
 }

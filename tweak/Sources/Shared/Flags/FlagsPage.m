@@ -100,7 +100,7 @@ static NSString *flagState(const SGFlagDef *flag, id value) {
     NSUInteger dot = [key rangeOfString:@"."].location;
     id value = _overrides[key];
 
-    SGFillCell(cell, [key substringFromIndex:dot + 1],
+    SGFillLiteralCell(cell, [key substringFromIndex:dot + 1],
              [NSString stringWithFormat:@"%@ · %@", [key substringToIndex:dot], flagState(flag, value)],
              value ? SGGreen() : nil, nil);
     cell.backgroundColor = UIColor.clearColor;

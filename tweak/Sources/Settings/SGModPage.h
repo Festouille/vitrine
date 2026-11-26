@@ -11,6 +11,10 @@
 @interface SGModRow : NSObject
 @property (nonatomic, copy) NSString *title;
 @property (nonatomic, copy) NSString *subtitle;
+@property (nonatomic) BOOL literal;   // row text is a stored or runtime name
+@property (nonatomic) BOOL literalValue;   // values and choice/menu names are not mod copy
+- (NSString *)displayText:(NSString *)text;
+- (NSString *)displayValue:(NSString *)value;
 @property (nonatomic, copy) NSString *key;
 @property (nonatomic) BOOL defaultOn;
 @property (nonatomic) BOOL flag;

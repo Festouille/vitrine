@@ -196,7 +196,7 @@ static UITableViewCell *tiledCell(UITableView *table, NSString *title, NSString 
     }
     NSString *name = _files[(NSUInteger)path.row];
     BOOL chosen = [name isEqualToString:SGDSPString(fileKeyOf(_kind))];
-    SGFillCell(cell, name, nil, nil, nil);
+    SGFillLiteralCell(cell, name, nil, nil, nil);
     cell.selectionStyle = UITableViewCellSelectionStyleDefault;
     if (chosen) {
         UIImageView *tick = SGSymbolView(@"checkmark", 13, UIImageSymbolWeightSemibold, 16);

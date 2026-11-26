@@ -25,7 +25,11 @@ UIViewController *SGRHomeSettingsPage(void) {
     heading.waitsOn = SGRKeyHomeTopPicks;
 
     NSMutableArray<SGModRow *> *rows = [NSMutableArray array];
-    for (NSString *identity in shelves) [rows addObject:SGShownRow(identity, nil, SGRHomeShelfHideKey(identity))];
+    for (NSString *identity in shelves) {
+        SGModRow *row = SGShownRow(identity, nil, SGRHomeShelfHideKey(identity));
+        row.literal = YES;
+        [rows addObject:row];
+    }
     if (!rows.count) [rows addObject:SGStatRow(@"None seen yet", ^NSString *{ return @""; })];
 
     return [[SGModPage alloc] initWithTitle:@"Home" intro:SGRestartNote sections:@[

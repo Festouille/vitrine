@@ -903,6 +903,13 @@ NSDictionary<NSString *, NSString *> *SGStringsTR(void) {
             @"Smaller": @"Daha küçük",
             @"Smallest": @"En küçük",
             @"Pronunciation": @"Telaffuz",
+            @"Use for %@": @"%@ için kullan",
+            @"The local file playing": @"Çalınan yerel dosya",
+            @"Apart, on the right": @"Ayrı, sağda",
+            @"Current icon": @"Geçerli simge",
+            @"Hidden": @"Gizli",
+            @"Spotify's own tab": @"Spotify’ın kendi sekmesi",
+            @"Start playing a local track first": @"Önce yerel bir parça çalın",
         };
     });
     return strings;

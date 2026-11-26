@@ -25,7 +25,7 @@ static void indexPage(NSArray<SGModPage *> *route, NSString *path, NSString *eng
             match.path = location;
             NSString *englishLocation = section.length ? [NSString stringWithFormat:@"%@ › %@", englishPath, section] : englishPath;
             match.text = [NSString stringWithFormat:@"%@ %@ %@ %@",
-                          SGL(row.title), SGL(row.subtitle) ?: @"", SGL(row.info) ?: @"", location];
+                          [row displayText:row.title], [row displayText:row.subtitle] ?: @"", [row displayText:row.info] ?: @"", location];
             match.englishText = [NSString stringWithFormat:@"%@ %@ %@ %@",
                                  row.title, row.subtitle ?: @"", row.info ?: @"", englishLocation];
             [index addObject:match];
@@ -34,7 +34,7 @@ static void indexPage(NSArray<SGModPage *> *route, NSString *path, NSString *eng
         UIViewController *child = row.page();
         if ([child isKindOfClass:SGModPage.class]) {
             indexPage([route arrayByAddingObject:(SGModPage *)child],
-                      [NSString stringWithFormat:@"%@ › %@", path, SGL(row.title)],
+                      [NSString stringWithFormat:@"%@ › %@", path, [row displayText:row.title]],
                       [NSString stringWithFormat:@"%@ › %@", englishPath, row.title], index);
         }
     }];
@@ -115,7 +115,7 @@ static BOOL containsTerms(NSString *text, NSArray<NSString *> *terms) {
 - (UITableViewCell *)tableView:(UITableView *)table cellForRowAtIndexPath:(NSIndexPath *)path {
     SGSettingsMatch *match = _results[(NSUInteger)path.row];
     UITableViewCell *cell = SGDequeueCell(table, @"result");
-    SGFillCell(cell, match.row.title, match.path, nil, nil);
+    SGFillLiteralCell(cell, [match.row displayText:match.row.title], match.path, nil, nil);
     cell.accessoryView = SGChevronView();
     return cell;
 }

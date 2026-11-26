@@ -199,9 +199,13 @@ const CGFloat SGSectionGap = 20;
 // Every page below draws the same row: a 13pt white title over an 11pt gray subtitle in Spotify's typeface,
 // with an optional symbol in the leading slot.
 void SGFillCell(UITableViewCell *cell, NSString *title, NSString *subtitle, UIColor *color, NSString *symbolName) {
+    SGFillLiteralCell(cell, SGL(title), SGL(subtitle), color, symbolName);
+}
+
+void SGFillLiteralCell(UITableViewCell *cell, NSString *title, NSString *subtitle, UIColor *color, NSString *symbolName) {
     UIListContentConfiguration *content = [UIListContentConfiguration subtitleCellConfiguration];
-    content.text = SGL(title);
-    content.secondaryText = SGL(subtitle);
+    content.text = title;
+    content.secondaryText = subtitle;
     content.textProperties.font = SGTitleFont();
     content.textProperties.color = color ?: UIColor.whiteColor;
     content.secondaryTextProperties.font = SGSubtitleFont();

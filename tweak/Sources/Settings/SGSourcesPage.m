@@ -100,9 +100,9 @@ typedef NS_ENUM(NSInteger, SGSourcesSection) {
     SGSource *provider = [self sourceFor:[self keysIn:path.section][(NSUInteger)path.row]];
     BOOL on = path.section == SGSourcesSectionOn;
     // The asked ones are numbered, so the order reads as an order rather than a list.
-    NSString *name = SGL(provider.name);
+    NSString *name = provider.name;
     NSString *title = on ? [NSString stringWithFormat:@"%ld. %@", (long)path.row + 1, name] : name;
-    SGFillCell(cell, title, provider.detail, on ? nil : SGGrey(), on ? @"checkmark.circle.fill" : @"circle");
+    SGFillLiteralCell(cell, title, SGL(provider.detail), on ? nil : SGGrey(), on ? @"checkmark.circle.fill" : @"circle");
     cell.selectionStyle = UITableViewCellSelectionStyleDefault;
     return cell;
 }

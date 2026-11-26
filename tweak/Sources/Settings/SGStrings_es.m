@@ -903,6 +903,13 @@ NSDictionary<NSString *, NSString *> *SGStringsES(void) {
             @"Smaller": @"Más pequeño",
             @"Smallest": @"El más pequeño",
             @"Pronunciation": @"Pronunciación",
+            @"Use for %@": @"Usar para %@",
+            @"The local file playing": @"El archivo local que se está reproduciendo",
+            @"Apart, on the right": @"Separado, a la derecha",
+            @"Current icon": @"Icono actual",
+            @"Hidden": @"Oculto",
+            @"Spotify's own tab": @"Pestaña propia de Spotify",
+            @"Start playing a local track first": @"Reproduce primero una pista local",
         };
     });
     return strings;

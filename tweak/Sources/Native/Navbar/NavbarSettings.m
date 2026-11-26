@@ -1,4 +1,5 @@
 #import "Core/SGCore.h"
+#import "Settings/SGLocalize.h"
 #import "Settings/SGPage.h"
 #import "Settings/SGPageStyle.h"
 #import "Navbar.h"
@@ -114,7 +115,7 @@ static void appendTab(NSDictionary *tab) {
     NSDictionary *entry = _entries[(NSUInteger)path.row];
     BOOL apart = [_split containsObject:entry[SGNavbarID]];
     NSString *where = [entry[SGNavbarHidden] boolValue] ? @"Hidden" : apart ? @"Apart, on the right" : @"With the others";
-    SGFillCell(cell, entry[SGNavbarTitle], where, nil, nil);
+    SGFillLiteralCell(cell, entry[SGNavbarURI] ? entry[SGNavbarTitle] : SGL(entry[SGNavbarTitle]), SGL(where), nil, nil);
     UISwitch *toggle = [UISwitch new];
     toggle.onTintColor = SGGreen();
     toggle.on = apart;
@@ -235,7 +236,7 @@ typedef NS_ENUM(NSInteger, SGNavbarSection) {
             NSDictionary *entry = _entries[(NSUInteger)path.row];
             BOOL hidden = [entry[SGNavbarHidden] boolValue];
             NSString *uri = entry[SGNavbarURI];
-            SGFillCell(cell, entry[SGNavbarTitle], hidden ? @"Hidden" : (uri ?: @"Spotify's own tab"),
+            SGFillLiteralCell(cell, uri ? entry[SGNavbarTitle] : SGL(entry[SGNavbarTitle]), hidden ? SGL(@"Hidden") : (uri ?: SGL(@"Spotify's own tab")),
                      hidden ? SGGrey() : nil, hidden ? @"eye.slash" : @"eye");
             break;
         }

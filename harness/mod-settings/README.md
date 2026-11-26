@@ -23,6 +23,10 @@ no language override to check the default, or launch with `redesign lang=fr dump
 `lang=fr search "query=player switch to video" "search-result=Passer à la vidéo"` checks that an English
 page and row query still finds the translated row.
 
+`lang=fr "pick=Accueil et Bibliothèque" pick=Calm` checks that a name matching a translation key
+stays literal in the row. Run `lang=fr search query=calm search-result=Calm query=doux search-count=0`
+to check the same name in search results.
+
 Open deeper pages with `lang=fr "pick=Lecteur" "page-title=Lecteur" dump`, or substitute
 `Paroles` or `Premium, publicités et confidentialité`. Add `redesign` for the Redesigned combined-page
 rows; the dedicated Player and Lyrics page harnesses render their Redesigned previews.
