@@ -185,6 +185,12 @@ int main(void) {
         CHECK(SGSleepTimerOnLastOfContext(state(a, @[a], @[], YES)), "repeating a one track album: the last");
         CHECK(!SGSleepTimerOnLastOfContext(state(b, @[c, a], @[a], YES)), "repeating, mid album: not the last");
         CHECK(!SGSleepTimerOnLastOfContext(state(c, @[a, b], @[b, a], NO)), "not repeating, a track played before to come: not the last");
+        // A playlist of a, b, a again, then c.
+        CHECK(!SGSleepTimerOnLastOfContext(state(b, @[a, c, a, b], @[a], YES)), "repeating, a song the playlist holds twice to come: not the last");
+        CHECK(!SGSleepTimerOnLastOfContext(state(a, @[c, a, b], @[b, a], YES)), "repeating, on the song held twice: not the last");
+        CHECK(SGSleepTimerOnLastOfContext(state(c, @[a, b, a, c], @[a, b, a], YES)), "repeating, a playlist with a song twice starting over: the last");
+        CHECK(SGSleepTimerOnLastOfContext(state(c, @[a], @[b, a], YES)), "repeating, the tracks to come cut short at the start over: the last");
+        CHECK(SGSleepTimerOnLastOfContext(state(c, @[a, b], @[queued, b, a], YES)), "repeating, a track queued by hand played: still the last");
         CHECK(!SGSleepTimerOnLastOfContext(state(b, @[@"not a track", c], @[a], NO)), "what is not a track is skipped");
 
         // The timer, in real time.

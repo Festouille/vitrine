@@ -295,8 +295,8 @@ Shared:
                   and every hook on that view (the redesign's rounding and shadow, the hold to 2x) has nothing to reach.
                   The sleep timer (SleepTimer.m, set from the Live Activity and the redesigned player's ⋯) pauses Spotify at a time, at the end of
                   the track or at the end of the album or playlist, the last track of it found by the tracks to come
-                  that are neither queued by hand nor autoplay's (SPTPlayerTrack's provider), or by the next one
-                  having played already when it repeats. Over the last seconds (the Live Activity page's Fade out: Off,
+                  that are neither queued by hand nor autoplay's (SPTPlayerTrack's provider), or when it repeats by the
+                  tracks to come playing the ones played over through this one (a song the playlist holds twice is not its end). Over the last seconds (the Live Activity page's Fade out: Off,
                   10 s, 30 s, 1 minute or 2 minutes, 30 s unless picked; at the end of a track, over the whole track
                   when it is shorter) it fades the sound 60 dB through a gain of the mod's own, applied by SpeedPitch.x's notify on the music's RemoteIO unit (never the system
                   volume), and puts the gain back a second after the pause. Spotify's own timer, from the player's

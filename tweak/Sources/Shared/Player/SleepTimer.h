@@ -48,8 +48,8 @@ void SGSleepTimerAdd(NSTimeInterval seconds);
 // way when `fade` is 0.
 float SGSleepTimerGain(NSTimeInterval left, NSTimeInterval fade);
 // Whether the playing track is the last of its album or playlist: no track of the context follows it in
-// the state's tracks to come (tracks queued by hand and autoplay's don't count), or the next one already
-// played, which is repeat starting the album over.
+// the state's tracks to come (tracks queued by hand and autoplay's don't count), or, repeating, the tracks
+// to come play the ones played over, from one of them through this one, which is the album starting over.
 BOOL SGSleepTimerOnLastOfContext(SPTPlayerState *state);
 // Seconds of the playing track left, by the player's position and the track's length; -1 when either is
 // not known. Spotify's own timer's End of track fades by it too (SpotifySleepTimer.m).
