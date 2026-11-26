@@ -247,7 +247,7 @@ static BOOL indicatorOn(UIView *button, BOOL *found) {
 // Read again on the way in -- the state may have moved on while the page was away -- and not at all
 // while out of the window.
 - (void)sgr_readAgain {
-    if (!_download && _stateShown < 0 && !self.readState) return;
+    if (!_download && _stateShown < 0 && !self.readState && !self.usesAccentWhenOn) return;
     if (self.window && self.source) [self feedFrom:self.source];
     else [self sgr_followDownload:0];
 }
@@ -393,9 +393,9 @@ static BOOL indicatorOn(UIView *button, BOOL *found) {
     // A button that says "on" with its dot is drawn in our colors, on and off. One expected to have a dot
     // and found without keeps Spotify's colors, which are then all that tells on from off.
     BOOL hasDot = NO;
-    BOOL on = self.onGlyphColor && indicatorOn(source, &hasDot);
-    UIColor *ownColor = !self.onGlyphColor ? self.glyphColor
-                      : hasDot ? (on ? self.onGlyphColor : self.glyphColor ?: SGRPrimary()) : nil;
+    BOOL on = self.usesAccentWhenOn && indicatorOn(source, &hasDot);
+    UIColor *ownColor = !self.usesAccentWhenOn ? self.glyphColor
+                      : hasDot ? (on ? SGRAccent() : self.glyphColor ?: SGRPrimary()) : nil;
     if (glyph.image && (_takenGlyph != glyph.image || (ownColor != nil) != (_glyph.image.renderingMode == UIImageRenderingModeAlwaysTemplate))) {
         _takenGlyph = glyph.image;
         _glyph.image = ownColor ? [glyph.image imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate] : glyph.image;

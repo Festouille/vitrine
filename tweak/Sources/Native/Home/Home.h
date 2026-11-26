@@ -30,3 +30,4 @@ NSInteger SGHomeChoiceValue(SGHomeChoice choice);
 
 UIViewController *SGHomeSettingsPage(void);
 UIViewController *SGHomeGradientPage(void);
+void SGHomeArtworkAccentChanged(void);

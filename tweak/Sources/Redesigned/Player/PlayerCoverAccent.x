@@ -75,8 +75,16 @@ static BOOL accentLike(CGFloat r, CGFloat g, CGFloat b) {
     CGFloat h, s, v;
     SGRAccentSwap(&r, &g, &b);
     hsv(r, g, b, &h, &s, &v);
+    if (s <= kColorful || v <= 0.2) return NO;
     CGFloat d = fabs(h - accentHue);
-    return MIN(d, 1 - d) < kHueNear && s > kColorful && v > 0.2;
+    if (MIN(d, 1 - d) < kHueNear) return YES;
+    NSInteger artwork = SGRArtworkAccentColorRGB();
+    if (artwork < 0) return NO;
+    CGFloat ar, ag, ab, ah;
+    unpack(artwork, &ar, &ag, &ab);
+    hsv(ar, ag, ab, &ah, &s, &v);
+    d = fabs(h - ah);
+    return MIN(d, 1 - d) < kHueNear;
 }
 
 BOOL SGRPlayerAccentLike(UIColor *color) {
@@ -115,6 +123,29 @@ UIColor *SGRPlayerImageInk(UIImage *image) {
     if (context) CGContextRelease(context);
     objc_setAssociatedObject(image, &kInkKey, ink ?: NSNull.null, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     return ink;
+}
+
+void SGRPlayerRepaintAccentImages(UIView *control, UIColor *(^repaint)(UIColor *ink)) {
+    SGForEachView(control, ^(UIView *view) {
+        if (![view isKindOfClass:UIImageView.class]) return;
+        UIImageView *glyph = (UIImageView *)view;
+        UIImage *tinted = objc_getAssociatedObject(glyph, &kTintedKey);
+        BOOL showingCover = tinted && glyph.image == tinted;
+        UIImage *image = showingCover ? objc_getAssociatedObject(glyph, &kOriginalKey) : glyph.image;
+        if (!image.CGImage || image.renderingMode == UIImageRenderingModeAlwaysTemplate) return;
+        UIColor *ink = repaint(SGRPlayerImageInk(image));
+        if (!ink) return;
+        UIImage *colored = [image imageWithTintColor:ink renderingMode:UIImageRenderingModeAlwaysOriginal];
+        UIGraphicsImageRendererFormat *format = [UIGraphicsImageRendererFormat formatForTraitCollection:glyph.traitCollection];
+        format.scale = image.scale;
+        UIImage *made = [[[UIGraphicsImageRenderer alloc] initWithSize:image.size format:format]
+            imageWithActions:^(UIGraphicsImageRendererContext *context) {
+                [colored drawInRect:(CGRect){CGPointZero, image.size}];
+            }];
+        made = [made imageWithAlignmentRectInsets:image.alignmentRectInsets];
+        if (showingCover) objc_setAssociatedObject(glyph, &kOriginalKey, made, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        else glyph.image = made;
+    });
 }
 
 // Whether an image is drawn in the accent, judged once and kept on it.

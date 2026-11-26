@@ -43,11 +43,11 @@
 // color while it is on). Set it for a glyph whose color is only the weight Spotify gave the control it
 // sat in: Encore bakes the color into the image it draws, so this re-renders the copy as a template.
 @property (nonatomic, copy) UIColor *glyphColor;
-// The color the glyph takes while Spotify's button is on, and glyphColor while it is off, for a button that
+// Use the current accent while Spotify's button is on, and glyphColor while it is off, for a button that
 // says it is on with the small dot Encore puts under its glyph (shuffle: trees/continuous/1.txt, a 4pt round
 // view, hidden while off). Spotify's own off gray read as a disabled button beside the white download
-// (issue #65). A button with no such dot keeps Spotify's colors. nil, the default, reads no dot.
-@property (nonatomic, copy) UIColor *onGlyphColor;
+// (issue #65). A button with no such dot keeps Spotify's colors. NO, the default, reads no dot.
+@property (nonatomic) BOOL usesAccentWhenOn;
 // For a button that shows its state only as a word in the app's language (the artist's Follow): YES with
 // whether it is on once the state is known, from wherever the page reads it. The button then draws
 // stateOffSymbol, or stateOnSymbol in the accent color, and nothing while it answers NO. Set before the
