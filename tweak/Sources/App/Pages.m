@@ -14,17 +14,20 @@
 #import "Shared/Player/ABLoop.h"
 #import "Shared/Player/HoldSpeed.h"
 #import "Shared/Player/PlayerSettings.h"
+#import "Shared/Player/QueueHelpers.h"
 #import "Shared/Sing/Sing.h"
 #import "Native/Appearance/Appearance.h"
 #import "Native/Navbar/Navbar.h"
 #import "Native/NowPlayingBar/NowPlayingBar.h"
 #import "Native/Player/NowPlaying.h"
+#import "Native/Player/QueueDuration.h"
 #import "Shared/LiveActivity/LiveActivity.h"
 #import "Shared/Lossless/SGLossless.h"
 #import "Redesigned/Lyrics/LyricsText.h"
 #import "Redesigned/Lyrics/LyricsLook.h"
 #import "Redesigned/Navbar/Navbar.h"
 #import "Redesigned/NowPlayingBar/NowPlayingBar.h"
+#import "Redesigned/NowPlaying/QueueDuration.h"
 #import "Redesigned/Kit/SGRAccent.h"
 
 NSString *const SGRedesignedUIInfo = @"The newest version of Vitrine, leaning toward Apple Music's style. It is not compatible with the legacy look's settings.\n\nThe legacy look gives you more freedom, yet still looks like Spotify.";
@@ -170,6 +173,11 @@ UIViewController *SGPlayerSettingsPage(void) {
     [sections addObject:SGSection(@"Playback", @[
         SGOptionRow(@"A–B Loop", @"Repeat part of a track from the Now Playing menu", SGKeyABLoop),
     ])];
+    [sections addObject:SGNotedSection(@"Queue helpers", @[
+        SGOptionRow(@"Reshuffle button", @"Show Spotify’s Reshuffle action when the queue supports it", SGKeyQueueReshuffle),
+        SGOptionRow(@"Tap to queue", @"Add supported songs to the queue instead of playing them", SGKeyTapToQueue),
+        SGOptionRow(@"Queue duration", @"Show the total time of upcoming tracks", native ? SGKeyQueueDuration : SGRKeyQueueDuration),
+    ], SGRestartNote)];
 
     [sections addObject:SGNotedSection(@"Lossless", @[
         SGOptionRow(@"Lossless files", @"Your own FLACs in place of Spotify's stream", SGKeyLossless),
