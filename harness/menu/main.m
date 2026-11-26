@@ -245,6 +245,16 @@ static UIView *findBlock(UIView *root) {
     return nil;
 }
 
+static UILabel *labelNamed(UIView *root, NSString *title) {
+    if (root.hidden) return nil;
+    if ([root isKindOfClass:UILabel.class] && [((UILabel *)root).text isEqualToString:title]) return (UILabel *)root;
+    for (UIView *child in root.subviews) {
+        UILabel *found = labelNamed(child, title);
+        if (found) return found;
+    }
+    return nil;
+}
+
 static NSArray<UISlider *> *sliders(UIView *root) {
     NSMutableArray *found = [NSMutableArray array];
     if ([root isKindOfClass:UISlider.class]) [found addObject:root];
@@ -427,7 +437,28 @@ static void tapRow(UIViewController *menu) {
             check(eq.menu && next.menu && CGRectContainsRect(block.bounds, eq.frame) && CGRectContainsRect(block.bounds, next.frame),
                   @"the native sheet fits both shortcut buttons");
             if (@available(iOS 17.4, *)) {
-                if (argument(@"shortcuts-next")) [next performPrimaryAction];
+                if (argument(@"shortcuts-next")) {
+                    [next performPrimaryAction];
+                    after(1, ^{
+                        check(next.preferredMenuElementOrder == UIContextMenuConfigurationElementOrderFixed,
+                              @"Playing Next uses fixed menu order");
+                        NSArray<NSString *> *titles = @[@"Night Drive", @"Blue Hour", @"First Light"];
+                        CGFloat previousY = -CGFLOAT_MAX;
+                        BOOL ordered = YES;
+                        for (NSString *title in titles) {
+                            UILabel *label = nil;
+                            for (UIWindow *window in self.window.windowScene.windows) {
+                                label = labelNamed(window, title);
+                                if (label) break;
+                            }
+                            CGFloat y = [label convertPoint:CGPointZero toCoordinateSpace:self.window].y;
+                            ordered &= label && y > previousY;
+                            previousY = y;
+                        }
+                        check(ordered && previousY < [next convertPoint:CGPointZero toView:self.window].y,
+                              @"Playing Next opens upward and lists tracks in playback order");
+                    });
+                }
             }
         });
         return;

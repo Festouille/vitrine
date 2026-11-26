@@ -402,6 +402,7 @@ static void placeTick(UISlider *slider) {
     if (!SGHidden(SGKeyPlayerShortcuts)) return;
     _quickEQ = [self shortcutButton:@"Quick EQ" symbol:@"slider.vertical.3" menu:^UIMenu *{ return SGQuickEQMenu(); }];
     _playingNext = [self shortcutButton:@"Playing Next" symbol:@"list.bullet" menu:^UIMenu *{ return SGPlayingNextMenu(); }];
+    _playingNext.preferredMenuElementOrder = UIContextMenuConfigurationElementOrderFixed;
 }
 
 #pragma mark state
