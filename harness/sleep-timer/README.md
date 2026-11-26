@@ -24,4 +24,4 @@ runs, Spotify's own Fade out forced on and the mod's own timer running each leav
 
     ./build.sh && build/sleep-timer
 
-2026-10-06: all held (77 checks). The gain itself is checked on Spotify's audio chain in harness/speed/.
+2026-11-26: all held (83 checks). The gain itself is checked on Spotify's audio chain in harness/speed/.
