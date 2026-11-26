@@ -10,5 +10,6 @@ Anthropic refusals and length stops, a line count that does not match, the key, 
 translation files with their source and from before sources were kept (`SGSavedTranslationLines`). It runs on the Mac as a Mac Catalyst binary, with no
 simulator and no network.
 
-It does not cover the requests themselves, the lines taking the translations as they are kept
-(`Shared/Lyrics/KaraokeSource.x`), or the lyrics view picking them up.
+With Theos (`$THEOS` or `~/theos`), it also checks that `Shared/Lyrics/KaraokeSource.x` asks for
+community translations for an assigned track and returns word-timed copies once a stubbed
+Musixmatch reply arrives. It does not cover the network or the lyrics view picking them up.
