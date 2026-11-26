@@ -159,6 +159,7 @@ static UIViewController *modSettingsPage(void) {
     SGModPage *page = [[SGModSettingsPage alloc] initWithTitle:@"Vitrine" intro:nil sections:sections footer:nil];
     root = page;
     page.tiles = YES;
+    if (@available(iOS 17.0, *)) page.usesSettingsTheme = YES;
     return page;
 }
 
