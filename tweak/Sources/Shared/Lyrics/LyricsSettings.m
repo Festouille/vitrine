@@ -54,7 +54,7 @@ SGModSection *SGLyricsSourcesSection(BOOL namingSource) {
 }
 
 SGModRow *SGLockScreenLyricsRow(void) {
-    return SGOptionRow(@"Lock screen lyrics", @"Current line in place of the artist", SGKeyLockScreenLyrics);
+    return SGOptionRow(@"Lock screen lyrics", @"Follow words in place of the artist", SGKeyLockScreenLyrics);
 }
 
 SGModRow *SGLockScreenTranslationRow(void) {
