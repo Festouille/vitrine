@@ -123,11 +123,24 @@ int main(void) {
         sg_reply = nil;
         SGKaraokeRequestLyrics(track);
         CHECK(!sg_reply && SGKaraokeLinesForTrack(track) == assigned);
+        __block NSUInteger invalidations = 0;
+        id observer = [NSNotificationCenter.defaultCenter addObserverForName:SGKaraokeLinesInvalidatedNotification object:track
+            queue:nil usingBlock:^(NSNotification *note) { invalidations++; }];
+        sg_language = @"es";
+        SGKaraokeRefreshImportedTranslation(track);
+        CHECK(invalidations == 1 && sg_reply && SGKaraokeLinesForTrack(track) == sg_import.karaokeLines);
+        sg_reply(@{SGMusixmatchLineKey(@"ou est L'AMOUR"): @"¿Dónde está el amor?"});
+        CHECK([SGKaraokeLinesForTrack(track)[0].translation isEqualToString:@"¿Dónde está el amor?"]);
+        sg_reply = nil;
         sg_language = nil;
+        SGKaraokeRefreshImportedTranslation(track);
+        CHECK(invalidations == 2 && !sg_reply);
         CHECK(SGKaraokeLinesForTrack(track) == sg_import.karaokeLines);
+        [NSNotificationCenter.defaultCenter removeObserver:observer];
         sg_import = nil;
         CHECK(!SGKaraokeLinesForTrack(track));
         puts("lyrics translation: assigned karaoke lyrics receive matching community translations");
+        puts("lyrics translation: changing the language refreshes the playing track's assignment");
 
         // Gemini's language by the whole tag, so the script survives.
         NSLocale *english = [NSLocale localeWithLocaleIdentifier:@"en"];

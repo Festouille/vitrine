@@ -51,6 +51,7 @@ SGModRow *SGLockScreenTranslationRow(void) {
 
 SGModRow *SGLyricsTranslationLanguageRow(void) {
     SGModRow *row = SGChoiceRow(@"Translation language", nil, SGKeyLyricsTranslationLanguage, SGLyricsTranslationLanguageNames(), 0);
+    row.chosen = ^(NSInteger index) { SGKaraokeRefreshImportedTranslation(SGKaraokePlayingTrack()); };
     row.choiceFooter = @"A language brings Musixmatch's community translations to lyrics that have none, "
                        @"which sends Musixmatch each song's ID. Any shows the first translation the lyrics come with. "
                        @"It is also the language the lyrics' translate menu translates into, offered only for songs in another one; "

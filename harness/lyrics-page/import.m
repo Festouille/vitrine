@@ -17,6 +17,7 @@ void SGOpenModSettings(UIView *source) {}
 __weak UIView *sgr_sheetChromeRoot = nil;
 void SGRWatchSheetPaint(UIView *root) {}
 BOOL SGSingButtonShown(void) { return NO; }
+void SGKaraokeRefreshImportedTranslation(NSString *trackID) {}
 BOOL SGKaraokeInAnotherLanguage(NSArray<SGKaraokeLine *> *lines, NSString *language) { return NO; }
 NSString *SGLyricsErrorTitle(NSString *error) { return @"Translation unavailable"; }
 

@@ -432,6 +432,14 @@ void SGKaraokeRequestLyrics(NSString *trackID) {
     requestLyrics(trackID, YES);
 }
 
+void SGKaraokeRefreshImportedTranslation(NSString *trackID) {
+    if (!trackID) return;
+    NSArray<SGKaraokeLine *> *assigned = SGTrackLyricsOverride(trackID).karaokeLines;
+    if (!assigned) return;
+    [NSNotificationCenter.defaultCenter postNotificationName:SGKaraokeLinesInvalidatedNotification object:trackID];
+    translate(trackID, assigned);
+}
+
 id SGKaraokePlayer(void) {
     return sg_player;
 }

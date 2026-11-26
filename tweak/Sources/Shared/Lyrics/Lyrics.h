@@ -178,6 +178,8 @@ void SGSpclientHeaders(void (^use)(NSDictionary<NSString *, NSString *> *headers
 // Asks spclient for a track's lyrics once, with the headers of Spotify's own requests, for when no
 // page of Spotify's has asked for them, e.g. with the app in the background.
 void SGKaraokeRequestLyrics(NSString *trackID);
+// After the translation language changes, redraw the assigned lyrics and ask for the new translation. Main queue.
+void SGKaraokeRefreshImportedTranslation(NSString *trackID);
 // Asks Spotify's JSON lyrics for the track once, and keeps its lines only if they are more finely
 // timed than the ones kept: the lyrics view was left with plain text, and Spotify may have it timed.
 void SGKaraokeAskSpotifyForTiming(NSString *trackID);
