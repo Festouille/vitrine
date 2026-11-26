@@ -291,6 +291,9 @@ static SGLyricsTaskState *stateOf(NSURLSessionTask *task) {
 // through by the object, since the server's bytes may be the same.
 static void give(id delegate, NSURLSession *session, NSURLSessionDataTask *task, SGLyricsTaskState *state, NSData *body) {
     if (!body.length) return;
+    if (SGNativeUI() && state.kind != SGLyricsTaskCardList) {
+        SGKaraokeKeepPageLines(state.track, SGKaraokeLinesFromBody(body));
+    }
     @synchronized (state) { state.handing = body; }
     [delegate URLSession:session dataTask:task didReceiveData:body];
     @synchronized (state) { state.handing = nil; }

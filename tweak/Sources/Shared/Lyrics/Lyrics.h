@@ -159,6 +159,9 @@ NSArray<SGKaraokeLine *> *SGKaraokeInTimeOrder(NSArray<SGKaraokeLine *> *lines);
 
 NSArray<SGKaraokeLine *> *SGKaraokeLinesForTrack(NSString *trackID);   // nil until the lyrics came
 void SGKaraokeKeepLines(NSString *trackID, NSArray<SGKaraokeLine *> *lines);
+// The last lyrics body delivered to Spotify's native page, apart from the karaoke source. Main queue.
+NSArray<SGKaraokeLine *> *SGKaraokePageLinesForTrack(NSString *trackID);
+void SGKaraokeKeepPageLines(NSString *trackID, NSArray<SGKaraokeLine *> *lines);
 // Posted on the main queue, object the track's id as SGKaraokePlayingTrack names it, when lines are kept
 // for it, and when a look for its lyrics (SGKaraokeLooking) ends with none, so a reader waiting on one
 // learns the look is over.

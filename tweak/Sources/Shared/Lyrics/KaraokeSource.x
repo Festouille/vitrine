@@ -26,6 +26,7 @@ static const NSTimeInterval kRetryPause = 10, kRetryPauseMost = 60;
 static NSString *const kSpclientHeaders[] = {@"authorization", @"client-token", @"app-platform", @"spotify-app-version", @"user-agent", @"accept-language"};
 
 static NSMutableDictionary<NSString *, NSArray<SGKaraokeLine *> *> *sg_lyrics;
+static NSMutableDictionary<NSString *, NSArray<SGKaraokeLine *> *> *sg_pageLyrics;
 static NSMutableSet<NSString *> *sg_requested;
 // Of those, the ones with a request still out or waiting out its pause. A full cache spares their lines
 // and leaves them asked for, so no second request runs beside the first.
@@ -149,6 +150,17 @@ void SGKaraokeKeepLines(NSString *track, NSArray<SGKaraokeLine *> *lines) {
     dispatch_async(dispatch_get_main_queue(), ^{ keep(track, lines); });
 }
 
+NSArray<SGKaraokeLine *> *SGKaraokePageLinesForTrack(NSString *trackID) {
+    return trackID ? sg_pageLyrics[trackID] : nil;
+}
+
+void SGKaraokeKeepPageLines(NSString *trackID, NSArray<SGKaraokeLine *> *lines) {
+    if (!trackID || !SGNativeUI()) return;
+    if (!sg_pageLyrics) sg_pageLyrics = [NSMutableDictionary dictionary];
+    if (lines && sg_pageLyrics.count >= kKeptTracks && !sg_pageLyrics[trackID]) [sg_pageLyrics removeAllObjects];
+    sg_pageLyrics[trackID] = lines;
+}
+
 static void received(NSURLSession *session, NSURLSessionTask *task, NSData *data) {
     rememberHeaders(session, task.currentRequest);
     if (sg_ownSources || !trackInURL(task.currentRequest.URL)) return;
@@ -169,7 +181,10 @@ static void completed(NSURLSessionTask *task, NSError *error) {
     if (error || !track) return;
     NSArray<SGKaraokeLine *> *lines = SGKaraokeLinesFromBody(body);
     SGLog(@"karaoke: lyrics for %@, %lu bytes, %lu synced lines", track, (unsigned long)body.length, (unsigned long)lines.count);
-    if (lines) SGKaraokeKeepLines(track, lines);
+    dispatch_async(dispatch_get_main_queue(), ^{
+        SGKaraokeKeepPageLines(track, lines);
+        if (lines) keep(track, lines);
+    });
 }
 
 NSArray<SGKaraokeLine *> *SGKaraokeLinesForTrack(NSString *trackID) {

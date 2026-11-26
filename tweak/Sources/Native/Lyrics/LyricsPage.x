@@ -132,7 +132,7 @@ static NSUInteger lineIndex(UIView *line, UIView *host, NSArray<NSString *> *tex
 @implementation SGLyricLineActions
 
 - (UIView *)lineFor:(UIGestureRecognizer *)gesture start:(NSInteger *)start {
-    NSArray<SGKaraokeLine *> *lines = SGKaraokeLinesForTrack(SGKaraokePlayingTrack());
+    NSArray<SGKaraokeLine *> *lines = SGKaraokePageLinesForTrack(SGKaraokePlayingTrack());
     if (!lines.count) return nil;
     NSArray<NSNumber *> *starts;
     NSArray<NSString *> *texts;
@@ -181,7 +181,6 @@ static char kLineActionsKey;
     [tap requireGestureRecognizerToFail:hold];
     [host addGestureRecognizer:tap];
     [host addGestureRecognizer:hold];
-    SGKaraokeRequestLyrics(SGKaraokePlayingTrack());
 }
 %end
 
