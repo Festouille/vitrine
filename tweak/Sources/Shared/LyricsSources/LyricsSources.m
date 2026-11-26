@@ -538,6 +538,7 @@ void SGLyricsOpenCreditLinks(NSArray<SGLyricsLink *> *links, UIView *from) {
 // Auto-select bounded improvement window: the initial timed answer delivered without holding first
 // render, and whether the bounded window has closed (expired, optimal, or superseded).
 @property (nonatomic, strong) SGLyricsResult *delivered;
+@property (nonatomic) BOOL previewedKaraoke;
 @property (nonatomic) BOOL windowClosed;
 @property (nonatomic) NSUInteger generation;
 @end
@@ -632,14 +633,28 @@ static BOOL autoSelectComplete(SGLyricsResult *merged) {
 
 // Delivers the first timed answer immediately so first render is never held, then keeps walking
 // remaining sources for a bounded window to upgrade live if a better answer arrives.
-// Sources like NetEase return timed karaokeLines without page texts; deliver them immediately too
-// so Redesigned lyrics never stay blank waiting on later providers.
+// When a word-timing-only source (e.g. NetEase) answers first without page texts, publish its
+// karaokeLines immediately for Redesigned while letting sg_waiting wait for page texts so Native's
+// donor/missing request never receives a premature text-less 404.
 static BOOL deliverForAutoSelect(SGLyricsWalk *walk) {
     SGLyricsResult *merged = walk.merged;
     if (!autoSelectEnabled() || walk.delivered) return NO;
     BOOL hasTimedLines = merged.karaokeLines.count && SGKaraokeLinesTiming(merged.karaokeLines) != SGKaraokeTimingNone;
     if (!hasTimedLines) return NO;
     NSString *trackID = walk.query.trackID;
+    if (!(merged.synced && merged.texts.count)) {
+        if (!walk.previewedKaraoke && hasMoreSources(walk)
+            && !SGLyricsChosenSource(trackID) && !SGTrackLyricsLinkedTo(trackID)) {
+            walk.previewedKaraoke = YES;
+            noteCredit(merged);
+            SGLyricsSetCredit(trackID, merged.provider);
+            SGKaraokeKeepLines(trackID, merged.karaokeLines);
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [NSNotificationCenter.defaultCenter postNotificationName:SGLyricsSourceChosenNotification object:trackID];
+            });
+        }
+        return NO;
+    }
     if (autoSelectComplete(merged) || sg_autoSelectWindow <= 0 || !hasMoreSources(walk)
         || SGLyricsChosenSource(trackID) || SGTrackLyricsLinkedTo(trackID)) {
         finish(walk);

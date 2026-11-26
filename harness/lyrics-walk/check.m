@@ -504,8 +504,8 @@ int main(int argc, char **argv) {
         // Manual pick on auto_pick survived the switch toggle.
         CHECK([fetch(@"auto_pick").provider isEqualToString:@"Musixmatch"] && fetch(@"auto_pick").picked);
 
-        // 11. Word-timing-only source (NetEase, no page texts) delivers immediately without holding first render,
-        //     then later source fills uncensored page texts without replacing word-timed karaokeLines.
+        // 11. Word-timing-only source (NetEase, no page texts) publishes karaokeLines immediately for Redesigned
+        //     without returning a text-less result to Native's waiting request, then merges LRCLIB's page texts.
         SGAnswer neteaseOnly = ^SGLyricsResult *{
             SGLyricsResult *r = wordLines(NO, NO, NO)();
             r.starts = nil;
@@ -520,17 +520,21 @@ int main(int argc, char **argv) {
                                                                  SGKeyLyricsAutoSelect: @YES}
                                                        forName:NSArgumentDomain];
         SGPrefsChanged();
+        [chosenNotes removeAllObjects];
         sg_held = @"lrclib";
-        got = fetch(@"auto_netease_first");
-        CHECK([got.provider isEqualToString:@"NetEase"] && got.wordTimed && got.karaokeLines.count && !got.texts.count);
-        CHECK(sg_release != nil);
+        __block SGLyricsResult *mergedNetease = nil;
+        __block BOOL neteaseFetchDone = NO;
+        SGLyricsFetch(@"auto_netease_first", ^(SGLyricsResult *result) { mergedNetease = result; neteaseFetchDone = YES; });
+        pump(^BOOL { return sg_release != nil && [chosenNotes containsObject:@"auto_netease_first"]; });
+        // Redesigned already has NetEase's word-timed lines while LRCLIB is still in flight; Native wait is held.
+        CHECK(SGKaraokeLinesForTrack(@"auto_netease_first").count > 0 && [SGLyricsCreditFor(@"auto_netease_first") isEqualToString:@"NetEase"]);
+        CHECK(!neteaseFetchDone);
         sg_held = nil;
         void (^releaseLrclib)(void) = sg_release;
         sg_release = nil;
         releaseLrclib();
-        pump(^BOOL { return fetch(@"auto_netease_first").texts.count > 0; });
+        pump(^BOOL { return neteaseFetchDone; });
         NSArray *ab = @[@"a", @"b", @""];
-        SGLyricsResult *mergedNetease = fetch(@"auto_netease_first");
         CHECK([mergedNetease.provider isEqualToString:@"NetEase"] && mergedNetease.wordTimed);
         CHECK([mergedNetease.pageProvider isEqualToString:@"LRCLIB"] && [mergedNetease.texts isEqualToArray:ab]);
 
