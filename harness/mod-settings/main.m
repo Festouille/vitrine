@@ -18,10 +18,12 @@
 // Spotify's settings list and drawer, after each list is emptied of its subviews, counted to the log).
 #import <UIKit/UIKit.h>
 #import <objc/runtime.h>
+#import "App/SettingsPresets.h"
 #import "Core/SGCore.h"
 #import "Settings/SGPage.h"
 #import "Settings/SGModPage.h"
 #import "Shared/AnimatedArtwork/AnimatedArtwork.h"
+#import "Shared/Player/PlayerSettings.h"
 
 // Spotify's page protocol, so SGRegisterPages finds one and the page is pushed as on the phone.
 @protocol SPTPageController <NSObject>
@@ -116,6 +118,21 @@ static UIViewController *gatedPage(void) {
     return [NSIndexPath indexPathForRow:at[1].integerValue inSection:at[0].integerValue];
 }
 
+- (void)tapTitle:(NSString *)title {
+    UITableView *table = self.table;
+    for (NSInteger section = 0; section < table.numberOfSections; section++) {
+        for (NSInteger row = 0; row < [table numberOfRowsInSection:section]; row++) {
+            NSIndexPath *path = [NSIndexPath indexPathForRow:row inSection:section];
+            UITableViewCell *cell = [table.dataSource tableView:table cellForRowAtIndexPath:path];
+            if ([[(UIListContentConfiguration *)cell.contentConfiguration text] isEqualToString:title]) {
+                [table.delegate tableView:table didSelectRowAtIndexPath:path];
+                return;
+            }
+        }
+    }
+    NSAssert(NO, @"Missing row: %@", title);
+}
+
 - (void)run:(NSString *)action {
     NSArray<NSString *> *parts = [action componentsSeparatedByString:@"="];
     NSString *verb = parts.firstObject, *value = parts.count > 1 ? parts[1] : @"";
@@ -128,6 +145,33 @@ static UIViewController *gatedPage(void) {
         if (!toggle) { NSLog(@"[harness] no switch at %@", value); return; }
         [(id)toggle setOn:![(id)toggle isOn] animated:YES];
         [toggle sendActionsForControlEvents:UIControlEventValueChanged];
+    } else if ([verb isEqualToString:@"search"]) {
+        [self tapTitle:@"Search Mod Settings"];
+    } else if ([verb isEqualToString:@"query"]) {
+        UISearchBar *bar = (UISearchBar *)table.tableHeaderView;
+        NSAssert([bar isKindOfClass:UISearchBar.class], @"Missing settings search field");
+        [bar.delegate searchBar:bar textDidChange:value];
+    } else if ([verb isEqualToString:@"pick"]) {
+        [self tapTitle:value];
+    } else if ([verb isEqualToString:@"jumped"]) {
+        NSAssert([self.nav.topViewController.title isEqualToString:@"Gradient"], @"Search did not open the owning page");
+        NSAssert([[self.nav.viewControllers[self.nav.viewControllers.count - 2] title] isEqualToString:@"Home & Library"],
+                 @"Search did not preserve the destination's parent page");
+        NSIndexPath *target = [NSIndexPath indexPathForRow:0 inSection:0];
+        NSAssert([table.indexPathsForVisibleRows containsObject:target], @"Search target is not visible");
+        NSLog(@"[harness] nested settings search passed");
+    } else if ([verb isEqualToString:@"preset-check"]) {
+        NSUInteger skipped = 0;
+        NSDictionary *import = SGReadPresetJSON(@"{\"settings\":{\"spotifyglass.hide.videoSwitch\":true,\"spotifyglass.adblock.ads\":true,\"spotifyglass.hide.fullScreenCover\":3}}", &skipped);
+        NSAssert([import isEqualToDictionary:@{SGKeyHideVideoSwitch:@YES}] && skipped == 2,
+                 @"Preset import accepted an unsupported key or a non-Boolean value");
+        NSAssert(!SGReadPresetJSON(@"[]", NULL), @"Preset import accepted an array");
+        BOOL before = SGHidden(SGKeyHideVideoSwitch);
+        SGSetEnabled(SGKeyHideVideoSwitch, !before);
+        NSAssert([SGPendingRestartSettings() containsObject:@"Hide Switch to video"], @"Missing pending restart setting");
+        SGSetEnabled(SGKeyHideVideoSwitch, before);
+        NSAssert(![SGPendingRestartSettings() containsObject:@"Hide Switch to video"], @"Reverted change is still pending");
+        NSLog(@"[harness] preset import and pending restart checks passed");
     } else if ([verb isEqualToString:@"cancel"]) {
         UIAlertController *alert = (UIAlertController *)self.nav.presentedViewController;
         if (![alert isKindOfClass:UIAlertController.class]) return;

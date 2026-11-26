@@ -15,6 +15,10 @@ Make a simulator of your own (`xcrun simctl create`) and address it by UDID. `ma
 (`redesign`, `warning`, `keep`) and the actions: `toggle=<section>.<row>` flips a switch the way a tap does,
 `cancel` closes the alert it brings up, `bottom` scrolls to the end, and `dump` logs the rows of every section.
 
+`search "query=home gradient" "pick=Show gradient" jumped` checks the search jump and Back path in the
+native look. `preset-check` checks the JSON allowlist, invalid values, and removal of a reverted change
+from the pending restart list.
+
 `gated` pushes a page of `SGModPage` itself: a switch over ten rows, then a section with a heading and a note
 whose twelve rows show only while the switch is on, then a row that `later` lets come by itself. `layout` logs
 the scroll offset and each section's rows, heading and note heights; `top` scrolls back up.

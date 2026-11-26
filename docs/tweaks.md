@@ -842,6 +842,17 @@ the simulator by harness/driver/.
 
 ## Mod Settings
 
+Search Mod Settings matches visible settings by name, description or page in the selected look. A result
+opens its containing page and highlights the real control without toggling it. Dedicated editors, such as
+All flags, are found by name and keep their own search or controls.
+
+Minimal player and Clean Home change the selected look's player or Home controls. Stock returns to the
+native look and restores the controls those presets manage; resetting unrelated settings is a separate action
+under Mod. Import preset accepts a pasted JSON object of preference keys and Boolean values, optionally
+under a `settings` property. Unsupported entries, including ad and Premium spoofing preferences, are
+ignored. Each preset and import previews the changed controls before writing. The restart pill lists pending
+changes for the tracked controls; undoing a change before restarting removes it from the list.
+
 Mod Settings, opened by holding Home on the tab bar or from the first row of the side drawer and the
 last row of Spotify's Settings, looks like the system Settings app in its dark appearance under either look:
 cards of #1C1C1E on black, 17pt rows that follow Dynamic Type up to xxxLarge and the app font, each part of

@@ -12,13 +12,22 @@ static UIViewController *blank(NSString *title) {
 
 #define PAGE(name) UIViewController *name(void) { return blank(@#name); }
 PAGE(SGAboutPage) PAGE(SGAdsSettingsPage) PAGE(SGAllFlagsPage) PAGE(SGArtistBlockSettingsPage) PAGE(SGDSPSettingsPage) PAGE(SGAutoMixSettingsPage)
-PAGE(SGGesturesSettingsPage) PAGE(SGHeadGesturesSettingsPage) PAGE(SGHomeSettingsPage) PAGE(SGLabsPage)
+PAGE(SGGesturesSettingsPage) PAGE(SGHeadGesturesSettingsPage) PAGE(SGLabsPage)
 PAGE(SGListeningStatsPage) PAGE(SGLiveActivitySettingsPage) PAGE(SGLockScreenWidgetPage) PAGE(SGNavbarSettingsPage)
 PAGE(SGNowPlayingBarSettingsPage) PAGE(SGQueueSettingsPage) PAGE(SGRAlbumSettingsPage) PAGE(SGRArtistSettingsPage)
 PAGE(SGRNavbarSettingsPage) PAGE(SGRHomeSettingsPage)
 PAGE(SGSingSettingsPage) PAGE(SGSpatialVoiceSettingsPage) PAGE(SGVibrationsSettingsPage)
 UIViewController *SGRPlayerSettingsPage(NSArray *more) { return blank(@"SGRPlayerSettingsPage"); }
 UIViewController *SGRLyricsSettingsPage(NSString *title, NSString *intro, NSArray<SGModSection *> *sections) { return blank(title); }
+UIViewController *SGHomeSettingsPage(void) {
+    return [[SGModPage alloc] initWithTitle:@"Home & Library" intro:nil sections:@[
+        SGSection(nil, @[SGPageRow(@"Gradient", ^UIViewController *{
+            return [[SGModPage alloc] initWithTitle:@"Gradient" intro:nil sections:@[
+                SGSection(nil, @[SGOptionRow(@"Show gradient", @"Color at the top of Home", @"spotifyglass.harness.gradient")]),
+            ] footer:nil];
+        })]),
+    ] footer:nil];
+}
 
 #define ROW(name) SGModRow *name(void) { return SGPageRow(@#name, ^UIViewController *{ return nil; }); }
 NSArray<SGModRow *> *SGAITranslatorRows(void) { return @[SGPageRow(@"SGAITranslatorRows", ^UIViewController *{ return nil; })]; }
