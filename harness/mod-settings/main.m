@@ -145,6 +145,8 @@ static UIViewController *gatedPage(void) {
         if (!toggle) { NSLog(@"[harness] no switch at %@", value); return; }
         [(id)toggle setOn:![(id)toggle isOn] animated:YES];
         [toggle sendActionsForControlEvents:UIControlEventValueChanged];
+    } else if ([verb isEqualToString:@"search-gate"]) {
+        SGSetEnabled(@"spotifyglass.harness.searchGate", value.boolValue);
     } else if ([verb isEqualToString:@"search"]) {
         [self tapTitle:@"Search Mod Settings"];
     } else if ([verb isEqualToString:@"query"]) {
@@ -153,6 +155,9 @@ static UIViewController *gatedPage(void) {
         [bar.delegate searchBar:bar textDidChange:value];
     } else if ([verb isEqualToString:@"pick"]) {
         [self tapTitle:value];
+    } else if ([verb isEqualToString:@"search-count"]) {
+        NSAssert([table numberOfRowsInSection:0] == value.integerValue, @"Unexpected number of settings search results");
+        NSLog(@"[harness] gated settings search matched %@ rows as expected", value);
     } else if ([verb isEqualToString:@"jumped"]) {
         NSAssert([self.nav.topViewController.title isEqualToString:@"Gradient"], @"Search did not open the owning page");
         NSAssert([[self.nav.viewControllers[self.nav.viewControllers.count - 2] title] isEqualToString:@"Home & Library"],

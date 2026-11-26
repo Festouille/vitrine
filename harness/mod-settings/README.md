@@ -19,6 +19,10 @@ Make a simulator of your own (`xcrun simctl create`) and address it by UDID. `ma
 native look. `preset-check` checks the JSON allowlist, invalid values, and removal of a reverted change
 from the pending restart list.
 
+For a gated subpage, run `search-gate=0 search "query=Library detail switch" search-count=0`, then
+relaunch with `search-gate=1 search "query=Library detail switch" search-count=1`. The child control
+should only be searchable with its prerequisite on.
+
 `gated` pushes a page of `SGModPage` itself: a switch over ten rows, then a section with a heading and a note
 whose twelve rows show only while the switch is on, then a row that `later` lets come by itself. `layout` logs
 the scroll offset and each section's rows, heading and note heights; `top` scrolls back up.

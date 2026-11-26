@@ -24,7 +24,7 @@ static void indexPage(NSArray<SGModPage *> *route, NSString *path, NSMutableArra
             match.text = [NSString stringWithFormat:@"%@ %@ %@ %@", row.title, row.subtitle ?: @"", row.info ?: @"", location];
             [index addObject:match];
         }
-        if (!row.searchChildren || !row.page || route.count >= 6) return;
+        if (!row.searchChildren || !row.page || [route.lastObject isWaiting:row] || route.count >= 6) return;
         UIViewController *child = row.page();
         if ([child isKindOfClass:SGModPage.class]) {
             indexPage([route arrayByAddingObject:(SGModPage *)child],

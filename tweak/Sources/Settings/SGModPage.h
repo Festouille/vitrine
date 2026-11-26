@@ -72,6 +72,7 @@
 // Asks every row's `visible` again, after something other than a switch on the page changed what it reads.
 - (void)refreshVisibility;
 - (void)enumerateVisibleRows:(void (^)(SGModRow *row, NSString *section))visit;
+- (BOOL)isWaiting:(SGModRow *)row;
 - (void)revealRowOnAppearance:(SGModRow *)row;
 // Rows draw their symbol on a colored tile; off, the default, they show none. Mod Settings' main page has them.
 @property (nonatomic) BOOL tiles;

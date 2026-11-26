@@ -20,12 +20,20 @@ PAGE(SGSingSettingsPage) PAGE(SGSpatialVoiceSettingsPage) PAGE(SGVibrationsSetti
 UIViewController *SGRPlayerSettingsPage(NSArray *more) { return blank(@"SGRPlayerSettingsPage"); }
 UIViewController *SGRLyricsSettingsPage(NSString *title, NSString *intro, NSArray<SGModSection *> *sections) { return blank(title); }
 UIViewController *SGHomeSettingsPage(void) {
+    NSString *gate = @"spotifyglass.harness.searchGate";
+    SGModRow *library = SGPageRow(@"Library options", ^UIViewController *{
+        return [[SGModPage alloc] initWithTitle:@"Library options" intro:nil sections:@[
+            SGSection(nil, @[SGOptionRow(@"Library detail switch", nil, @"spotifyglass.harness.libraryDetail")]),
+        ] footer:nil];
+    });
+    library.waitsOn = gate;
     return [[SGModPage alloc] initWithTitle:@"Home & Library" intro:nil sections:@[
         SGSection(nil, @[SGPageRow(@"Gradient", ^UIViewController *{
             return [[SGModPage alloc] initWithTitle:@"Gradient" intro:nil sections:@[
                 SGSection(nil, @[SGOptionRow(@"Show gradient", @"Color at the top of Home", @"spotifyglass.harness.gradient")]),
             ] footer:nil];
         })]),
+        SGSection(nil, @[SGOptionRow(@"Enable Library options", nil, gate), library]),
     ] footer:nil];
 }
 
