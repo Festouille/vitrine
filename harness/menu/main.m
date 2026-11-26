@@ -16,6 +16,9 @@
 // `animated` offers the redesign's Animated artwork switch: it is flipped, then the block opened and
 // closed, and where the switch's row sits is reported each time.
 #import <UIKit/UIKit.h>
+#import "Shared/AudioEffects/AudioEffects.h"
+#import "Shared/Player/PlayerShortcuts.h"
+#import "Shared/Player/PlayerState.h"
 
 #pragma mark - what SpeedPitchMenu.x calls
 
@@ -44,12 +47,15 @@ BOOL SGPlayerMenuAnimatedArtwork(void) { return sg_animated; }
 void SGPlayerMenuSetAnimatedArtwork(BOOL on) { sg_animated = on; NSLog(@"[harness] animated artwork %d", on); }
 // The redesign's system menu, which never takes this sheet over here (harness/system-menu has it).
 BOOL SGPlayerMenuReplaced(UIViewController *menu) { return NO; }
-// The audio effects' settings, kept in a dictionary: the reverb slider reads and writes them.
-static NSMutableDictionary *sg_dsp;
-BOOL SGDSPSwitch(NSString *key) { return [sg_dsp[key] boolValue]; }
-void SGDSPSetSwitch(NSString *key, BOOL on) { if (!sg_dsp) sg_dsp = [NSMutableDictionary dictionary]; sg_dsp[key] = @(on); NSLog(@"[harness] %@ %d", key, on); }
-double SGDSPNumber(NSString *key) { return [sg_dsp[key] doubleValue]; }
-void SGDSPSetNumber(NSString *key, double value) { if (!sg_dsp) sg_dsp = [NSMutableDictionary dictionary]; sg_dsp[key] = @(value); NSLog(@"[harness] %@ %.0f", key, value); }
+
+extern NSArray *SGFixtureUpcomingTracks(void);
+@interface SGFixtureQueueState : NSObject
+- (NSArray *)future;
+@end
+@implementation SGFixtureQueueState
+- (NSArray *)future { return SGFixtureUpcomingTracks(); }
+@end
+SPTPlayerState *SGPlayerState(void) { return (id)[SGFixtureQueueState new]; }
 
 static BOOL argument(NSString *name) {
     return [NSProcessInfo.processInfo.arguments containsObject:name];
@@ -239,6 +245,16 @@ static UIView *findBlock(UIView *root) {
     return nil;
 }
 
+static UILabel *labelNamed(UIView *root, NSString *title) {
+    if (root.hidden) return nil;
+    if ([root isKindOfClass:UILabel.class] && [((UILabel *)root).text isEqualToString:title]) return (UILabel *)root;
+    for (UIView *child in root.subviews) {
+        UILabel *found = labelNamed(child, title);
+        if (found) return found;
+    }
+    return nil;
+}
+
 static NSArray<UISlider *> *sliders(UIView *root) {
     NSMutableArray *found = [NSMutableArray array];
     if ([root isKindOfClass:UISlider.class]) [found addObject:root];
@@ -408,6 +424,45 @@ static void tapRow(UIViewController *menu) {
         after(1, ^{ checkMinute(self.window); });
         return;
     }
+    if (argument(@"shortcuts") || argument(@"shortcuts-off") || argument(@"shortcuts-next")) {
+        after(1, present);
+        after(2.5, ^{
+            UIView *block = findBlock(menu.view);
+            UIButton *eq = [block valueForKey:@"_quickEQ"];
+            UIButton *next = [block valueForKey:@"_playingNext"];
+            if (argument(@"shortcuts-off")) {
+                check(block && !eq && !next, @"the native sheet has no shortcuts by default");
+                return;
+            }
+            check(eq.menu && next.menu && CGRectContainsRect(block.bounds, eq.frame) && CGRectContainsRect(block.bounds, next.frame),
+                  @"the native sheet fits both shortcut buttons");
+            if (@available(iOS 17.4, *)) {
+                if (argument(@"shortcuts-next")) {
+                    [next performPrimaryAction];
+                    after(1, ^{
+                        check(next.preferredMenuElementOrder == UIContextMenuConfigurationElementOrderFixed,
+                              @"Playing Next uses fixed menu order");
+                        NSArray<NSString *> *titles = @[@"Night Drive", @"Blue Hour", @"First Light"];
+                        CGFloat previousY = -CGFLOAT_MAX;
+                        BOOL ordered = YES;
+                        for (NSString *title in titles) {
+                            UILabel *label = nil;
+                            for (UIWindow *window in self.window.windowScene.windows) {
+                                label = labelNamed(window, title);
+                                if (label) break;
+                            }
+                            CGFloat y = [label convertPoint:CGPointZero toCoordinateSpace:self.window].y;
+                            ordered &= label && y > previousY;
+                            previousY = y;
+                        }
+                        check(ordered && previousY < [next convertPoint:CGPointZero toView:self.window].y,
+                              @"Playing Next opens upward and lists tracks in playback order");
+                    });
+                }
+            }
+        });
+        return;
+    }
     if (argument(@"sleep") || argument(@"notap")) {
         // `sleep`: the ⋯ card's Sleep timer row opens a context menu sheet of its own in the card, with no tap
         // on the more button; it must stay Spotify's. `notap`: a sheet the player puts up with no tap at all.
@@ -530,7 +585,13 @@ static void tapRow(UIViewController *menu) {
 
 // Before every %ctor, so the redesign's gate reads on.
 __attribute__((constructor(101))) static void sgr_harnessDefaults(void) {
-    [NSUserDefaults.standardUserDefaults setBool:YES forKey:@"spotifyglass.redesign"];
+    NSUserDefaults *defaults = NSUserDefaults.standardUserDefaults;
+    [defaults setBool:!argument(@"shortcuts") && !argument(@"shortcuts-off") && !argument(@"shortcuts-next") forKey:@"spotifyglass.redesign"];
+    [defaults removeObjectForKey:SGKeyPlayerShortcuts];
+    if (argument(@"shortcuts") || argument(@"shortcuts-next")) [defaults setBool:YES forKey:SGKeyPlayerShortcuts];
+    [defaults removeObjectForKey:SGKeyDSP];
+    [defaults removeObjectForKey:SGKeyDSPReverb];
+    [defaults removeObjectForKey:SGKeyDSPReverbAmount];
 }
 
 int main(int argc, char *argv[]) {

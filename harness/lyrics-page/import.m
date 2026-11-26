@@ -78,11 +78,13 @@ static void check(BOOL ok, NSString *what) {
 UIViewController *SGHarnessImportPage(NSString *scenario) {
     BOOL native = [scenario hasPrefix:@"native"];
     SGModSection *sources = SGLyricsSourcesSection(!native);
-    SGModRow *toggle = nil;
+    SGModRow *toggle = nil, *autoSelect = nil;
     for (SGModRow *row in sources.rows) {
         if ([row.key isEqualToString:SGKeyTrackLyricsImport]) toggle = row;
+        if ([row.key isEqualToString:SGKeyLyricsAutoSelect]) autoSelect = row;
     }
     check(toggle && !toggle.defaultOn, @"Mod Settings exposes the import switch, off by default");
+    check(autoSelect && !autoSelect.defaultOn, @"Mod Settings exposes Automatic best source, off by default");
     for (NSString *name in SGImportedTrackLyricsFiles()) SGDeleteImportedLRC(name);
     SGSetEnabled(SGKeyTrackLyricsImport, YES);
 

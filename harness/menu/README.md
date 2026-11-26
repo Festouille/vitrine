@@ -5,6 +5,10 @@ class name and presented from a now playing controller on a tap of the player's 
 `NowPlaying_ModesImpl.HeaderElementsUnit` holding a button with the identifier `Context menu`), so
 `SpeedPitchMenu.x`'s hooks find the button and add Speed and pitch the way they would on the phone. Speed and pitch themselves are stubs that log.
 
+Launch with `shortcuts` to show the opt-in buttons in the native player sheet, `shortcuts-next`
+to open Playing Next, or `shortcuts-off` to check that both buttons are absent by default. The
+player state is a fixture; the menu, layout and audio-effects settings are real.
+
     THEOS=$HOME/theos ./build.sh
     xcrun simctl install <udid> build/MenuHarness.app
     xcrun simctl launch --console-pty <udid> com.vojta.menuharness [footer] [nospeed] [loading] [stuck] [open] [animated] [sleep] [notap] [minute]
