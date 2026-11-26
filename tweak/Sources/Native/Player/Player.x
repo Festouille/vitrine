@@ -26,7 +26,7 @@
 #import "Native/Appearance/Appearance.h"
 #import "Shared/AnimatedArtwork/AnimatedArtwork.h"
 #import "Shared/AnimatedArtwork/SGMotionColor.h"
-#import "Shared/Player/PlayerState.h"
+#import "Shared/Player/SGPlaybackQuality.h"
 
 static const CGFloat kButtonMin = 36, kButtonMax = 48;
 static const CGFloat kArtRadius = 12;
@@ -62,10 +62,44 @@ static void glassBehindRoundButtons(UIViewController *unit) {
     SGHideGlassFrom(host, index);
 }
 
+static void showQuality(UIView *host) {
+    static char key;
+    UILabel *badge = objc_getAssociatedObject(host, &key);
+    NSString *text = SGFlag(SGKeyPlayerQualityBar, NO) ? SGPlaybackQualityText(SGPlayerState()) : nil;
+    if (!text.length) {
+        badge.hidden = YES;
+        return;
+    }
+    if (!badge) {
+        badge = [UILabel new];
+        badge.accessibilityIdentifier = @"sg.audio-quality";
+        badge.userInteractionEnabled = NO;
+        badge.font = [UIFont systemFontOfSize:10 weight:UIFontWeightSemibold];
+        badge.textAlignment = NSTextAlignmentCenter;
+        badge.textColor = UIColor.whiteColor;
+        badge.backgroundColor = [UIColor colorWithWhite:0 alpha:0.60];
+        badge.layer.cornerRadius = 9;
+        badge.layer.borderWidth = 0.5;
+        badge.layer.borderColor = [UIColor colorWithWhite:1 alpha:0.25].CGColor;
+        badge.clipsToBounds = YES;
+        [host addSubview:badge];
+        objc_setAssociatedObject(host, &key, badge, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    }
+    if (![badge.text isEqualToString:text]) badge.text = text;
+    CGFloat width = ceil(badge.intrinsicContentSize.width) + 18;
+    badge.frame = CGRectMake(round(CGRectGetMidX(host.bounds) - width / 2), CGRectGetMaxY(host.bounds) + 2, width, 18);
+    badge.hidden = NO;
+}
+
 %hook _TtC20NowPlaying_ModesImpl18HeaderElementsUnit
 - (void)viewDidLayoutSubviews {
     %orig;
-    glassBehindRoundButtons((UIViewController *)self);
+    UIViewController *unit = (UIViewController *)self;
+    glassBehindRoundButtons(unit);
+    UIView *host = unit.viewIfLoaded;
+    if (!host) return;
+    SGObservePlaybackQuality(host, ^(UIView *owner) { showQuality(owner); });
+    showQuality(host);
 }
 %end
 

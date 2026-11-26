@@ -48,11 +48,13 @@
 #import "Redesigned/Kit/SGRField.h"
 #import "Redesigned/Kit/SGRRestyle.h"
 #import "Redesigned/Kit/SGRTokens.h"
+#import "../player-quality.h"
 #import "Redesigned/Lyrics/MeaningSheet.h"
 #import "Redesigned/Lyrics/SGRKaraokeView.h"
 
 void SGRHarnessPlayFrom(NSInteger ms);
 void SGRHarnessSetTrack(NSString *uri, NSString *imageURI, BOOL paused);
+void SGRHarnessReportQuality(id quality);
 // ../tabbar/touch.m: a finger's touches, through UIKit's own recognizers.
 extern void SGHarnessHold(UIWindow *window, CGPoint point, NSTimeInterval seconds);
 
@@ -632,6 +634,11 @@ static void loadLyrics(void) {
     else if ([scenario() isEqualToString:@"seek"]) [self runSeekChecks];
     else if ([scenario() isEqualToString:@"visualiser"]) [self runVisualiserChecks];
     else if ([scenario() isEqualToString:@"header"]) [self runHeaderChecks];
+    else if ([scenario() isEqualToString:@"quality"]) {
+        SGHarnessQualityChecks(@"redesign", header, SGRKeyPlayerQualityBar,
+                               [NSProcessInfo.processInfo.environment[@"HARNESS_QUALITY_SHOWN"] boolValue],
+                               ^(SPTPlaybackQuality *quality) { SGRHarnessReportQuality(quality); });
+    }
     // Opened, closed and opened again, so a screenshot can be taken of each state and of the move itself.
     else for (NSNumber *at in @[@2, @6, @10]) {
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(at.doubleValue * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{

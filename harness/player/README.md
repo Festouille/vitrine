@@ -78,6 +78,10 @@ come late, out of order, or not at all.
   set to a red-then-blue MP4 (five seconds per color). Capture the frames at the `COVER READY` markers:
   the controls' background follows the red then blue frames with polish on, and stays on the red poster
   color after the clip turns blue with polish off.
+
+- `quality` drives the header from playback-quality-only reports: all known levels, unknown, missing,
+  and the disabled setting. Use `HARNESS_QUALITY_SHOWN=1` for a visible Lossless badge or `0` for
+  an unknown level with no badge; capture the frame at `QUALITY READY`.
   `HARNESS_CANVAS_FAILS=n` fails the first n requests for the clip on the way: with 1 the store tries again and
   every check passes, with 2 the clip never comes.
 - `catalog` is Apple Music's catalog (`SGMotionCatalog.m`) behind a stub of its search: the names searched

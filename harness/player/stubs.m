@@ -54,7 +54,10 @@ NSString *SGURIString(id uri) {
 @end
 @implementation SPTPlayerOptions
 @end
-@implementation SPTPlayerState
+@implementation SPTPlayerState {
+    id _playbackQuality;
+}
+- (id)playbackQuality { return _playbackQuality; }
 @end
 
 static NSHashTable *sg_observers;
@@ -65,6 +68,13 @@ void SGAddPlayerStateObserver(id observer) {
     [sg_observers addObject:observer];
 }
 SPTPlayerState *SGPlayerState(void) { return sg_state; }
+
+void SGRHarnessReportQuality(id quality) {
+    [sg_state setValue:quality forKey:@"playbackQuality"];
+    for (id<SGPlayerStateObserver> observer in sg_observers.allObjects) {
+        if ([observer respondsToSelector:@selector(playerStateDidReport:)]) [observer playerStateDidReport:sg_state];
+    }
+}
 
 // `imageURI` is the xlarge picture as Spotify's metadata has it, spotify:image:<40 hex digits>, or nil for
 // a track whose metadata names none.

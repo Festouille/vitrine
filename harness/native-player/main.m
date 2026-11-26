@@ -14,6 +14,7 @@
 #import "Shared/AnimatedArtwork/AnimatedArtwork.h"
 #import "Shared/Player/PlayerState.h"
 #import "Shared/SponsorBlock/SGSponsorBlockOverlay.h"
+#import "../player-quality.h"
 
 #pragma mark - Spotify's classes, mocked
 
@@ -179,7 +180,11 @@ __weak UIView *sg_npvBackdropRoot;
 + (void)attachToSlider:(UIView *)slider {}
 + (void)refreshAll {}
 @end
-@implementation SPTPlayerState @end
+@implementation SPTPlayerState {
+    id _playbackQuality;
+}
+- (id)playbackQuality { return _playbackQuality; }
+@end
 @implementation SPTPlayerTrack @end
 
 static SPTPlayerState *sg_state;
@@ -221,7 +226,7 @@ static UILabel *motionLabel(UIView *host, NSString *text, CGFloat y, CGFloat siz
     return label;
 }
 
-static void runMotionChecks(UIViewController *host, BOOL on) {
+static void runMotionChecks(UIViewController *host, BOOL on, NSString *qualityCase) {
     CGRect bounds = host.view.bounds;
     UIViewController *background = [_TtC21NowPlaying_ScrollImpl27NPVBackgroundViewController new];
     [host addChildViewController:background];
@@ -243,10 +248,33 @@ static void runMotionChecks(UIViewController *host, BOOL on) {
     [host.view addSubview:coverList];
     [coverList setNeedsLayout];
     [coverList layoutIfNeeded];
-    motionLabel(host.view, @"ON REPEAT", 64, 12);
+    if (qualityCase) {
+        UIViewController *header = [_TtC20NowPlaying_ModesImpl18HeaderElementsUnit new];
+        [host addChildViewController:header];
+        header.view.frame = CGRectMake(0, 57, bounds.size.width, 44);
+        [host.view addSubview:header.view];
+        [header didMoveToParentViewController:host];
+        motionLabel(header.view, @"ON REPEAT", 7, 12);
+        UILabel *close = motionLabel(header.view, @"⌄", 4, 24);
+        close.frame = CGRectMake(12, 4, 44, 36);
+        UILabel *more = motionLabel(header.view, @"⋯", 4, 24);
+        more.frame = CGRectMake(bounds.size.width - 56, 4, 44, 36);
+        [header viewDidLayoutSubviews];
+        reportTrack(@"test-quality", 0);
+        SGHarnessQualityChecks(@"native", header.view, SGKeyPlayerQualityBar, qualityCase.boolValue,
+                               ^(SPTPlaybackQuality *quality) {
+            [sg_state setValue:quality forKey:@"playbackQuality"];
+            for (id<SGPlayerStateObserver> observer in sg_observers.allObjects) {
+                if ([observer respondsToSelector:@selector(playerStateDidReport:)]) [observer playerStateDidReport:sg_state];
+            }
+        });
+    } else {
+        motionLabel(host.view, @"ON REPEAT", 64, 12);
+    }
     motionLabel(host.view, @"Sample Song", 494, 26);
     motionLabel(host.view, @"Sample Artist", 534, 17);
     motionLabel(host.view, @"◀◀       ▶       ▶▶", 653, 32);
+    if (qualityCase) return;
     reportTrack(@"test-clip", 2);
     void (^check)(NSString *, NSInteger) = ^(NSString *frame, NSInteger channel) {
         UIView *tint = background.view.subviews.lastObject;
@@ -284,10 +312,12 @@ static void runMotionChecks(UIViewController *host, BOOL on) {
     self.window.backgroundColor = UIColor.blackColor;
     [self.window makeKeyAndVisible];
     const char *polish = getenv("HARNESS_MOTION_POLISH");
-    if (polish) {
-        SGSetEnabled(SGKeyPlayerAMPolish, atoi(polish) != 0);
+    NSString *quality = NSProcessInfo.processInfo.environment[@"HARNESS_QUALITY_SHOWN"];
+    if (polish || quality) {
+        BOOL on = polish && atoi(polish) != 0;
+        SGSetEnabled(SGKeyPlayerAMPolish, on);
         SGSetEnabled(SGKeyPlayerBackdrop, YES);
-        dispatch_async(dispatch_get_main_queue(), ^{ runMotionChecks(self.window.rootViewController, atoi(polish) != 0); });
+        dispatch_async(dispatch_get_main_queue(), ^{ runMotionChecks(self.window.rootViewController, on, quality); });
         return YES;
     }
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{

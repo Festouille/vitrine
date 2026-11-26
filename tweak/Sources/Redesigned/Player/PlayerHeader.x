@@ -27,6 +27,7 @@
 #import "Core/SGCore.h"
 #import "Redesigned/Kit/SGRKit.h"
 #import "Redesigned/ContextMenu/ContextMenu.h"
+#import "Shared/Player/SGPlaybackQuality.h"
 #import "Player.h"
 
 static char kGlassKey, kDimKey, kCloseKey, kMoreKey, kPressKey;
@@ -116,10 +117,44 @@ static void glassHeader(UIViewController *unit, void (*watchMenu)(UIView *)) {
     glassInside(unit, @[@[@"now-playing-minimize-button", @"mobile-nowplaying-close-button"], @[@"Context menu"]], keys, watchMenu);
 }
 
+static void showQuality(UIView *host) {
+    static char key;
+    UILabel *badge = objc_getAssociatedObject(host, &key);
+    NSString *text = SGFlag(SGRKeyPlayerQualityBar, NO) ? SGPlaybackQualityText(SGPlayerState()) : nil;
+    if (!text.length) {
+        badge.hidden = YES;
+        return;
+    }
+    if (!badge) {
+        badge = [UILabel new];
+        badge.accessibilityIdentifier = @"sg.audio-quality";
+        badge.userInteractionEnabled = NO;
+        badge.font = [UIFont systemFontOfSize:10 weight:UIFontWeightSemibold];
+        badge.textAlignment = NSTextAlignmentCenter;
+        badge.textColor = UIColor.whiteColor;
+        badge.backgroundColor = [UIColor colorWithWhite:0 alpha:0.60];
+        badge.layer.cornerRadius = 9;
+        badge.layer.borderWidth = 0.5;
+        badge.layer.borderColor = [UIColor colorWithWhite:1 alpha:0.25].CGColor;
+        badge.clipsToBounds = YES;
+        [host addSubview:badge];
+        objc_setAssociatedObject(host, &key, badge, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    }
+    if (![badge.text isEqualToString:text]) badge.text = text;
+    CGFloat width = ceil(badge.intrinsicContentSize.width) + 18;
+    badge.frame = CGRectMake(round(CGRectGetMidX(host.bounds) - width / 2), CGRectGetMaxY(host.bounds) + 2, width, 18);
+    badge.hidden = NO;
+}
+
 %hook _TtC20NowPlaying_ModesImpl18HeaderElementsUnit
 - (void)viewDidLayoutSubviews {
     %orig;
-    glassHeader((UIViewController *)self, SGRPlayerMenuWatch);
+    UIViewController *unit = (UIViewController *)self;
+    glassHeader(unit, SGRPlayerMenuWatch);
+    UIView *host = unit.viewIfLoaded;
+    if (!host) return;
+    SGObservePlaybackQuality(host, ^(UIView *owner) { showQuality(owner); });
+    showQuality(host);
 }
 %end
 
