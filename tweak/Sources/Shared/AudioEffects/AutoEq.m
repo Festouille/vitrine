@@ -178,7 +178,7 @@ void SGAutoEqTakeOff(void) {
     rememberPick();
 }
 
-void SGAutoEqOutputChanged(NSString *uid, NSString *name) {
+static void correctionOutputChanged(NSString *uid, NSString *name) {
     if (!uid.length || [uid isEqualToString:sg_outputUID]) return;
     sg_outputUID = [uid copy];
     sg_outputName = name.length ? [name copy] : sg_outputUID;
@@ -207,6 +207,11 @@ void SGAutoEqOutputChanged(NSString *uid, NSString *name) {
         setFollowed(@"");
     }
     changed();
+}
+
+void SGDSPAudioOutputChanged(NSString *uid, NSString *name) {
+    correctionOutputChanged(uid, name);
+    SGDSPOutputEQRouteChanged(uid, name);
 }
 
 NSString *SGAutoEqOutputUID(void) {

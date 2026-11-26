@@ -7,6 +7,7 @@
 #import "Settings/SGPage.h"
 #import "Settings/SGPageStyle.h"
 #import "AudioEffectsPage.h"
+#import "AudioEffectsPresets.h"
 #import "SGDSPCurveView.h"
 
 typedef NS_ENUM(NSInteger, SGDSPRowKind) {
@@ -407,6 +408,14 @@ static UIFont *tabular(UIFont *font) {
     self.tableView.tableHeaderView = _intro;
     [self buildCredits];
     self.tableView.tableFooterView = _credits;
+    [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(outputEQChanged)
+                                               name:SGDSPOutputEQChangedNotification object:nil];
+}
+
+- (void)outputEQChanged {
+    if (self.navigationController.topViewController != self) return;
+    [self readState];
+    [self.tableView reloadData];
 }
 
 // The libraries two of the effects run on, in the gray of a note with the names as links.
@@ -480,7 +489,7 @@ static UIFont *tabular(UIFont *font) {
 
 #pragma mark - rows
 
-// Section 0 is the effects' switch, Presets and Headphones, then a card per effect, then the reset.
+// Section 0 is the effects' switch and preset pages, then a card per effect, then the reset.
 - (SGDSPEffect *)effectIn:(NSInteger)section {
     return section >= 1 && section <= (NSInteger)_effects.count ? _effects[(NSUInteger)section - 1] : nil;
 }
@@ -500,7 +509,7 @@ static UIFont *tabular(UIFont *font) {
 
 - (NSInteger)tableView:(UITableView *)table numberOfRowsInSection:(NSInteger)section {
     SGDSPEffect *e = [self effectIn:section];
-    return e ? [self rowCountOf:e] : section == 0 ? 3 : 1;
+    return e ? [self rowCountOf:e] : section == 0 ? 4 : 1;
 }
 
 // No views, but asked for all the same: without them the table keeps its own spacing, not the heights below.
@@ -555,6 +564,7 @@ static UIFont *tabular(UIFont *font) {
 - (UITableViewCell *)tableView:(UITableView *)table cellForRowAtIndexPath:(NSIndexPath *)path {
     if (path.section == 0 && path.row == 1) return [self valueCell:table title:@"Presets" value:@""];
     if (path.section == 0 && path.row == 2) return [self valueCell:table title:@"Headphones" value:SGDSPHeadphoneSummary()];
+    if (path.section == 0 && path.row == 3) return [self valueCell:table title:@"EQ per output" value:SGHidden(SGKeyDSPOutputEQEnabled) ? @"On" : @"Off"];
     if (path.section == 0) {
         UITableViewCell *cell = SGDequeueCell(table, @"master");
         [self fillHead:cell title:@"Effects" subtitle:SGDSPStatus()];
@@ -637,7 +647,8 @@ static UIFont *tabular(UIFont *font) {
         return;
     }
     if (path.section == 0 && path.row > 0) {
-        [self.navigationController pushViewController:path.row == 1 ? SGDSPPresetsPage() : SGDSPHeadphonesPage() animated:YES];
+        UIViewController *page = path.row == 1 ? SGDSPPresetsPage() : path.row == 2 ? SGDSPHeadphonesPage() : SGDSPOutputEQPage();
+        [self.navigationController pushViewController:page animated:YES];
         return;
     }
     SGDSPRow *row = [self rowAt:path];

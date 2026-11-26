@@ -21,7 +21,8 @@
 // save=<name> (the settings saved as a preset of the user's, behind the page's back), rows (each visible row's
 // title, whether it is ticked and what VoiceOver reads as its value, to the log), remember (Headphones' Use for
 // <output> switched on), search=<text> (the search field on the page typed into; * only taps it; empty puts the keyboard away).
-// Without keep, the user's presets are cleared too.
+// look=native|redesigned selects the look at launch. eqstate logs the effective 15-band Equalizer state.
+// Without keep, the user's presets and output assignments are cleared too.
 #import <UIKit/UIKit.h>
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 #import "Shared/AudioEffects/AudioEffects.h"
@@ -29,6 +30,8 @@
 #import "Shared/AudioEffects/AudioEffectsPresets.h"
 #import "Shared/AudioEffects/SGDSPCurveView.h"
 #import "Settings/SGModPage.h"
+#import "Core/SGUIMode.h"
+#import "Core/SGPrefs.h"
 
 @interface SGDSPCurveView (Harness)
 - (void)setBand:(NSInteger)band to:(double)value;
@@ -68,7 +71,11 @@ static void findViews(UIView *root, Class kind, NSMutableArray *found) {
             if ([key hasPrefix:@"spotifyglass.dsp"]) [store removeObjectForKey:key];
         }
         [store removeObjectForKey:SGKeyDSPUserPresets];
+        [store removeObjectForKey:SGKeyDSPOutputEQPresets];
+        [store removeObjectForKey:SGKeyDSPOutputEQEnabled];
     }
+    SGSetEnabled(SGKeyRedesign, [args containsObject:@"look=redesigned"]);
+    NSLog(@"[harness] look: %@", SGRedesignedUI() ? @"Redesigned" : @"Native");
     if ([args containsObject:@"master"]) SGDSPSetSwitch(SGKeyDSP, YES);
     if ([args containsObject:@"allon"]) for (NSString *key in effectKeys()) SGDSPSetSwitch(key, YES);
     if ([args containsObject:@"broken"]) SGDSPSetString(SGKeyDSPLiveprogFile, @"Tape saturation broken.eel");
@@ -84,6 +91,7 @@ static void findViews(UIView *root, Class kind, NSMutableArray *found) {
 
     NSMutableArray<NSString *> *actions = [NSMutableArray array];
     for (NSString *arg in [args subarrayWithRange:NSMakeRange(1, args.count - 1)]) {
+        if ([arg hasPrefix:@"look="]) continue;
         if (![@[@"keep", @"master", @"allon", @"broken", @"slow"] containsObject:arg]) [actions addObject:arg];
     }
     [actions enumerateObjectsUsingBlock:^(NSString *action, NSUInteger i, BOOL *stop) {
@@ -169,7 +177,12 @@ static void findViews(UIView *root, Class kind, NSMutableArray *found) {
     } else if ([verb isEqualToString:@"output"]) {
         // output=<uid>:<name>, audio going to that output the way AudioEffects.x hands a route change over.
         NSRange colon = [value rangeOfString:@":"];
-        SGAutoEqOutputChanged([value substringToIndex:colon.location], [value substringFromIndex:NSMaxRange(colon)]);
+        SGDSPAudioOutputChanged([value substringToIndex:colon.location], [value substringFromIndex:NSMaxRange(colon)]);
+    } else if ([verb isEqualToString:@"eqstate"]) {
+        BOOL on;
+        NSArray<NSNumber *> *gains = SGDSPEqualizerState(&on);
+        NSLog(@"[harness] effective EQ on %@: %@, %@", SGDSPOutputEQName(), on ? @"on" : @"off",
+              [gains componentsJoinedByString:@","]);
     } else if ([verb isEqualToString:@"remember"]) {
         // remember: Headphones' Use for <output> switched on for the output playing now.
         SGAutoEqRememberOutput(YES);
