@@ -18,8 +18,9 @@ TOKENS = re.compile(rf'@?{QUOTED}|//[^\n]*|/\*[\s\S]*?\*/|[^\s]')
 CALL = re.compile(
     r'\b(SGL|SGOfferRestart|SGPickColor|SGNote|SGFillCell|SGSection(?:Header|Footer)?|SGNotedSection|'
     r'SG(?:Action|Warning|Page|Stat|StatAction|Switch|Option|Unstable|Flag|Kill|Hide|Shown|Choice|Slider|Segment|Menu|Link)Row|'
-    r'pageRow|presetRow|lookSlider|SGSourcesPageMake|SGRLyricsSettingsPage)\s*\('
+    r'pageRow|presetRow|choiceRow|lookSlider|SGSourcesPageMake|SGRLyricsSettingsPage)\s*\('
 )
+CHOICE_NAMES = re.compile(r'@"names"\s*:\s*@\[([^\]]*)\]')
 PROPERTIES = re.compile(
     r'\b(?:SGRestartNote|SGRedesignedUIInfo|SGFakePremiumWarning|title|placeholder|info|choiceFooter|'
     r'accessibilityLabel|format)\s*=\s*(' + LITERALS.pattern + ')'
@@ -84,6 +85,8 @@ def extract(path):
         for token in re.finditer(rf'@?{QUOTED}|//[^\n]*|/\*[\s\S]*?\*/|.', source, re.DOTALL)
     )
     candidates = [next(filter(None, pair)) for pair in PROPERTIES.findall(source)]
+    for names in CHOICE_NAMES.findall(source):
+        candidates.extend(LITERALS.findall(names))
     for match in CALL.finditer(source):
         args = arguments(source, match.end())
         if args:
@@ -95,6 +98,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--list", action="store_true", help="list extracted English strings as JSON")
     parser.add_argument("--missing", action="store_true", help="list missing strings by language")
+    parser.add_argument("--identical", action="store_true", help="list table entries that are identical to English, excluding known shared terms")
     args = parser.parse_args()
     strings = set()
     for path in SOURCES.rglob("*"):
@@ -119,6 +123,10 @@ def main():
               f"{len(missing)} missing ({len(translations)} table entries)")
         if args.missing:
             print(json.dumps(sorted(missing), ensure_ascii=False, indent=2))
+        if args.identical:
+            identical = sorted(key for key, value in translations.items() if key == value and key not in UNCHANGED)
+            print(f"{language}: {len(identical)} strings identical to English")
+            print(json.dumps(identical, ensure_ascii=False, indent=2))
     return int(invalid)
 
 

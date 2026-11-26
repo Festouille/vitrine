@@ -120,7 +120,7 @@ static UIViewController *gatedPage(void) {
 
     [actions enumerateObjectsUsingBlock:^(NSString *action, NSUInteger i, BOOL *stop) {
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)((1 + 0.9 * i) * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            NSLog(@"[harness] %@", action);
+            NSLog(@"[harness] %@", [action hasPrefix:@"preset-input="] ? @"preset-input" : action);
             [self run:action];
         });
     }];
@@ -300,6 +300,11 @@ static UIViewController *gatedPage(void) {
         SGSetEnabled(SGKeyHideVideoSwitch, before);
         NSAssert(![SGPendingRestartSettings() containsObject:@"Hide Switch to video"], @"Reverted change is still pending");
         NSLog(@"[harness] preset import and pending restart checks passed");
+    } else if ([verb isEqualToString:@"preset-input"]) {
+        NSMutableArray<UITextView *> *inputs = [NSMutableArray array];
+        findViews([table cellForRowAtIndexPath:[self pathFrom:@"0.0"]].contentView, UITextView.class, inputs);
+        NSAssert(inputs.count == 1, @"Missing preset JSON input");
+        inputs.firstObject.text = [action isEqualToString:verb] ? @"" : [action substringFromIndex:verb.length + 1];
     } else if ([verb isEqualToString:@"cancel"]) {
         UIAlertController *alert = (UIAlertController *)self.nav.presentedViewController;
         if (![alert isKindOfClass:UIAlertController.class]) return;

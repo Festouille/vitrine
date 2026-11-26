@@ -40,6 +40,10 @@ rows; the dedicated Player and Lyrics page harnesses render their Redesigned pre
 native look. `preset-check` checks the JSON allowlist, invalid values, and removal of a reverted change
 from the pending restart list.
 
+To open the import preview with mixed valid and invalid settings, run the harness with:
+
+    pick=Presets "pick=Import preset" 'preset-input={"spotifyglass.hide.videoSwitch":true,"spotifyglass.hide.fullScreenCover":3}' tap=1.0
+
 For a gated subpage, run `search-gate=0 search "query=Library detail switch" search-count=0`, then
 relaunch with `search-gate=1 search "query=Library detail switch" search-count=1`. The child control
 should only be searchable with its prerequisite on.
