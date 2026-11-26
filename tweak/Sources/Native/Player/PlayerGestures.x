@@ -40,13 +40,14 @@ static const NSTimeInterval kBadgeEnter = 0.2, kBadgeExit = 0.15;
     UIView *cover = self.view;
     if (self.state == UIGestureRecognizerStateBegan) {
         CGFloat x = [self locationInView:cover].x, third = cover.bounds.size.width / 3;
-        if (!SGPlayerHoldSpeedEnabled() || (x > third && x < 2 * third) || !SGPlayerSpeedAllowed()) {
+        double holdSpeed = SGPlayerHoldSpeed(), before = SGPlayerSpeed();
+        if (!SGPlayerHoldSpeedEnabled() || (x > third && x < 2 * third) || !SGPlayerSpeedAllowed() || before >= holdSpeed) {
             self.enabled = NO;
             self.enabled = YES;   // cancels this hold
             return;
         }
-        _before = SGPlayerSpeed();
-        SGSetPlayerSpeed(SGPlayerHoldSpeed());
+        _before = before;
+        SGSetPlayerSpeed(holdSpeed);
         SGPlayFeedback(SGFeedbackGrab);
         [self showBadge:YES on:cover];
         UIAccessibilityPostNotification(UIAccessibilityAnnouncementNotification, SGPlayerHoldSpeedAnnouncement());
