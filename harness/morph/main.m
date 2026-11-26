@@ -6,6 +6,9 @@
 // artwork, the field and the log.
 #import <UIKit/UIKit.h>
 #import <QuartzCore/QuartzCore.h>
+#import "Core/SGPrefs.h"
+#import "Native/Player/NowPlaying.h"
+#import "Redesigned/Player/Player.h"
 
 static const CGFloat kW = 402, kH = 874;
 
@@ -36,7 +39,8 @@ BOOL SGRPlayerMotionShowing(void) { return NO; }
 id SGRPlayerField(void) { return nil; }
 UIImage *SGRNowPlayingArtwork(NSString **uri, NSString **identity) { return sg_art; }
 BOOL SGRReduceMotion(void) { return NO; }
-BOOL SGRedesignedUI(void) { return YES; }
+BOOL SGRedesignedUI(void) { return ![NSProcessInfo.processInfo.environment[@"MORPH_NATIVE"] boolValue]; }
+BOOL SGNativeUI(void) { return !SGRedesignedUI(); }
 void SGRequireClasses(NSArray *names) {}
 
 #pragma mark - Spotify's transition, as 9.1.78 runs it
@@ -166,15 +170,21 @@ static UILabel *label(NSString *text, CGRect frame, CGFloat size, UIColor *color
 
 - (UIView *)makeBar {
     UIView *bar = [[UIView alloc] initWithFrame:CGRectMake(0, kH - 83 - 64, kW, 56)];
-    UIVisualEffectView *glass = [[UIVisualEffectView alloc] initWithEffect:[NSClassFromString(@"UIGlassEffect") effectWithStyle:0]];
-    glass.frame = CGRectMake(8, 0, 386, 56);
-    glass.layer.cornerRadius = 24;
-    glass.clipsToBounds = YES;
-    [bar addSubview:glass];
-    sg_card = glass;
+    UIView *card;
+    if (SGRedesignedUI()) {
+        card = [[UIVisualEffectView alloc] initWithEffect:[NSClassFromString(@"UIGlassEffect") effectWithStyle:0]];
+    } else {
+        card = [UIView new];
+        card.backgroundColor = [UIColor colorWithRed:0.16 green:0.10 blue:0.20 alpha:1];
+    }
+    card.frame = CGRectMake(8, 0, 386, 56);
+    card.layer.cornerRadius = SGRedesignedUI() ? 24 : 8;
+    card.clipsToBounds = YES;
+    [bar addSubview:card];
+    sg_card = card;
     UIImageView *art = [[UIImageView alloc] initWithImage:sg_art];
     art.frame = CGRectMake(16, 8, 40, 40);
-    art.layer.cornerRadius = 20;
+    art.layer.cornerRadius = SGRedesignedUI() ? 20 : 4;
     art.clipsToBounds = YES;
     [bar addSubview:art];
     sg_barArt = art;
@@ -209,6 +219,8 @@ static UILabel *label(NSString *text, CGRect frame, CGFloat size, UIColor *color
 
 - (void)viewDidLoad {
     [super viewDidLoad];
+    SGSetEnabled(SGRedesignedUI() ? SGRKeyPlayerAMPolish : SGKeyPlayerAMPolish,
+                 [NSProcessInfo.processInfo.environment[@"MORPH_POLISH"] boolValue]);
     sg_art = artworkImage();
     self.view.backgroundColor = UIColor.blackColor;
     for (int i = 0; i < 8; i++) {
@@ -255,6 +267,35 @@ static UILabel *label(NSString *text, CGRect frame, CGFloat size, UIColor *color
     held.bottomBarView = _bar;
     [held holdFrom:_container at:progress];
     UIView *player = _player, *container = _container, *cover = sg_cover;
+    CGFloat barAlpha = held.barSnapshotView.alpha, playerAlpha = player.alpha;
+    CGRect middle = player.frame;
+    [held setProgress:1];
+    NSCAssert(player.alpha == 1 && held.barSnapshotView.alpha == 0, @"The open endpoint must show only the player");
+    [held setProgress:0];
+    NSCAssert(player.alpha == 0 && held.barSnapshotView.alpha == 1, @"The closed endpoint must show only the bar");
+    [held setProgress:progress];
+    NSCAssert(player.alpha == playerAlpha && held.barSnapshotView.alpha == barAlpha && CGRectEqualToRect(middle, player.frame),
+              @"Reversing progress must return to the same frame");
+    SPTBarOverlayPresentationTransition *empty = [SPTBarOverlayPresentationTransition new];
+    [empty setProgress:progress];
+    NSCAssert(empty.progress == progress, @"An absent context must leave the animator alone");
+    BOOL polished = SGFlag(SGRedesignedUI() ? SGRKeyPlayerAMPolish : SGKeyPlayerAMPolish, NO);
+    if (progress == 0.3 || progress == 0.7) {
+        NSCAssert((player.layer.mask != nil) == SGRedesignedUI(), @"Only the redesign should mask the player");
+        if (SGRedesignedUI()) {
+            NSCAssert((barAlpha > 0) == (polished && progress == 0.3), @"The bar should only linger in the polished handoff");
+            if (progress == 0.7) {
+                UIView *flown = container.subviews.lastObject;
+                NSCAssert([flown isKindOfClass:UIImageView.class] && (flown.bounds.size.width > 266) == polished,
+                          @"Polished artwork should ease towards the full cover");
+            }
+        } else {
+            NSCAssert(polished ? fabs(barAlpha + playerAlpha - 1) < 0.001 && barAlpha > 0 :
+                                 fabs(barAlpha - (1 - MIN(progress, 0.5) * 2)) < 0.001 &&
+                                 fabs(playerAlpha - MIN(1, progress * 2)) < 0.001,
+                      @"Native must crossfade complementary alphas only when polished");
+        }
+    }
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC / 2), dispatch_get_main_queue(), ^{
         NSLog(@"MORPH overlay frame %@ alpha %.2f", NSStringFromCGRect(player.frame), player.alpha);
         NSLog(@"MORPH mask %@ sublayer %@", NSStringFromCGRect(player.layer.mask.frame), [NSValue valueWithCATransform3D:player.layer.sublayerTransform]);
@@ -262,6 +303,8 @@ static UILabel *label(NSString *text, CGRect frame, CGFloat size, UIColor *color
         NSLog(@"MORPH cover model %@ presented top-left %@", NSStringFromCGRect([container convertRect:cover.bounds fromView:cover]),
               NSStringFromCGPoint([cover.layer.presentationLayer convertPoint:CGPointZero toLayer:shown]));
         for (UIView *v in container.subviews) NSLog(@"MORPH sub %@ %@", v.class, NSStringFromCGRect(v.frame));
+        NSLog(@"MORPH READY: %@ %@ %.1f bar %.3f player %.3f -- PASS",
+              SGRedesignedUI() ? @"redesign" : @"native", polished ? @"on" : @"off", progress, barAlpha, playerAlpha);
     });
 }
 

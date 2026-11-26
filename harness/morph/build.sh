@@ -4,10 +4,11 @@ SRC=$(cd "$(dirname "$0")/../../tweak/Sources" && pwd)
 OUT=$(dirname "$0")/build
 rm -rf "$OUT"; mkdir -p "$OUT/gen" "$OUT/MorphHarness.app"
 "$THEOS/bin/logos.pl" -c generator=internal "$SRC/Redesigned/Player/PlayerMorph.x" > "$OUT/gen/PlayerMorph.m"
+"$THEOS/bin/logos.pl" -c generator=internal "$SRC/Native/Player/PlayerTransition.x" > "$OUT/gen/PlayerTransition.m"
 SDK=$(xcrun --sdk iphonesimulator --show-sdk-path)
 xcrun -sdk iphonesimulator clang -target arm64-apple-ios17.0-simulator -fobjc-arc -g -O0 \
-    -I"$SRC" -I"$SRC/Redesigned/Player" -isysroot "$SDK" -Wno-deprecated-declarations \
-    "$(dirname "$0")/main.m" "$OUT/gen/PlayerMorph.m" \
+    -I"$SRC" -I"$SRC/Redesigned/Player" -I"$SRC/Native/Player" -isysroot "$SDK" -Wno-deprecated-declarations \
+    "$(dirname "$0")/main.m" "$(dirname "$0")/../scene.m" "$OUT"/gen/*.m "$SRC/Core/SGPrefs.m" \
     -framework UIKit -framework QuartzCore -framework CoreGraphics -framework Foundation \
     -o "$OUT/MorphHarness.app/MorphHarness"
 cat > "$OUT/MorphHarness.app/Info.plist" <<'PLIST'
@@ -21,6 +22,15 @@ cat > "$OUT/MorphHarness.app/Info.plist" <<'PLIST'
 <key>CFBundleShortVersionString</key><string>1.0</string>
 <key>UIUserInterfaceStyle</key><string>Dark</string>
 <key>UILaunchScreen</key><dict/>
+<key>UIApplicationSceneManifest</key><dict>
+  <key>UIApplicationSupportsMultipleScenes</key><false/>
+  <key>UISceneConfigurations</key><dict>
+    <key>UIWindowSceneSessionRoleApplication</key><array><dict>
+      <key>UISceneConfigurationName</key><string>Default</string>
+      <key>UISceneDelegateClassName</key><string>SGRHarnessScene</string>
+    </dict></array>
+  </dict>
+</dict>
 </dict></plist>
 PLIST
 codesign -f -s - "$OUT/MorphHarness.app" >/dev/null 2>&1

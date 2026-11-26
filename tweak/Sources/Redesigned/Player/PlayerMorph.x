@@ -89,6 +89,7 @@ static CGFloat screenRadius(void) {
     BOOL _coverHidden;
     BOOL _tornDown;
     BOOL _follows;   // 9.1.90: Spotify animates the player's frame and alpha, which the morph then only reads
+    BOOL _polished;
 }
 
 // Where the player's top edge rests when it has become the bar: 9.1.90's CompactOverlayTransition slides it down only
@@ -175,6 +176,7 @@ static CGFloat screenRadius(void) {
     _cardRadius = radius;
     _barArtwork = SGRNowPlayingArtworkFrameIn(container);
     _spotifyAlpha = overlay.alpha;
+    _polished = SGFlag(SGRKeyPlayerAMPolish, NO);
 
     _sheet = [[UIView alloc] initWithFrame:card];
     _sheet.userInteractionEnabled = NO;
@@ -227,7 +229,9 @@ static CGFloat screenRadius(void) {
     }
     CGRect full = container.bounds;
     CGRect sheet = lerpRect(_card, full, t);
-    CGFloat radius = lerp(_cardRadius, screenRadius(), t);
+    CGFloat artworkProgress = _polished ? ramp(0, 1, t) : t;
+    CGFloat radius = lerp(_cardRadius, screenRadius(), artworkProgress);
+    CGFloat barBlend = _polished ? ramp(0, 0.40, t) : ramp(0, 0.25, t);
     CGFloat scale = full.size.width > 0 ? sheet.size.width / full.size.width : 1;
     // The player's top goes to the sheet's: a mask clips nothing above the layer's bounds, so content
     // raised above Spotify's frame would show square corners. Spotify reads back only the player's
@@ -249,12 +253,23 @@ static CGFloat screenRadius(void) {
         overlay.layer.sublayerTransform = CATransform3DScale(CATransform3DMakeTranslation(shift.x, shift.y, 0), scale, scale, 1);
         self->_mask.frame = CGRectMake(target.x, target.y, sheet.size.width, sheet.size.height);
         self->_mask.cornerRadius = radius;
-        if (!self->_follows) overlay.alpha = ramp(0.08, 0.55, t);
+        if (!self->_follows) overlay.alpha = self->_polished ? ramp(0.06, 0.64, t) : ramp(0.08, 0.55, t);
 
         self->_sheet.frame = sheet;
         self->_sheet.layer.cornerRadius = radius;
         // The sheet is the player's own paint, so it fades with the player Spotify fades against its bar stand-in.
         self->_sheet.alpha = self->_follows ? self->_spotifyAlpha : ramp(0, 0.15, t);
+        if (self->_polished) {
+            if (!self->_follows) {
+                self->_sheet.alpha = barBlend;
+            } else if (t > 0 && t < 0.40) {
+                CALayer *drawnBar = bar.layer.presentationLayer;
+                if (drawnBar) {
+                    CGFloat overlap = ramp(0, 0.06, t) * (1 - ramp(0.22, 0.40, t));
+                    self->_sheet.alpha = lerp(self->_spotifyAlpha, MAX(self->_spotifyAlpha, 1 - drawnBar.opacity), overlap);
+                }
+            }
+        }
 
         // The card's top edge is the sheet's.
         CGFloat rise = sheet.origin.y - self->_card.origin.y;
@@ -262,7 +277,7 @@ static CGFloat screenRadius(void) {
             CGRect frame = bar.frame;
             frame.origin.y = self->_barRest.origin.y + rise;
             bar.frame = frame;
-            bar.alpha = 1 - ramp(0, 0.25, t);
+            bar.alpha = 1 - barBlend;
         } else if (self->_stripPart) {
             // Under Spotify's own crossfade of the stand-in, which stays its own.
             CGFloat strip = 1 - ramp(0, 0.25, t);
@@ -288,12 +303,13 @@ static CGFloat screenRadius(void) {
                                        coverInPlayer.size.width * scale, coverInPlayer.size.height * scale);
                 self->_cover.hidden = NO;
                 to = CGRectOffset(to, -sheet.origin.x, -sheet.origin.y);
-                self->_cover.frame = CGRectOffset(lerpRect(from, to, t), sheet.origin.x, sheet.origin.y);
+                self->_cover.frame = CGRectOffset(lerpRect(from, to, artworkProgress), sheet.origin.x, sheet.origin.y);
                 // The cover's corners are drawn under its paused shrink too.
-                self->_cover.layer.cornerRadius = lerp(from.size.width / 2, SGRPlayerCoverCornerRadius() * SGRPlayerCoverScale() * scale, t);
+                self->_cover.layer.cornerRadius = lerp(from.size.width / 2, SGRPlayerCoverCornerRadius() * SGRPlayerCoverScale() * scale, artworkProgress);
                 // Over an animated artwork the player's cover is hidden: the flown one fades out on the
                 // way there instead of landing on an empty slot.
-                self->_cover.alpha = SGRPlayerMotionShowing() ? 1 - ramp(0.6, 1, t) : 1;
+                CGFloat coverAlpha = SGRPlayerMotionShowing() ? 1 - ramp(0.6, 1, t) : 1;
+                self->_cover.alpha = self->_polished && bar ? coverAlpha * ramp(0, 0.20, t) : coverAlpha;
             }
         }
     }];

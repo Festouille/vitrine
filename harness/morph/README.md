@@ -16,8 +16,14 @@ Held at one progress, for a screenshot (the positions are logged as `MORPH` line
     SIMCTL_CHILD_MORPH_T=0.3 xcrun simctl launch --console-pty booted com.vojta.morphharness
     xcrun simctl io booted screenshot shot.png
 
+Use `SIMCTL_CHILD_MORPH_POLISH=1` for the polished handoff and `SIMCTL_CHILD_MORPH_NATIVE=1`
+for Native's alpha-only transition on the same legacy animator. Try both at `MORPH_T=0.3` and
+`MORPH_T=0.7`. Wait for `MORPH READY`: before holding the frame the harness checks both
+endpoints, reverses back to the same progress, and checks an animator with no context.
+
 A recording shows the move: `xcrun simctl io booted recordVideo -f run.mp4`, then
 `ffmpeg -ss T -t 0.5 -i run.mp4 -vf "fps=24,scale=160:-1,tile=8x1" -frames:v 1 strip.png`.
 
 What it does not cover: Spotify's real player and list, the tab bar's stand-in, the bar's glass on the
-closing stand-in (`BarTransition.x`), a drag, and the field's color (the sheet is black here).
+closing stand-in (`BarTransition.x`), UIKit's compact animator, a drag, and the field's color
+(the sheet is black here).
