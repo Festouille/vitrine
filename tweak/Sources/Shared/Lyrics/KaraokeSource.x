@@ -351,6 +351,7 @@ void SGKaraokeRequestLyrics(NSString *trackID) {
         SGLyricsSetCredit(trackID, imported.provider);
         return;
     }
+    if (local && !sg_prefetchLocalLyrics) return;
     if (!sg_ownSources && !local) {
         requestFromSpotify(trackID);
         return;
