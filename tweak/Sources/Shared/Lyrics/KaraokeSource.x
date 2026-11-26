@@ -582,17 +582,22 @@ static BOOL linesShown(void) {
     [NSNotificationCenter.defaultCenter addObserverForName:SGImportedLRCDidChangeNotification object:nil queue:nil
                                                 usingBlock:^(NSNotification *note) {
         NSSet<NSString *> *imported = [NSSet setWithArray:SGLyricsForgetImportedAnswers()];
+        BOOL (^refreshes)(NSString *) = ^BOOL(NSString *track) {
+            if (!track || (!SGLocalFileIs(track) && ![imported containsObject:track])) return NO;
+            NSString *picked = note.object ? SGLyricsChosenSource(track) : nil;
+            return !picked || [picked isEqualToString:SGImportedLRCKey];
+        };
         NSMutableSet<NSString *> *tracks = [NSMutableSet setWithSet:[sg_requested setByAddingObjectsFromArray:sg_lyrics.allKeys]];
         [tracks unionSet:imported];
         for (NSString *track in tracks) {
-            if ((!SGLocalFileIs(track) && ![imported containsObject:track]) || [sg_looking containsObject:track]) continue;
+            if (!refreshes(track) || [sg_looking containsObject:track]) continue;
             [sg_lyrics removeObjectForKey:track];
             [sg_requested removeObject:track];
             [sg_asking removeObject:track];
             [sg_losses removeObjectForKey:track];
         }
         NSString *playing = SGKaraokePlayingTrack();
-        if (!playing || (!SGLocalFileIs(playing) && ![imported containsObject:playing])) return;
+        if (!refreshes(playing)) return;
         if (sg_prefetchLocalLyrics || [imported containsObject:playing]) SGKaraokeRequestLyrics(playing);
         announce(playing);
     }];
