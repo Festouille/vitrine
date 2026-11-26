@@ -1035,6 +1035,22 @@ NSDictionary<NSString *, NSString *> *SGStringsFR(void) {
             @"No lyrics for this track": @"Aucune parole pour ce titre",
             @"Play a track in Spotify to see synced lyrics": @"Lancez un titre dans Spotify pour voir les paroles synchronisées",
             @"Active": @"Actif",
+            @"Adds press feedback to the mini player, smooths the handoff to and from the full player, and follows the animated cover's colors behind the controls when available.": @"Ajoute un retour tactile à l’appui sur le mini-lecteur, fluidifie les transitions avec le lecteur plein écran et reprend les couleurs de la pochette animée derrière les commandes lorsqu’elles sont disponibles.",
+            @"Apple Music style polish": @"Finitions façon Apple Music",
+            @"Apple Music style polish adds press feedback to the mini player, smooths the handoff to and from the full player, and follows the animated cover's colors behind the controls when available. The audio quality bar shows the current playback quality at the top of the player when it is known.": @"Les finitions façon Apple Music ajoutent un retour tactile à l’appui sur le mini-lecteur, fluidifient les transitions avec le lecteur plein écran et reprennent les couleurs de la pochette animée derrière les commandes lorsqu’elles sont disponibles. La barre de qualité audio indique la qualité de lecture en haut du lecteur lorsqu’elle est connue.",
+            @"Audio quality bar": @"Barre de qualité audio",
+            @"Download model on iPhone": @"Télécharger le modèle sur l’iPhone",
+            @"Follow words in place of the artist": @"Afficher les paroles synchronisées à la place du nom de l’artiste",
+            @"Glassify": @"Glassify",
+            @"Hide the device button and Spotify's flags apply after you restart Spotify.": @"Le masquage du bouton des appareils et les options expérimentales de Spotify s’appliquent après le redémarrage de Spotify.",
+            @"More Options": @"Plus d’options",
+            @"Original": @"Original",
+            @"Show Spotify’s total streams on album and playlist tracks": @"Afficher le total des écoutes Spotify pour les titres des albums et des playlists",
+            @"Spotify Connect volume · GNU GPL v3.0": @"Volume de Spotify Connect · GNU GPL v3.0",
+            @"Stream counts": @"Nombre d’écoutes",
+            @"The audio quality bar shows the current playback quality at the top of the player when it is known. Its switch takes effect without restarting Spotify.": @"La barre de qualité audio indique la qualité de lecture en haut du lecteur lorsqu’elle est connue. Son réglage s’applique sans redémarrer Spotify.",
+            @"Translate": @"Traduire",
+            @"jadetheda's Vitrine fork": @"Fork de Vitrine par jadetheda",
         };
     });
     return strings;
