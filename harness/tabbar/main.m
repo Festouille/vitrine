@@ -2,7 +2,10 @@
 // screen, laid out with the constraints 9.1.78 makes (see the README for the addresses), under Spotify's
 // class names, with Spotify's message bar (Offline, Private Session) able to come in under the tab bar.
 #import <UIKit/UIKit.h>
+#import "Core/SGPrefs.h"
+#import "Core/SGUIMode.h"
 #import "Core/SGViewTree.h"
+#import "Shared/Gestures/Gestures.h"
 
 #pragma mark - Spotify's classes, by the names the hooks look for
 
@@ -45,8 +48,31 @@
 
 static BOOL sgJam;
 static __weak UIView *sgJamStrip;
+static NSUInteger sgCardTaps, sgPlayTaps;
 
-@interface _TtC18NowPlaying_BarImpl27NowPlayingBarViewController : UIViewController
+@interface SPTNowPlayingPlaybackControllerImplementation : NSObject
+@property (nonatomic) NSUInteger next, previous;
+@property (nonatomic, getter=isPaused) BOOL paused;
+@property (nonatomic, getter=isShuffling) BOOL shuffling;
+@property (nonatomic) BOOL canSkipNext;
+@end
+
+@implementation SPTNowPlayingPlaybackControllerImplementation
+- (instancetype)initWithPlayer:(id)player testManager:(id)manager inStreamClient:(id)client {
+    if ((self = [super init])) _canSkipNext = YES;
+    return self;
+}
+- (void)skipToNextWhileDragging:(BOOL)dragging { self.next++; }
+- (void)skipToPreviousWhileDragging:(BOOL)dragging { self.previous++; }
+- (BOOL)disallowPausing { return NO; }
+- (BOOL)disallowResuming { return NO; }
+- (void)setGlobalShuffleMode:(BOOL)on { self.shuffling = on; }
+- (void)toggleRepeatMode {}
+@end
+
+static SPTNowPlayingPlaybackControllerImplementation *sgPlayback;
+
+@interface _TtC18NowPlaying_BarImpl27NowPlayingBarViewController : UIViewController <UIGestureRecognizerDelegate>
 @end
 @implementation _TtC18NowPlaying_BarImpl27NowPlayingBarViewController
 - (void)loadView {
@@ -122,9 +148,30 @@ static __weak UIView *sgJamStrip;
     play.frame = CGRectMake(330, 12, 32, 32);
     play.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin;
     [card addSubview:play];
+    if ([NSProcessInfo.processInfo.arguments containsObject:@"gestures"]) {
+        play.translatesAutoresizingMaskIntoConstraints = NO;
+        [NSLayoutConstraint activateConstraints:@[
+            [play.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-16],
+            [play.centerYAnchor constraintEqualToAnchor:card.centerYAnchor],
+            [play.widthAnchor constraintEqualToConstant:32],
+            [play.heightAnchor constraintEqualToConstant:32],
+        ]];
+        UITapGestureRecognizer *tap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(openPlayer)];
+        tap.delegate = self;
+        [card addGestureRecognizer:tap];
+        [play addTarget:self action:@selector(tapPlay) forControlEvents:UIControlEventTouchUpInside];
+    }
     UIView *progress = [[UIView alloc] initWithFrame:CGRectMake(8, 54, 370, 2)];
     progress.backgroundColor = UIColor.whiteColor;
     [card addSubview:progress];
+}
+- (void)openPlayer { sgCardTaps++; }
+- (void)tapPlay { sgPlayTaps++; }
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gesture shouldReceiveTouch:(UITouch *)touch {
+    for (UIView *view = touch.view; view && view != gesture.view; view = view.superview) {
+        if ([view isKindOfClass:UIControl.class]) return NO;
+    }
+    return YES;
 }
 @end
 
@@ -385,6 +432,7 @@ extern void SGRSetTabBarMinimized(BOOL minimized, BOOL animated);
 extern BOOL SGRTabBarMinimized(void);
 // touch.m: a finger's touches, through UIKit's own recognizers.
 extern void SGHarnessTap(UIWindow *window, CGPoint point);
+extern void SGHarnessHold(UIWindow *window, CGPoint point, NSTimeInterval seconds);
 extern void SGHarnessDrag(UIWindow *window, CGPoint from, CGPoint to, NSTimeInterval seconds);
 
 static UIView *platterIn(UIView *root) {
@@ -668,9 +716,10 @@ static NSString *const kWatched[4] = {@"platter", @"glyph", @"split platter", @"
 
 #pragma mark - the app
 
-// Before every %ctor, so the redesign's gate reads on.
+// Before every %ctor, so the look's gate reads the launch argument.
 __attribute__((constructor(101))) static void sgr_harnessDefaults(void) {
-    [NSUserDefaults.standardUserDefaults setBool:YES forKey:@"spotifyglass.redesign"];
+    [NSUserDefaults.standardUserDefaults setBool:![NSProcessInfo.processInfo.arguments containsObject:@"native"]
+                                         forKey:@"spotifyglass.redesign"];
 }
 
 @interface SGHarnessApp : UIResponder <UIApplicationDelegate>
@@ -688,6 +737,92 @@ static void after(double seconds, dispatch_block_t block) {
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(seconds * NSEC_PER_SEC)), dispatch_get_main_queue(), block);
 }
 
+static void testMiniPlayerGestures(UIViewController *presenter, UIView *barRoot, BOOL inSheet) {
+    sgPlayback = [[SPTNowPlayingPlaybackControllerImplementation alloc] initWithPlayer:nil testManager:nil inStreamClient:nil];
+    SGSetEnabled(SGKeyMiniPlayerGestures, NO);
+    [presenter.view layoutIfNeeded];
+    static char cardKey;
+    UIView *card = SGFindIdentifier(barRoot, @"SPTNowPlayingBar", &cardKey);
+    NSCAssert(card.window, @"Mini player must be visible");
+    UIWindow *window = card.window;
+    CGPoint left = [card convertPoint:CGPointMake(60, CGRectGetMidY(card.bounds)) toView:window];
+    CGPoint right = [card convertPoint:CGPointMake(200, CGRectGetMidY(card.bounds)) toView:window];
+    if (inSheet) {
+        NSCAssert([[window hitTest:right withEvent:nil] isDescendantOfView:card], @"A touch on the sheet's mini player must reach it");
+        SGSetEnabled(SGKeyMiniPlayerGestures, YES);
+        SGHarnessHold(window, right, 0.65);
+        after(1.25, ^{
+            UIAlertController *menu = (UIAlertController *)presenter.presentedViewController;
+            NSCAssert([menu isKindOfClass:UIAlertController.class] && [menu.title isEqualToString:@"Mini player"],
+                      @"Long press on the sheet's mini player must open the actions over the sheet");
+            NSLog(@"[harness] mini player gestures PASS (in sheet)");
+            exit(0);
+        });
+        return;
+    }
+    __block UIButton *button;
+    SGForEachView(card, ^(UIView *view) {
+        if ([view isKindOfClass:UIButton.class]) button = (UIButton *)view;
+    });
+    NSCAssert(button, @"Mini player must have a play button");
+    CGPoint play = [button convertPoint:CGPointMake(CGRectGetMidX(button.bounds), CGRectGetMidY(button.bounds)) toView:window];
+    NSCAssert([[window hitTest:play withEvent:nil] isDescendantOfView:button], @"A touch on the play button must reach it");
+
+    SGHarnessDrag(window, right, left, 0.16);
+    after(0.35, ^{ SGHarnessHold(window, right, 0.65); });
+    after(1.15, ^{
+        NSCAssert(!sgPlayback.next && !presenter.presentedViewController, @"Disabled gestures must do nothing");
+        sgCardTaps = 0;
+        SGSetEnabled(SGKeyMiniPlayerGestures, YES);
+        SGHarnessDrag(window, right, left, 0.16);
+    });
+    after(1.50, ^{
+        NSCAssert(sgPlayback.next == 1 && !sgPlayback.previous, @"Swipe left must skip to next once");
+        SGHarnessDrag(window, left, right, 0.16);
+    });
+    after(1.85, ^{
+        NSCAssert(sgPlayback.next == 1 && sgPlayback.previous == 1, @"Swipe right must skip to previous once");
+        sgPlayback.canSkipNext = NO;
+        SGHarnessDrag(window, right, left, 0.16);
+    });
+    after(2.20, ^{
+        NSCAssert(sgPlayback.next == 1, @"Swipe must respect disallowed next");
+        SGHarnessTap(window, right);
+    });
+    after(2.45, ^{
+        NSCAssert(sgCardTaps == 1, @"Tap must still open the player");
+        SGHarnessTap(window, play);
+    });
+    after(2.70, ^{
+        NSCAssert(sgPlayTaps == 1, @"The play button must still receive taps");
+        SGHarnessHold(window, play, 0.65);
+    });
+    after(3.50, ^{
+        NSCAssert(!presenter.presentedViewController, @"Long press on a control must not show the menu");
+        SGHarnessHold(window, right, 0.65);
+    });
+    after(4.75, ^{
+        UIAlertController *menu = (UIAlertController *)presenter.presentedViewController;
+        NSCAssert([menu isKindOfClass:UIAlertController.class] && [menu.title isEqualToString:@"Mini player"],
+                  @"Long press on the card must open the actions");
+        NSCAssert(([[menu.actions valueForKey:@"title"] isEqual:@[@"Pause", @"Turn shuffle on", @"Change repeat mode", @"Cancel"]]),
+                  @"Expected playback actions and Cancel");
+        __block UILabel *pause;
+        SGForEachView(menu.view, ^(UIView *view) {
+            if ([view isKindOfClass:UILabel.class] && [((UILabel *)view).text isEqualToString:@"Pause"]) pause = (UILabel *)view;
+        });
+        NSCAssert(pause.window, @"The Pause action must be visible");
+        CGPoint point = [pause convertPoint:CGPointMake(CGRectGetMidX(pause.bounds), CGRectGetMidY(pause.bounds)) toView:pause.window];
+        SGHarnessTap(pause.window, point);
+        after(0.60, ^{
+            NSCAssert(sgPlayback.paused && sgCardTaps == 1, @"Pause must act without opening the player (paused=%d, card taps=%lu)",
+                      sgPlayback.paused, (unsigned long)sgCardTaps);
+            NSLog(@"[harness] mini player gestures PASS (%@)", SGRedesignedUI() ? @"redesigned" : @"native");
+            exit(0);
+        });
+    });
+}
+
 - (void)scene:(UIScene *)scene willConnectToSession:(UISceneSession *)session options:(UISceneConnectionOptions *)options {
     self.window = [[UIWindow alloc] initWithWindowScene:(UIWindowScene *)scene];
     self.window.overrideUserInterfaceStyle = UIUserInterfaceStyleDark;
@@ -699,6 +834,27 @@ static void after(double seconds, dispatch_block_t block) {
     // `away` one there from the start sliding away at 1.5 s, `cycle` in at 1.5 s and out at 4.5 s.
     NSArray<NSString *> *args = NSProcessInfo.processInfo.arguments;
     NSString *mode = args.count > 1 ? args[1] : @"none";
+    if ([mode isEqualToString:@"gestures"]) {
+        [UIView setAnimationsEnabled:NO];
+        if ([args containsObject:@"sheet"]) {
+            UIViewController *sheet = [UIViewController new];
+            sheet.modalPresentationStyle = UIModalPresentationPageSheet;
+            sheet.view.accessibilityIdentifier = @"sheet-view";
+            sheet.view.backgroundColor = UIColor.systemBlueColor;
+            UIViewController *bar = [_TtC18NowPlaying_BarImpl36NowPlayingBarContainerViewController new];
+            [sheet addChildViewController:bar];
+            bar.view.frame = CGRectMake(0, 60, sheet.view.bounds.size.width, 56);
+            bar.view.autoresizingMask = UIViewAutoresizingFlexibleWidth;
+            [sheet.view addSubview:bar.view];
+            [bar didMoveToParentViewController:sheet];
+            [chrome presentViewController:sheet animated:NO completion:^{
+                after(0.5, ^{ testMiniPlayerGestures(sheet, bar.view, YES); });
+            }];
+        } else {
+            after(0.5, ^{ testMiniPlayerGestures(chrome, chrome.npb, NO); });
+        }
+        return;
+    }
     // `jam`: in a Jam from the start, and out of it at 3.5 s.
     if ([mode isEqualToString:@"jam"]) {
         after(3.5, ^{
