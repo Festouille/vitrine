@@ -181,6 +181,19 @@ static UIViewController *gatedPage(void) {
                      @"Low contrast on '%@', ink %@ against %@", content.text, ink, card);
         }
         NSLog(@"[harness] theme passed: %@ %@", self.nav.topViewController.title, value);
+    } else if ([verb isEqualToString:@"restart-pending"]) {
+        SGSetEnabled(SGKeyHideVideoSwitch, !SGHidden(SGKeyHideVideoSwitch));
+    } else if ([verb isEqualToString:@"restart-contrast"]) {
+        NSMutableArray<UIButton *> *buttons = [NSMutableArray array];
+        findViews(table.tableHeaderView, UIButton.class, buttons);
+        UIButton *pill = buttons.firstObject;
+        NSAssert(pill.window && [pill.configuration.title hasPrefix:@"Restart to apply"], @"Missing restart pill");
+        UIColor *ink = [pill.titleLabel.textColor resolvedColorWithTraitCollection:pill.traitCollection];
+        CGFloat white = -1;
+        BOOL light = [value isEqualToString:@"light"];
+        NSAssert([ink getWhite:&white alpha:NULL] && (light ? white < 0.15 : white > 0.85),
+                 @"Unreadable restart label in %@ with a black custom accent: %@", value, ink);
+        NSLog(@"[harness] restart contrast passed: %@", value);
     } else if ([verb isEqualToString:@"theme-off"]) {
         UISwitch *toggle = (UISwitch *)[table cellForRowAtIndexPath:[self pathFrom:@"0.0"]].accessoryView;
         NSAssert([toggle isKindOfClass:UISwitch.class] && !toggle.isOn && [table numberOfRowsInSection:0] == 1,

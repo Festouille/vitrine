@@ -60,4 +60,9 @@ for look in legacy redesigned; do
     expect 'theme passed: Vitrine dark'
 done
 
+sim ui appearance light
+run "$out/restart-contrast.log" -spotifyglass.accent 0 -spotifyglass.redesign.accent 0 \
+    restart-pending restart-contrast=dark pick=Appearance toggle=0.0 back restart-contrast=light restart-pending
+expect 'restart contrast passed: light'
+
 echo 'Appearance themes passed in both looks'
