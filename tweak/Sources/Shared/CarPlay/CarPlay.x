@@ -5,6 +5,7 @@
 // no hooks at all.
 #import <CarPlay/CarPlay.h>
 #import <MediaPlayer/MediaPlayer.h>
+#import <objc/message.h>
 #import <objc/runtime.h>
 #import "Core/SGCore.h"
 #import "Headers/SPTPlayer.h"
@@ -446,6 +447,28 @@ static NSArray<CPListSection *> *buildControlsSections(void) {
     [sections addObject:[[CPListSection alloc] initWithItems:playbackItems header:SGL(@"Playback") sectionIndexTitle:nil]];
     if (audioItems.count) {
         [sections addObject:[[CPListSection alloc] initWithItems:audioItems header:SGL(@"Sound") sectionIndexTitle:nil]];
+    }
+    CPNowPlayingButton *displacedMore = sg_cpDisplacedMore;
+    if (displacedMore) {
+        CPListItem *moreItem = [[CPListItem alloc] initWithText:SGL(@"More Options")
+                                                     detailText:nil
+                                                          image:carPlaySymbolImage(@"ellipsis.circle", 20)];
+        moreItem.handler = ^(id<CPSelectableListItem> selectedItem, dispatch_block_t completionBlock) {
+            completionBlock();
+            CPNowPlayingButton *btn = sg_cpDisplacedMore;
+            if (!btn) return;
+            if ([btn respondsToSelector:@selector(handlePrimaryAction)]) {
+                ((void (*)(id, SEL))objc_msgSend)(btn, @selector(handlePrimaryAction));
+            } else {
+                @try {
+                    void (^handler)(CPNowPlayingButton *) = [btn valueForKey:@"handler"];
+                    if (handler) handler(btn);
+                } @catch (NSException *e) {
+                    SGLog(@"carplay: displaced more handler failed: %@", e.reason);
+                }
+            }
+        };
+        [sections addObject:[[CPListSection alloc] initWithItems:@[moreItem] header:@"Spotify" sectionIndexTitle:nil]];
     }
     return sections;
 }
