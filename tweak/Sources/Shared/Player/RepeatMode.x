@@ -13,15 +13,29 @@ typedef NS_OPTIONS(NSUInteger, SGRepeatBits) {
 };
 
 static NSString *const kLastRepeatMode = @"spotifyglass.rememberRepeatMode.last";
-static BOOL sg_launchHandled;
+static NSString *sg_track, *sg_context;
+static NSString *sg_requestedTrack, *sg_requestedContext;
 static SGRepeatBits sg_requested, sg_requestedMask;
 static _Thread_local BOOL sg_restoring;
+
+static BOOL sameURI(NSString *a, NSString *b) {
+    return a == b || [a isEqualToString:b];
+}
+
+static void clearRequest(void) {
+    sg_requested = sg_requestedMask = 0;
+    sg_requestedTrack = sg_requestedContext = nil;
+}
 
 static void rememberRequest(id player, NSNumber *context, NSNumber *track) {
     if (sg_restoring || !SGFlag(SGKeyRememberRepeatMode, NO) || (!context && !track)) return;
     dispatch_block_t note = ^{
         if (player != SGPlayer() || !SGFlag(SGKeyRememberRepeatMode, NO)) return;
-        sg_launchHandled = YES;
+        SPTPlayerState *state = SGPlayerState();
+        NSString *trackURI = SGURIString(state.track.URI), *contextURI = SGURIString(state.contextURI);
+        if (!sameURI(trackURI, sg_requestedTrack) || !sameURI(contextURI, sg_requestedContext)) clearRequest();
+        sg_requestedTrack = trackURI;
+        sg_requestedContext = contextURI;
         if (context) {
             sg_requestedMask |= SGRepeatContext;
             sg_requested = (sg_requested & ~SGRepeatContext) | (context.boolValue ? SGRepeatContext : 0);
@@ -49,17 +63,22 @@ static void rememberRequest(id player, NSNumber *context, NSNumber *track) {
 
     SGRepeatBits bits = (options.repeatingContext ? SGRepeatContext : 0) | (options.repeatingTrack ? SGRepeatTrack : 0);
     BOOL enabled = SGFlag(SGKeyRememberRepeatMode, NO);
-    if (!enabled) sg_requested = sg_requestedMask = 0;
-    if (sg_requestedMask && (bits & sg_requestedMask) == sg_requested) {
-        sg_requested = 0;
-        sg_requestedMask = 0;
-        SGSetInt(kLastRepeatMode, bits);
+    if (!enabled) clearRequest();
+    NSString *track = SGURIString(state.track.URI), *context = SGURIString(state.contextURI);
+    if (!track.length || ([state respondsToSelector:@selector(isLoading)] && state.isLoading)) return;
+    if (sg_requestedMask) {
+        BOOL samePlayback = !sg_requestedTrack || (sameURI(track, sg_requestedTrack) && sameURI(context, sg_requestedContext));
+        if (!samePlayback) clearRequest();
+        else if ((bits & sg_requestedMask) == sg_requested) {
+            clearRequest();
+            SGSetInt(kLastRepeatMode, bits);
+        }
     }
 
-    if (sg_launchHandled || !SGURIString(state.track.URI).length ||
-        ([state respondsToSelector:@selector(isLoading)] && state.isLoading)) return;
-    sg_launchHandled = YES;
-    if (!enabled) return;
+    if (sameURI(track, sg_track) && sameURI(context, sg_context)) return;
+    sg_track = track;
+    sg_context = context;
+    if (!enabled || sg_requestedMask) return;
     NSInteger saved = SGInt(kLastRepeatMode, -1);
     if (saved == bits || saved < 0 || saved > (SGRepeatContext | SGRepeatTrack) ||
         ![player respondsToSelector:@selector(setRepeatingContext:)] ||

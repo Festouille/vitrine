@@ -18,6 +18,7 @@
 @property (nonatomic, readwrite) SPTPlayerTrack *track;
 @property (nonatomic, readwrite) SPTPlayerOptions *options;
 @property (nonatomic, readwrite) BOOL isLoading;
+@property (nonatomic, readwrite) id contextURI;
 @end
 @implementation SPTPlayerState
 @synthesize track = _track, options = _options, isLoading = _isLoading;
@@ -37,6 +38,8 @@
 @property (nonatomic) SPTPlayerState *state;
 @property (nonatomic) NSHashTable<id<HarnessPlayerObserver>> *observers;
 @property (nonatomic) NSUInteger repeatCommands;
+@property (nonatomic) BOOL repeatRestricted;
+@property (nonatomic, copy) NSString *trackURI, *contextURI;
 - (void)addPlayerObserver:(id)observer;
 - (void)reportContext:(BOOL)context track:(BOOL)track loading:(BOOL)loading;
 - (id)setRepeatingContext:(BOOL)on;
@@ -46,7 +49,11 @@
 
 @implementation SPTEsperantoPlayer
 - (instancetype)init {
-    if ((self = [super init])) self.observers = [NSHashTable weakObjectsHashTable];
+    if ((self = [super init])) {
+        self.observers = [NSHashTable weakObjectsHashTable];
+        self.trackURI = @"spotify:track:repeat-harness";
+        self.contextURI = @"spotify:playlist:repeat-harness";
+    }
     return self;
 }
 - (void)addPlayerObserver:(id)observer {
@@ -55,7 +62,8 @@
 - (void)reportContext:(BOOL)context track:(BOOL)track loading:(BOOL)loading {
     SPTPlayerState *state = [SPTPlayerState new];
     state.track = [SPTPlayerTrack new];
-    state.track.URI = @"spotify:track:repeat-harness";
+    state.track.URI = self.trackURI;
+    state.contextURI = self.contextURI;
     state.isLoading = loading;
     state.options = [SPTPlayerOptions new];
     state.options.repeatingContext = context;
@@ -67,11 +75,13 @@
 }
 - (id)setRepeatingContext:(BOOL)on {
     self.repeatCommands++;
+    if (self.repeatRestricted) return @NO;
     [self reportContext:on track:self.state.options.repeatingTrack loading:NO];
     return @YES;
 }
 - (id)setRepeatingTrack:(BOOL)on {
     self.repeatCommands++;
+    if (self.repeatRestricted) return @NO;
     [self reportContext:self.state.options.repeatingContext track:on loading:NO];
     return @YES;
 }
@@ -94,6 +104,7 @@ BOOL SGHarnessRepeatAction(NSString *verb, NSString *value, UIViewController *pa
     NSCAssert(context || track || [mode isEqualToString:@"off"], @"Unknown repeat mode: %@", mode);
     if ([verb isEqualToString:@"repeat-start"]) {
         sg_repeatPlayer = [SPTEsperantoPlayer new];
+        sg_repeatPlayer.repeatRestricted = [parts.lastObject isEqualToString:@"restricted"];
         [sg_repeatPlayer reportContext:NO track:NO loading:YES];
         [sg_repeatPlayer addPlayerObserver:[NSObject new]];
         dispatch_async(dispatch_get_main_queue(), ^{
@@ -101,6 +112,13 @@ BOOL SGHarnessRepeatAction(NSString *verb, NSString *value, UIViewController *pa
             [sg_repeatPlayer reportContext:context track:track loading:NO];
         });
     } else if ([verb isEqualToString:@"repeat-report"]) {
+        [sg_repeatPlayer reportContext:context track:track loading:NO];
+    } else if ([verb isEqualToString:@"repeat-context"]) {
+        sg_repeatPlayer.contextURI = @"spotify:album:repeat-harness";
+        sg_repeatPlayer.repeatRestricted = NO;
+        [sg_repeatPlayer reportContext:context track:track loading:NO];
+    } else if ([verb isEqualToString:@"repeat-next"]) {
+        sg_repeatPlayer.trackURI = @"spotify:track:repeat-harness-next";
         [sg_repeatPlayer reportContext:context track:track loading:NO];
     } else if ([verb isEqualToString:@"repeat-set"]) {
         SPTPlayerOptionOverrides *options = [SPTPlayerOptionOverrides new];
