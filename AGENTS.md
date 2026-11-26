@@ -73,8 +73,9 @@ Rules:
   `trees/clean/`) before hooking anything. Prove every class and selector against the tree or the binary.
 - Device log: `make log` (`[spotifyglass]` lines).
 - Releases: Release Please (`.github/workflows/release.yml`). Commit as `feat:` / `fix:` (they bump
-  `version.txt` and fill `CHANGELOG.md`; `chore:`, `refactor:` and `docs:` stay out). Merging its
-  release PR tags `vX.Y.Z` and builds the tweak to check it compiles; nothing is attached. Never edit `version.txt` by hand.
+  `version.txt` and fill `CHANGELOG.md`; `chore:`, `refactor:` and `docs:` stay out). The same macOS
+  checks build the tweak, addon and widget for PRs and before Release Please runs on main. Merging the
+  release PR tags `vX.Y.Z` after the checks pass; nothing is attached. Never edit `version.txt` by hand.
 - Known traps: anything pushed onto Spotify's nav stack must conform to `SPTPageController`
   (`Settings/SGPage.m`). Setting `hidden` on views inside Spotify's `OverflowStackView` or its Encore
   stacks crashes, so use alpha. A `CADisplayLink` capped at 60 Hz drags the player's 120 Hz

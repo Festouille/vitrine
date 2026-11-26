@@ -1,5 +1,19 @@
-# Entry points; the real work is in scripts/. IPA defaults to the first file in ipa/.
-IPA ?= $(firstword $(wildcard ipa/*.ipa))
+# Entry points; the real work is in scripts/. Pass IPA through the environment so it stays one path.
+export VITRINE_IPA := $(value IPA)
+
+define with-ipa
+	ipa="$$VITRINE_IPA"; \
+	if [ -z "$$ipa" ]; then \
+		for candidate in ipa/*.ipa; do \
+			if [ -f "$$candidate" ]; then ipa="$$candidate"; break; fi; \
+		done; \
+	fi; \
+	if [ -z "$$ipa" ]; then \
+		echo 'no IPA: put a file in ipa/ or pass IPA=path/to/file.ipa' >&2; exit 1; \
+	fi; \
+	case "$$ipa" in -*) ipa="./$$ipa";; esac; \
+	$(1) "$$ipa" $(2)
+endef
 
 # What goes on the phone is the mod alone. FLEX is the inspector `make trees` reads the screens
 # through, so it rides along only when it is asked for: make install FLEX=1. (A make target cannot
@@ -14,11 +28,11 @@ DEV_ICON ?= docs/icon.png
 
 .PHONY: build release install quick trees session log flags
 build:    ## FLEX + glass IPA into out/
-	./scripts/pipeline.sh $(IPA)
+	$(call with-ipa,./scripts/pipeline.sh)
 release:  ## glass only, no FLEX
-	./scripts/pipeline.sh $(IPA) --no-flex
+	$(call with-ipa,./scripts/pipeline.sh,--no-flex)
 install:  ## build, sign with your certificate, push to the phone on USB (FLEX=1 to take FLEX too)
-	./scripts/pipeline.sh $(IPA) --install $(FLEX_ARG) --name "$(DEV_NAME)" --icon "$(DEV_ICON)" -o out/spoti.dev.ipa
+	$(call with-ipa,./scripts/pipeline.sh,--install $(FLEX_ARG) --name "$(DEV_NAME)" --icon "$(DEV_ICON)" -o out/spoti.dev.ipa)
 quick:    ## a tweak-only change into the app the last build made: rebuild, sign, install in seconds
 	./scripts/quick.sh
 trees:    ## record per-screen view trees into trees/ (needs a FLEX build on the phone)
@@ -28,4 +42,4 @@ session:  ## record clean trees screen by screen into trees/clean/, Enter per sn
 log:     ## stream the tweak's log lines from the phone
 	./scripts/dump-log.sh
 flags:    ## regenerate tweak/Sources/Shared/Flags/SGFlagList.m, Spotify's remote-config flags, from the IPA
-	./scripts/extract-flags.py $(IPA)
+	$(call with-ipa,./scripts/extract-flags.py)
