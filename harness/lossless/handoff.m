@@ -3,8 +3,11 @@
 #import <stdatomic.h>
 #import "Shared/Lossless/SGPCMReplacement.h"
 
+@class SPTPlayerState;
+@protocol SGPlayerStateObserver;
 // SpeedPitch.x reads the player for its clock away from 1x; the harness has no player.
-void *SGPlayerState(void) { return NULL; }
+SPTPlayerState *SGPlayerState(void) { return nil; }
+void SGAddPlayerStateObserver(id<SGPlayerStateObserver> observer) {}
 
 static int failures;
 static SGPreparedPCM *asset;
