@@ -17,8 +17,14 @@
 #import "Core/SGCore.h"
 #import "Settings/SGModPage.h"
 #import "Native/Appearance/Appearance.h"
+#import "Native/Home/Home.h"
 #import "Redesigned/Kit/SGRAccent.h"
+#import "Settings/SGLocalize.h"
 #import "Shared/Fonts/Fonts.h"
+
+UIViewController *SGPlaylistSettingsPage(void) { return nil; }
+UIViewController *SGAlbumSettingsPage(void) { return nil; }
+UIViewController *SGArtistSettingsPage(void) { return nil; }
 
 static void findViews(UIView *root, Class kind, NSMutableArray *found) {
     if ([root isKindOfClass:kind]) [found addObject:root];
@@ -60,7 +66,8 @@ static NSInteger hex(NSString *text) {
     if (![args containsObject:@"keep"]) {
         for (NSString *key in store.dictionaryRepresentation.allKeys) {
             if ([key hasPrefix:@"spotifyglass.accent"] || [key hasPrefix:@"spotifyglass.redesign.accent"] || [key hasPrefix:@"spotifyglass.font"] ||
-                [key isEqualToString:SGKeyRedesign]) [store removeObjectForKey:key];
+                [key isEqualToString:SGKeyRedesign] || [key isEqualToString:SGKeySettingsTranslate] ||
+                [key isEqualToString:SGKeySettingsLanguage]) [store removeObjectForKey:key];
         }
     }
     NSMutableArray<NSString *> *actions = [NSMutableArray array];
@@ -69,6 +76,12 @@ static NSInteger hex(NSString *text) {
         else if ([arg hasPrefix:@"accent="]) SGSetInt(SGKeyAccent, hex([arg substringFromIndex:7]));
         else if ([arg hasPrefix:@"raccent="]) SGSetInt(SGRKeyAccent, hex([arg substringFromIndex:8]));
         else if ([arg hasPrefix:@"font="]) SGSetInt(SGKeyAppFont, [arg substringFromIndex:5].integerValue);
+        else if ([arg hasPrefix:@"lang="]) {
+            NSUInteger language = [@[@"device", @"fr", @"es", @"tr"] indexOfObject:[arg substringFromIndex:5]];
+            NSAssert(language != NSNotFound, @"Unknown harness language");
+            SGSetEnabled(SGKeySettingsTranslate, YES);
+            SGSetInt(SGKeySettingsLanguage, (NSInteger)language);
+        }
         else if (![arg isEqualToString:@"keep"]) [actions addObject:arg];
     }
 
@@ -122,6 +135,15 @@ static NSInteger hex(NSString *text) {
         [item performWithSender:button target:nil];
     } else if ([verb isEqualToString:@"select"]) {
         [table.delegate tableView:table didSelectRowAtIndexPath:[self pathFrom:value]];
+    } else if ([verb isEqualToString:@"home-gradient"]) {
+        [self.nav pushViewController:SGHomeGradientPage() animated:NO];
+    } else if ([verb isEqualToString:@"tint-row"]) {
+        NSInteger index = SGHomeChoiceValue(SGHomeChoiceTint);
+        UITableViewCell *cell = [table cellForRowAtIndexPath:[NSIndexPath indexPathForRow:index inSection:0]];
+        NSString *text = [(UIListContentConfiguration *)cell.contentConfiguration text];
+        NSAssert([text isEqualToString:value] && [cell.accessoryView isKindOfClass:UIImageView.class],
+                 @"Expected saved tint '%@' to be checked, got '%@'", value, text);
+        NSLog(@"[harness] stored Home gradient tint: %@", text);
     } else if ([verb isEqualToString:@"color"]) {
         self.picker.selectedColor = SGColorRGB(hex(value));
     } else if ([verb isEqualToString:@"confirm"]) {

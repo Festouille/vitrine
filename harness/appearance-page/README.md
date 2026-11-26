@@ -15,6 +15,10 @@ Make a simulator of your own (`xcrun simctl create`) and address it by UDID. `ma
 color sheet moved, confirmed or closed, a font file handed to the import as Files would, and `dump`, which logs the
 stored keys, the color in effect, what the launch would register for the font and what every row reads.
 
+To test localized Home gradient colors, launch with `lang=fr home-gradient select=0.1 select=0.4 select=0.1 tint-row=Violet`.
+Terminate and launch again with `keep home-gradient select=0.1 tint-row=Violet` to verify the saved choice.
+This checks the settings and stored tint, not Spotify's Home rendering.
+
 2026-10-05, iPhone 17 Pro on iOS 27.0: an old Apple Music red reads Apple Music, an old #123456 reads Custom, nothing
 stored reads Spotify (native) or Custom #37F200 (redesign); Custom → Spotify → Custom brings #123456 back; the sheet's
 close keeps the color, its checkmark stores it as Custom; a text file named .ttf is refused with nothing stored;
