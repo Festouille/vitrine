@@ -4,7 +4,7 @@ SRC=$(cd "$(dirname "$0")/../../tweak/Sources" && pwd)
 OUT=$(dirname "$0")/build
 rm -rf "$OUT"; mkdir -p "$OUT/gen" "$OUT/ArtistHarness.app"
 
-for f in Redesigned/Artist/ArtistField.x Redesigned/Artist/ArtistHeader.x Redesigned/Artist/ArtistSections.x Redesigned/Artist/ArtistFollow.x; do
+for f in Redesigned/Artist/ArtistField.x Redesigned/Artist/ArtistHeader.x Redesigned/Artist/ArtistSections.x Redesigned/Artist/ArtistFollow.x Redesigned/Artist/ArtistAbout.x; do
     name=$(basename "$f" .x)
     "$THEOS/bin/logos.pl" -c generator=internal "$SRC/$f" > "$OUT/gen/$name.m"
 done
@@ -20,6 +20,7 @@ xcrun -sdk iphonesimulator clang -target arm64-apple-ios17.0-simulator -fobjc-ar
     "$SRC"/Redesigned/Kit/SGRTokens.m "$SRC"/Redesigned/Kit/SGRPalette.m "$SRC"/Redesigned/Kit/SGRField.m "$SRC"/Redesigned/Kit/SGRFlow.m "$SRC"/Redesigned/Kit/SGRFluid.m "$SRC"/Shared/AnimatedArtwork/SGMotionCatalog.m "$SRC"/Shared/AnimatedArtwork/SGMotionStore.m \
     "$SRC"/Redesigned/Kit/SGRGlass.m "$SRC"/Redesigned/Kit/SGRGlyph.m "$SRC"/Redesigned/Kit/SGRRestyle.m \
     "$SRC"/Redesigned/Kit/SGRActionRow.m "$SRC"/Redesigned/Kit/SGRDownload.m "$SRC"/Redesigned/Kit/SGRHeaderInfo.m \
+    "$SRC"/Redesigned/Kit/SGRStretchHero.m "$SRC"/Redesigned/Kit/SGRChips.m \
     "$SRC"/Redesigned/Kit/SGRedesign.m \
     -framework UIKit -framework QuartzCore -framework CoreGraphics -framework CoreImage -framework Foundation -framework Symbols -framework AVFoundation -framework CoreMedia \
     -o "$OUT/ArtistHarness.app/ArtistHarness"

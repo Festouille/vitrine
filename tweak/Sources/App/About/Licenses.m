@@ -37,6 +37,9 @@ UIViewController *SGLicensesPage(void) {
     SGModRow *eevee = SGLinkRow(@"EeveeSpotify", @"Ads, upsells, Spoof Premium · GNU GPL v3.0", @"https://www.gnu.org/licenses/gpl-3.0.html");
     // Not shipped: the Headphones page downloads its results when asked, but they are AutoEq's work all the same.
     SGModRow *autoEq = SGLinkRow(@"AutoEq", @"Headphone corrections · MIT License", @"https://github.com/jaakkopasanen/AutoEq");
+    SGModRow *glassify = SGLinkRow(@"Glassify", @"Spotify Connect volume · GNU GPL v3.0", @"https://github.com/MVTTSUN/glassify/tree/9b72b51");
+    SGModRow *jade = SGLinkRow(@"jadetheda's Vitrine fork", @"Spotify Connect volume · GNU GPL v3.0",
+                              @"https://github.com/jadetheda/compiling-vitrine-pls-ignore/commit/f68c807c");
     // Sing's voice model is downloaded rather than built in, and its NOTICE travels with it here all the same.
     SGModRow *voice = SGLinkRow(@"Karaoke's voice model", @"Mel-Band RoFormer · MIT License", @"https://huggingface.co/My-Name-Is-Jeff/vitrine-sing");
     SGModRow *lightVoice = SGLinkRow(@"Karaoke's light voice model", @"Mini-BS-RoFormer-18M · MIT License",
@@ -48,6 +51,7 @@ UIViewController *SGLicensesPage(void) {
                                       @"ad components taken out of Home and Search, ad sections out of the feeds, ad requests answered empty), "
                                       @"Hide upsells (the Premium pop-ups, and the ad and upsell flags it turns off) and Spoof Premium "
                                       @"(the account attributes and flag rules it rewrites, and crossfade under it)."),
+        SGSection(nil, @[glassify, jade]),
         SGNotedSection(nil, @[bs2b], [@"Copyright (c) 2005 Boris Mikhaylov\n\n" stringByAppendingString:kMIT]),
         SGNotedSection(nil, @[wdl], [@"Copyright (C) 2004-2013 Cockos Incorporated\nCopyright (C) 1999-2003 Nullsoft, Inc.\n\n"
                                      stringByAppendingString:kZlib]),
