@@ -38,6 +38,7 @@
 #import <UIKit/UIKit.h>
 #import <objc/runtime.h>
 #import <objc/message.h>
+#import <MediaPlayer/MediaPlayer.h>
 #import "Core/SGCore.h"
 #import "Settings/SGModPage.h"
 #import "Shared/Lyrics/Lyrics.h"
@@ -55,8 +56,15 @@
 void SGRHarnessPlayFrom(NSInteger ms);
 void SGRHarnessSetTrack(NSString *uri, NSString *imageURI, BOOL paused);
 void SGRHarnessReportQuality(id quality);
+void SGRHarnessConnectStart(void);
+void SGRHarnessConnectRoute(NSString *identifier, BOOL supported, double value);
+void SGRHarnessConnectReport(double value);
+double SGRHarnessConnectValue(void);
+NSUInteger SGRHarnessConnectWrites(void);
+NSUInteger SGRHarnessConnectPopups(void);
 // ../tabbar/touch.m: a finger's touches, through UIKit's own recognizers.
 extern void SGHarnessHold(UIWindow *window, CGPoint point, NSTimeInterval seconds);
+extern void SGHarnessDrag(UIWindow *window, CGPoint from, CGPoint to, NSTimeInterval seconds);
 
 static NSString *scenario(void) {
     const char *value = getenv("HARNESS_SCENARIO");
@@ -541,10 +549,12 @@ static void loadLyrics(void) {
 
     UIView *controls = box(bottom, UIView.class, CGRectMake(0, 104, W, 88), nil);
     glyphButton(controls, CGRectMake(W / 2 - 130, 20, 48, 48), @"backward.fill", nil);
-    glyphButton(controls, CGRectMake(W / 2 - 24, 14, 48, 60), @"pause.fill", nil);
+    BOOL connectScenario = [scenario() isEqualToString:@"connect"];
+    glyphButton(controls, CGRectMake(W / 2 - 24, 14, 48, 60), @"pause.fill",
+                connectScenario ? @"SPTNowPlayingPlayButton" : nil);
     glyphButton(controls, CGRectMake(W / 2 + 82, 20, 48, 48), @"forward.fill", nil);
 
-    if (hasVolume) {
+    if (hasVolume && !connectScenario) {
         UIView *volume = box(bottom, UIView.class, CGRectMake(0, 192, W, 44), nil);
         UIView *volumeTrack = box(volume, UIView.class, CGRectMake(44, 19, W - 88, 6), nil);
         volumeTrack.backgroundColor = [UIColor colorWithWhite:1 alpha:0.3];
@@ -634,6 +644,7 @@ static void loadLyrics(void) {
     else if ([scenario() isEqualToString:@"seek"]) [self runSeekChecks];
     else if ([scenario() isEqualToString:@"visualiser"]) [self runVisualiserChecks];
     else if ([scenario() isEqualToString:@"header"]) [self runHeaderChecks];
+    else if (connectScenario) [self runConnectChecks];
     else if ([scenario() isEqualToString:@"quality"]) {
         SGHarnessQualityChecks(@"redesign", header, SGRKeyPlayerQualityBar,
                                [NSProcessInfo.processInfo.environment[@"HARNESS_QUALITY_SHOWN"] boolValue],
@@ -948,6 +959,103 @@ static UIView *motionView(void) {
     _checks++;
     if (!ok) _failures++;
     NSLog(@"[harness] %@ check %@: %@ -- %@", scenario(), step, detail, ok ? @"ok" : @"WRONG");
+}
+
+- (void)runConnectChecks {
+    if (getenv("HARNESS_CONNECT_SETTINGS")) {
+        SGModPage *page = (SGModPage *)SGRPlayerSettingsPage(@[]);
+        UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:page];
+        nav.modalPresentationStyle = UIModalPresentationFullScreen;
+        [self.window.rootViewController presentViewController:nav animated:NO completion:^{
+            [page.tableView layoutIfNeeded];
+            [page.tableView scrollToRowAtIndexPath:[NSIndexPath indexPathForRow:0 inSection:4]
+                                  atScrollPosition:UITableViewScrollPositionTop animated:NO];
+        }];
+        return;
+    }
+    SGRHarnessConnectStart();
+    UIControl *(^row)(void) = ^UIControl *{ return (UIControl *)firstOfClass(self->_host, @"SGRVolumeRow"); };
+    BOOL (^isLocal)(void) = ^BOOL { return [row().accessibilityLabel isEqualToString:@"Volume"]; };
+    void (^drag)(void) = ^{
+        UIControl *volume = row();
+        if (!volume) return;
+        CGPoint point = [volume convertPoint:CGPointMake(CGRectGetMidX(volume.bounds), CGRectGetMidY(volume.bounds))
+                                      toView:self.window];
+        SGHarnessDrag(self.window, point, CGPointMake(point.x + 84, point.y), 0.3);
+    };
+    after(0.4, ^{
+        [self expect:isLocal() && row().alpha > 0.99 step:@"local" detail:row().accessibilityLabel];
+    });
+    after(1.8, ^{ SGRHarnessConnectRoute(@"unsupported", NO, 0.5); });
+    after(2, ^{
+        [self expect:isLocal() step:@"unsupported device" detail:row().accessibilityLabel];
+        SGRHarnessConnectRoute(@"speaker", YES, 0);
+    });
+    after(2.2, ^{
+        [self expect:isLocal() step:@"unhydrated zero" detail:row().accessibilityLabel];
+        SGRHarnessConnectReport(0.42);
+    });
+    after(2.5, ^{
+        [self expect:!isLocal() && [row().accessibilityValue isEqualToString:@"42%"] step:@"remote update"
+              detail:row().accessibilityValue];
+    });
+    after(3.5, ^{
+        NSUInteger popups = SGRHarnessConnectPopups();
+        NSUInteger writes = SGRHarnessConnectWrites();
+        [row() accessibilityIncrement];
+        after(1, ^{
+            [self expect:SGRHarnessConnectWrites() == writes + 2 && fabs(SGRHarnessConnectValue() - 0.4825) < 0.001
+                    step:@"VoiceOver and settle retry" detail:row().accessibilityValue];
+            [self expect:SGRHarnessConnectPopups() == popups step:@"only our write hides the duplicate popup"
+                  detail:[NSString stringWithFormat:@"%lu popups", (unsigned long)SGRHarnessConnectPopups()]];
+            drag();
+        });
+    });
+    after(6.1, ^{
+        [self expect:SGRHarnessConnectValue() > 0.65 && SGRHarnessConnectValue() < 0.8
+                step:@"remote drag" detail:row().accessibilityValue];
+        NSUInteger writes = SGRHarnessConnectWrites();
+        double previous = SGRHarnessConnectValue();
+        __block BOOL tookVolume = NO;
+        [row() accessibilityIncrement];
+        after(0.15, ^{
+            tookVolume = SGRHarnessConnectWrites() == writes + 1 && SGRHarnessConnectValue() > previous;
+            SGRHarnessConnectReport(0);
+        });
+        after(1, ^{
+            [self expect:tookVolume && SGRHarnessConnectWrites() == writes + 1 && SGRHarnessConnectValue() == 0
+                    step:@"acknowledged write does not undo a newer mute"
+                  detail:[NSString stringWithFormat:@"%lu writes, volume %.2f",
+                          (unsigned long)(SGRHarnessConnectWrites() - writes), SGRHarnessConnectValue()]];
+            after(0.25, ^{
+                [self expect:[row().accessibilityValue isEqualToString:@"0%"] step:@"settled mute" detail:row().accessibilityValue];
+                drag();
+                after(0.09, ^{ SGRHarnessConnectRoute(@"other-speaker", YES, 0.64); });
+                after(1, ^{
+                    [self expect:fabs(SGRHarnessConnectValue() - 0.64) < 0.001 && [row().accessibilityValue isEqualToString:@"64%"]
+                            step:@"route changes during drag" detail:row().accessibilityValue];
+                    SGRHarnessConnectReport(0.005);
+                    NSUInteger beforeMute = SGRHarnessConnectWrites();
+                    after(0.2, ^{ [row() accessibilityDecrement]; });
+                    after(1, ^{
+                        [self expect:SGRHarnessConnectWrites() == beforeMute + 1 && SGRHarnessConnectValue() == 0
+                                step:@"near-zero volume can be muted"
+                              detail:[NSString stringWithFormat:@"%lu writes, volume %.3f",
+                                      (unsigned long)(SGRHarnessConnectWrites() - beforeMute), SGRHarnessConnectValue()]];
+                        SGRHarnessConnectRoute(nil, NO, 0);
+                        after(0.25, ^{
+                            NSString *system = [NSString stringWithFormat:@"%d%%",
+                                                (int)round(AVAudioSession.sharedInstance.outputVolume * 100)];
+                            [self expect:isLocal() && [row().accessibilityValue isEqualToString:system]
+                                    step:@"returns to the iPhone" detail:row().accessibilityValue];
+                            NSLog(@"[harness] connect checks: %lu of %lu right -- %@", (unsigned long)(self->_checks - self->_failures),
+                                  (unsigned long)self->_checks, self->_failures ? @"FAIL" : @"PASS");
+                        });
+                    });
+                });
+            });
+        });
+    });
 }
 
 // The field covered by the clip, and its Fluid copies hidden for it.
@@ -1953,6 +2061,11 @@ static BOOL linesSeek(SGRKaraokeView *lyrics) {
 // Before every %ctor, so the redesign's gate reads on, and every session gets the picture server.
 __attribute__((constructor(101))) static void sgr_harnessDefaults(void) {
     [NSUserDefaults.standardUserDefaults setBool:YES forKey:@"spotifyglass.redesign"];
+    if ([scenario() isEqualToString:@"connect"]) {
+        [NSUserDefaults.standardUserDefaults setBool:YES forKey:SGRKeyPlayerVolume];
+        [NSUserDefaults.standardUserDefaults removeObjectForKey:SGRKeyPlayerConnectVolume];
+        if (!getenv("HARNESS_CONNECT_SETTINGS")) [NSUserDefaults.standardUserDefaults setBool:YES forKey:SGRKeyPlayerConnectVolume];
+    }
     // Animated artwork, its clip served by the picture server to the shared session too.
     if ([scenario() isEqualToString:@"visualiser"]) [NSUserDefaults.standardUserDefaults setInteger:4 forKey:@"spotifyglass.redesign.player.background"];
     // Still at launch, so the player looks up no clip; an address of this run's own, so the store has none of it yet.
