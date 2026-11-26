@@ -459,6 +459,28 @@ int main(int argc, char **argv) {
         CHECK([got.provider isEqualToString:@"LRCLIB"] && [sg_asked isEqualToArray:@[@"lrclib:auto_linked"]]);
         sg_linkedTrack = nil;
 
+        // 9. SGLyricsFetchSettled waits for the auto-select upgrade window instead of returning provisional lyrics.
+        SGLyricsSetAutoSelectWindow(0.2);
+        [sg_answers removeAllObjects];
+        sg_answers[@"lrclib"] = lines(YES);
+        sg_answers[@"netease"] = wordLines(NO, NO, NO);
+        [NSUserDefaults.standardUserDefaults setVolatileDomain:@{SGKeyLyricsProviders: @[@"lrclib", @"netease"],
+                                                                 SGKeyLyricsAutoSelect: @YES}
+                                                       forName:NSArgumentDomain];
+        SGPrefsChanged();
+        sg_held = @"netease";
+        __block SGLyricsResult *settledGot = nil;
+        __block BOOL settledDone = NO;
+        SGLyricsFetchSettled(@"auto_settled", ^(SGLyricsResult *result) { settledGot = result; settledDone = YES; });
+        pump(^BOOL { return sg_release != nil; });
+        CHECK(!settledDone);
+        sg_held = nil;
+        void (^releaseSettled)(void) = sg_release;
+        sg_release = nil;
+        releaseSettled();
+        pump(^BOOL { return settledDone; });
+        CHECK([settledGot.provider isEqualToString:@"NetEase"] && settledGot.wordTimed);
+
         [NSNotificationCenter.defaultCenter removeObserver:observer];
         SGLyricsSetAutoSelectWindow(2.5);
 
