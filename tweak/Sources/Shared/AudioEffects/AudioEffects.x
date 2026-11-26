@@ -387,7 +387,7 @@ static void applyEffect(SGDSPEngine *engine, NSString *effect) {
         SGDSPEngineSetBassBoost(engine, on, gain);
         what = [NSString stringWithFormat:@"bass boost %@, %.1f dB", onOff(on), gain];
     } else if ([effect isEqualToString:SGKeyDSPEqualizer]) {
-        NSArray<NSNumber *> *gains = SGDSPGains(SGKeyDSPEqualizerGains);
+        NSArray<NSNumber *> *gains = SGDSPEqualizerState(&on);
         double values[15];
         for (int i = 0; i < 15; i++) values[i] = gains[i].doubleValue;
         SGDSPEngineSetEqualizer(engine, on, SGDSPEqualizerFrequencies, values);
@@ -613,10 +613,10 @@ void SGDSPCompanderResponse(NSArray<NSNumber *> *gains, NSInteger count, double 
     SGDSPEngineCompanderCurve(SGDSPCompanderFrequencies, bands, (int)count, frequencies, values);
 }
 
-// The output audio goes to now, for the corrections remembered per output (AutoEq.m).
+// The output audio goes to now, for AutoEq corrections and Equalizer presets.
 static void followRoute(void) {
     AVAudioSessionPortDescription *port = AVAudioSession.sharedInstance.currentRoute.outputs.firstObject;
-    if (port) SGAutoEqOutputChanged(port.UID, port.portName);
+    SGDSPAudioOutputChanged(port.UID, port.portName);
 }
 
 %ctor {

@@ -54,6 +54,7 @@ NSArray<SGModRow *> *SGNativeAppearanceRows(void) { return @[]; }
 NSArray<SGModRow *> *SGRAppearanceRows(void) { return @[]; }
 SGModSection *SGLyricsSourcesSection(BOOL namingSource) { return SGSection(nil, @[]); }
 NSArray<SGModSection *> *SGNativePlayerScreenSections(void) { return @[]; }
+SGModSection *SGDefaultPlaylistSection(void) { return nil; }
 NSArray<NSDictionary *> *SGBlockedArtists(void) { return @[]; }
 
 NSString *SGDSPSummary(void) { return @"Off"; }

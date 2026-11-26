@@ -20,6 +20,7 @@
 // The title is Spotify's own name for the tab, read off its tab bar item (id=TabBar.Item.Home, 10.txt:3100),
 // so it follows the app's language.
 #import "Core/SGCore.h"
+#import "Shared/HidePodcasts/HidePodcasts.h"
 #import "Redesigned/Kit/SGRKit.h"
 #import "Home.h"
 
@@ -134,10 +135,13 @@ static BOOL chosen(UIControl *chip) {
     return solid;
 }
 
+static BOOL hidePodcasts;
+
 static NSArray<UIMenuElement *> *menuElements(void) {
     NSMutableArray<UIMenuElement *> *elements = [NSMutableArray array];
     NSMutableArray<UIMenuElement *> *filters = [NSMutableArray array];
     for (UIControl *chip in chips(sg_stack)) {
+        if (hidePodcasts && SGPodcastHomeFilter(chip.accessibilityIdentifier)) continue;
         __weak UIControl *weakChip = chip;
         UIAction *action = [UIAction actionWithTitle:chip.accessibilityLabel ?: @"" image:nil identifier:nil handler:^(UIAction *a) {
             if (weakChip) SGRActivate(weakChip);
@@ -748,6 +752,7 @@ static void layoutHeader(UIViewController *page) {
 
 %ctor {
     if (!SGRedesignedUI()) return;
+    hidePodcasts = SGHidden(SGKeyHidePodcasts);
     %init;
     SGRequireClasses(@[
         @"_TtC19Home_FunkisPageImpl20FunkisViewController",

@@ -26,6 +26,7 @@
 #import "Redesigned/Kit/SGRTokens.h"
 #import "Shared/Lyrics/KaraokeLines.h"
 #import "Shared/Lyrics/LineActions.h"
+#import "Shared/Lyrics/AutoTiming.h"
 
 // The size of the words and the room between lines are the Lyrics page's (LyricsLook.h); the column's margins, anchor,
 // fade and blur are Shared/Lyrics/KaraokeLines.h's, which draws the lines.
@@ -244,6 +245,7 @@ typedef struct {
     CFTimeInterval _seekAt;   // when, 0 while no seek is waiting
     BOOL _sweepsEstimates;   // the Lyrics page's "Simulate word-by-word timing", read once like the credit
     BOOL _plain;             // the song has no timing at all: every line lit, nothing follows the clock
+    BOOL _estimated;
     NSArray<SGKaraokeLine *> *_sample;   // the preview's lines, nil for the player's
     NSInteger _sampleLength;
     CFTimeInterval _sampleEpoch;
@@ -380,10 +382,6 @@ typedef struct {
         return ms < 0 ? ms : ms - SGKaraokeDelayMs();
     }
     return (NSInteger)fmod((CACurrentMediaTime() - _sampleEpoch) * 1000, _sampleLength);
-}
-
-- (NSArray<SGKaraokeLine *> *)linesFor:(NSString *)track {
-    return _sample ?: SGKaraokeLinesForTrack(track);
 }
 
 // What a tap at point (in the view) lands on: the credit, a line's explain bubble (*explains), a line to seek
@@ -1033,6 +1031,7 @@ static BOOL anyUntranslated(NSArray<SGKaraokeLine *> *lines) {
 
 - (void)dropLines {
     _lines = nil;
+    _estimated = NO;
     _passedOver = nil;
     _builtWidth = 0;
     [self creditTo:nil];
@@ -1288,6 +1287,7 @@ static BOOL anyUntranslated(NSArray<SGKaraokeLine *> *lines) {
     _creditSource = source;
     BOOL shown = source.length && (_crediting || SGLyricsCreditRequired(source));
     NSString *text = shown ? [NSString stringWithFormat:@"Lyrics from %@", source] : nil;
+    if (_estimated) text = text ? [text stringByAppendingString:@" · Estimated timing"] : @"Estimated timing";
     _creditLinks = shown ? SGLyricsCreditLinks(source) : nil;
     _credit.accessibilityTraits = _creditLinks.count ? UIAccessibilityTraitLink : UIAccessibilityTraitStaticText;
     if (text == _credit.text || [text isEqualToString:_credit.text]) return;
@@ -1368,13 +1368,16 @@ static BOOL anyUntranslated(NSArray<SGKaraokeLine *> *lines) {
     else if (_link && !_link.paused && [self frameTime] - _stirredAt > kCalmAfter) [self calmDown];
     NSString *track = _sample ? @"sample" : SGKaraokePlayingTrack();
     if (!(track == _track || [track isEqualToString:_track])) {
-        SGLog(@"karaoke: page shows track %@, lyrics %@", track, [self linesFor:track] ? @"captured" : @"not captured yet");
+        SGLog(@"karaoke: page shows track %@, lyrics %@", track, (_sample ?: SGKaraokeLinesForTrack(track)) ? @"captured" : @"not captured yet");
         _track = track;
         [self dropLines];
     }
-    NSArray<SGKaraokeLine *> *kept = _lines && track ? [self linesFor:track] : nil;
+    NSArray<SGKaraokeLine *> *raw = !_sample && track ? SGKaraokeLinesForTrack(track) : nil;
+    NSArray<SGKaraokeLine *> *kept = _sample ?: SGLyricsAutoTimedLines(track, raw);
+    BOOL estimated = !_sample && kept != raw;
     if (kept && kept != _lines && kept != _passedOver) {
-        if (!_hasTranslation && kept.count == _lines.count && SGKaraokeLinesTiming(kept) == SGKaraokeLinesTiming(_lines)
+        if (_lines && !_estimated && !estimated && !_hasTranslation
+            && kept.count == _lines.count && SGKaraokeLinesTiming(kept) == SGKaraokeLinesTiming(_lines)
             && SGKaraokeHasTranslations(kept)) {
             // Musixmatch's translations come in a moment after the lines, as copies of them: the song is
             // restyled with them where it stands.
@@ -1390,20 +1393,21 @@ static BOOL anyUntranslated(NSArray<SGKaraokeLine *> *lines) {
                 _builtWidth = 0;
                 [self dropLineViews];
             }
-        } else if (_plain) {
-            // Plain text is shown while Spotify is asked whether it has the song timed; its answer replaces it.
-            SGLog(@"karaoke: timed lines of %@ came in over the plain text", track);
+        } else if (_lines && (_plain || _estimated)) {
+            SGLog(@"karaoke: timing for %@ changed", track);
             _lines = nil;
             _builtWidth = 0;
-            [self creditTo:nil];
+            _creditSource = nil;
             [self dropLineViews];
-        } else {
+        } else if (_lines) {
             _passedOver = kept;
         }
     }
-    if (!_lines && track && (_lines = [self linesFor:track])) {
+    if (!_lines && track && (_lines = kept)) {
+        _estimated = estimated;
         SGLog(@"karaoke: showing %lu lines of %@", (unsigned long)_lines.count, track);
         [self timeLines];
+        if (!_sample) [self creditTo:SGLyricsCreditFor(track)];
         [self setNeedsLayout];
     }
     [self setShowing:_tops != nil];

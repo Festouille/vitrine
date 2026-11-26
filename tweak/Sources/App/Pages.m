@@ -8,24 +8,28 @@
 #import "Settings/SGPageStyle.h"
 #import "Pages.h"
 #import "Shared/ArtistBlock/ArtistBlock.h"
+#import "Shared/DefaultPlaylist/DefaultPlaylist.h"
 #import "Shared/Gestures/Gestures.h"
 #import "Shared/Lyrics/Lyrics.h"
 #import "Shared/LyricsMeanings/Meanings.h"
 #import "Shared/Player/ABLoop.h"
 #import "Shared/Player/HoldSpeed.h"
 #import "Shared/Player/PlayerSettings.h"
+#import "Shared/Player/QueueHelpers.h"
 #import "Shared/Player/RepeatMode.h"
 #import "Shared/Sing/Sing.h"
 #import "Native/Appearance/Appearance.h"
 #import "Native/Navbar/Navbar.h"
 #import "Native/NowPlayingBar/NowPlayingBar.h"
 #import "Native/Player/NowPlaying.h"
+#import "Native/Player/QueueDuration.h"
 #import "Shared/LiveActivity/LiveActivity.h"
 #import "Shared/Lossless/SGLossless.h"
 #import "Redesigned/Lyrics/LyricsText.h"
 #import "Redesigned/Lyrics/LyricsLook.h"
 #import "Redesigned/Navbar/Navbar.h"
 #import "Redesigned/NowPlayingBar/NowPlayingBar.h"
+#import "Redesigned/NowPlaying/QueueDuration.h"
 #import "Redesigned/Kit/SGRAccent.h"
 
 NSString *const SGRedesignedUIInfo = @"The newest version of Vitrine, leaning toward Apple Music's style. It is not compatible with the legacy look's settings.\n\nThe legacy look gives you more freedom, yet still looks like Spotify.";
@@ -152,6 +156,8 @@ UIViewController *SGPlayerSettingsPage(void) {
         SGWithTile(blocked, @"person.crop.circle.badge.xmark", UIColor.systemRedColor),
     ])];
     [sections addObject:SGHoldSpeedSection()];
+    SGModSection *defaultPlaylist = SGDefaultPlaylistSection();
+    if (defaultPlaylist) [sections addObject:defaultPlaylist];
     if (native) {
         [sections addObject:SGSection(nil, @[
             SGWithTile(SGPageRow(@"Now playing bar", ^UIViewController *{ return SGNowPlayingBarSettingsPage(); }), @"rectangle.bottomthird.inset.filled", UIColor.systemPinkColor),
@@ -174,6 +180,11 @@ UIViewController *SGPlayerSettingsPage(void) {
         SGOptionRow(@"A–B Loop", @"Repeat part of a track from the Now Playing menu", SGKeyABLoop),
         rememberRepeat,
     ])];
+    [sections addObject:SGNotedSection(@"Queue helpers", @[
+        SGOptionRow(@"Reshuffle button", @"Show Spotify’s Reshuffle action when the queue supports it", SGKeyQueueReshuffle),
+        SGOptionRow(@"Tap to queue", @"Add supported songs to the queue instead of playing them", SGKeyTapToQueue),
+        SGOptionRow(@"Queue duration", @"Show the total time of upcoming tracks", native ? SGKeyQueueDuration : SGRKeyQueueDuration),
+    ], SGRestartNote)];
 
     [sections addObject:SGNotedSection(@"Lossless", @[
         SGOptionRow(@"Lossless files", @"Your own FLACs in place of Spotify's stream", SGKeyLossless),

@@ -128,6 +128,8 @@ static atomic_bool sg_engaged;
 static pthread_mutex_t sg_buildLock = PTHREAD_MUTEX_INITIALIZER;
 static _Atomic(SGPlayerStage) sg_stage;
 static _Atomic(SGPlayerSourceSelector) sg_sourceSelector;
+static _Atomic(SGPlayerSourceListener) sg_sourceListener;
+void SGPlayerSetSourceListener(SGPlayerSourceListener listener) { atomic_store(&sg_sourceListener, listener); }
 static atomic_uint_fast64_t sg_sourceEpoch = 1;
 
 uint64_t SGPlayerSourceEpoch(void) { return atomic_load(&sg_sourceEpoch); }
@@ -292,6 +294,11 @@ static OSStatus pullSource(Output *output, AudioUnit source, const AudioTimeStam
         }
         #endif
         if (status != noErr) return status;
+        SGPlayerSourceListener listener = atomic_load_explicit(&sg_sourceListener, memory_order_relaxed);
+        if (listener && output == music()) {
+            listener(atomic_load(&output->unit), rateOf(&output->client), count, target,
+                     (flags & kAudioUnitRenderAction_OutputIsSilence) != 0);
+        }
         // Asked to stop at silence: Spotify has none of its sound from here on yet, so the rest is not rendered.
         if ((flags & kAudioUnitRenderAction_OutputIsSilence) && sounding) {
             *sounding = done;
