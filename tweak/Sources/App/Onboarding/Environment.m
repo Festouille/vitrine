@@ -8,6 +8,7 @@
 #import "Shared/LiveActivity/LiveActivity.h"
 #import "Core/SGCore.h"
 #import "Settings/SGModPage.h"
+#import "Settings/SGLocalize.h"
 #import "Settings/SGPageStyle.h"
 #import "Onboarding.h"
 
@@ -158,13 +159,13 @@ NSArray<SGModRow *> *SGEnvironmentWarningRows(void) {
     if (SGEeveeSpotifyInjected())
         [rows addObject:SGWarningRow(@"EeveeSpotify is injected too", @"Tap for what that does", ^{ tell(@[eevee()]); })];
     if (otherVersion())
-        [rows addObject:SGWarningRow([NSString stringWithFormat:@"Made for Spotify %@", joined(SGSpotifySupportedVersions, @"and")],
-                                     [NSString stringWithFormat:@"This is %@. Tap for what that does", SGSpotifyVersion()],
+        [rows addObject:SGWarningRow([NSString stringWithFormat:SGL(@"Made for Spotify %@"), joined(SGSpotifySupportedVersions, SGL(@"and"))],
+                                     [NSString stringWithFormat:SGL(@"This is %@. Tap for what that does"), SGSpotifyVersion()],
                                      ^{ tell(@[version()]); })];
     if (withoutAppChanges())
         [rows addObject:SGWarningRow(@"Installed without the app changes", @"Tap for what that does", ^{ tell(@[appChanges()]); })];
     if (chromaLeftovers().count)
-        [rows addObject:SGWarningRow(@"Chroma left files behind", [NSString stringWithFormat:@"%@ Vitrine never uses. Tap to delete", sizeOf(chromaLeftovers())], ^{ offerCleanup(); })];
+        [rows addObject:SGWarningRow(@"Chroma left files behind", [NSString stringWithFormat:SGL(@"%@ Vitrine never uses. Tap to delete"), sizeOf(chromaLeftovers())], ^{ offerCleanup(); })];
     return rows;
 }
 

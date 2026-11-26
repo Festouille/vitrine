@@ -1,5 +1,6 @@
 #import "Core/SGCore.h"
 #import "Settings/SGModPage.h"
+#import "Settings/SGLocalize.h"
 #import "Settings/SGPageStyle.h"
 #import "SettingsSearch.h"
 
@@ -15,20 +16,22 @@
 
 static void indexPage(NSArray<SGModPage *> *route, NSString *path, NSMutableArray<SGSettingsMatch *> *index) {
     [route.lastObject enumerateVisibleRows:^(SGModRow *row, NSString *section) {
-        NSString *location = section.length ? [NSString stringWithFormat:@"%@ › %@", path, section] : path;
+        NSString *location = section.length ? [NSString stringWithFormat:@"%@ › %@", path, SGL(section)] : path;
         if (row.key || row.page || row.action || row.number || row.menu || row.segments.count) {
             SGSettingsMatch *match = [SGSettingsMatch new];
             match.row = row;
             match.route = route;
             match.path = location;
-            match.text = [NSString stringWithFormat:@"%@ %@ %@ %@", row.title, row.subtitle ?: @"", row.info ?: @"", location];
+            match.text = [NSString stringWithFormat:@"%@ %@ %@ %@ %@ %@ %@",
+                          SGL(row.title), SGL(row.subtitle) ?: @"", SGL(row.info) ?: @"", location,
+                          row.title, row.subtitle ?: @"", row.info ?: @""];
             [index addObject:match];
         }
         if (!row.searchChildren || !row.page || [route.lastObject isWaiting:row] || route.count >= 6) return;
         UIViewController *child = row.page();
         if ([child isKindOfClass:SGModPage.class]) {
             indexPage([route arrayByAddingObject:(SGModPage *)child],
-                      [NSString stringWithFormat:@"%@ › %@", path, row.title], index);
+                      [NSString stringWithFormat:@"%@ › %@", path, SGL(row.title)], index);
         }
     }];
 }
@@ -45,10 +48,10 @@ static void indexPage(NSArray<SGModPage *> *route, NSString *path, NSMutableArra
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.title = @"Search Mod Settings";
+    self.title = SGL(@"Search Mod Settings");
     _bar = [[UISearchBar alloc] initWithFrame:CGRectMake(0, 0, self.tableView.bounds.size.width, 56)];
     _bar.searchBarStyle = UISearchBarStyleMinimal;
-    _bar.placeholder = @"Search settings";
+    _bar.placeholder = SGL(@"Search settings");
     _bar.delegate = self;
     self.tableView.tableHeaderView = _bar;
     self.tableView.keyboardDismissMode = UIScrollViewKeyboardDismissModeOnDrag;
@@ -72,7 +75,7 @@ static void indexPage(NSArray<SGModPage *> *route, NSString *path, NSMutableArra
     BOOL hasQuery = [text stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet].length > 0;
     if (hasQuery && !_index) {
         NSMutableArray<SGSettingsMatch *> *index = [NSMutableArray array];
-        indexPage(@[root], @"Mod Settings", index);
+        indexPage(@[root], SGL(@"Mod Settings"), index);
         _index = index;
     }
     NSMutableArray *results = [NSMutableArray array];
@@ -87,7 +90,7 @@ static void indexPage(NSArray<SGModPage *> *route, NSString *path, NSMutableArra
         if (fits) [results addObject:match];
     }
     _results = results;
-    self.tableView.tableFooterView = results.count ? nil : SGNote(hasQuery ? @"No settings found." : @"Search by setting name or page.");
+    self.tableView.tableFooterView = results.count ? nil : SGNote(SGL(hasQuery ? @"No settings found." : @"Search by setting name or page."));
     [self.tableView reloadData];
 }
 
@@ -108,7 +111,7 @@ static void indexPage(NSArray<SGModPage *> *route, NSString *path, NSMutableArra
 - (UITableViewCell *)tableView:(UITableView *)table cellForRowAtIndexPath:(NSIndexPath *)path {
     SGSettingsMatch *match = _results[(NSUInteger)path.row];
     UITableViewCell *cell = SGDequeueCell(table, @"result");
-    SGFillCell(cell, match.row.title, match.path, nil, nil);
+    SGFillCell(cell, SGL(match.row.title), match.path, nil, nil);
     cell.accessoryView = SGChevronView();
     return cell;
 }

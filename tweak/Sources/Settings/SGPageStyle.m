@@ -1,4 +1,5 @@
 #import "SGPageStyle.h"
+#import "SGLocalize.h"
 #import "Core/SGCore.h"
 
 // The rows' title font of Spotify's settings list ([0]) and of its side drawer ([1]).
@@ -358,8 +359,8 @@ void SGOpenURL(NSString *url) {
 }
 
 void SGOfferRestart(NSString *message) {
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Restart Spotify" message:message preferredStyle:UIAlertControllerStyleAlert];
-    [alert addAction:[UIAlertAction actionWithTitle:@"Later" style:UIAlertActionStyleCancel handler:nil]];
-    [alert addAction:[UIAlertAction actionWithTitle:@"Restart now" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) { SGRestartSpotify(); }]];
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:SGL(@"Restart Spotify") message:SGL(message) preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:SGL(@"Later") style:UIAlertActionStyleCancel handler:nil]];
+    [alert addAction:[UIAlertAction actionWithTitle:SGL(@"Restart now") style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) { SGRestartSpotify(); }]];
     [SGTopController() presentViewController:alert animated:YES completion:nil];
 }

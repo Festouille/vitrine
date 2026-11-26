@@ -7,6 +7,7 @@
 // long as it lasts. Both land on the same sheet, which names the bundle id to sign under and copies
 // it, because that one string is the whole fix.
 #import "Core/SGCore.h"
+#import "Settings/SGLocalize.h"
 #import "Settings/SGPageStyle.h"
 #import "About.h"
 #import "App/Onboarding/Onboarding.h"
@@ -184,7 +185,7 @@ SGModRow *SGSigningExpiryRow(void) {
     else day.dateStyle = NSDateFormatterMediumStyle;                 // "Oct 6, 2027"
     NSString *value = [day stringFromDate:expires];
     SGModRow *row = SGStatRow(@"Signed until", ^NSString *{ return value; });
-    if (week) row.subtitle = [NSString stringWithFormat:@"At %@. A free Apple ID signs for 7 days.",
+    if (week) row.subtitle = [NSString stringWithFormat:SGL(@"At %@. A free Apple ID signs for 7 days."),
                               [NSDateFormatter localizedStringFromDate:expires dateStyle:NSDateFormatterNoStyle
                                                              timeStyle:NSDateFormatterShortStyle]];
     return row;

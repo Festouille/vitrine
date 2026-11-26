@@ -4,6 +4,7 @@
 // it is made. The rest of the page is App/Pages.m's sections, under them.
 #import "Core/SGCore.h"
 #import "Settings/SGModPage.h"
+#import "Settings/SGLocalize.h"
 #import "Settings/SGPageStyle.h"
 #import "Redesigned/Kit/SGRTokens.h"
 #import "LyricsLook.h"
@@ -168,7 +169,7 @@ static UIButtonConfiguration *chipConfiguration(NSString *title, NSString *symbo
 - (instancetype)initWithTitle:(NSString *)title note:(NSString *)note sections:(NSArray<SGModSection *> *)sections {
     if (!(self = [super initWithTitle:title intro:nil sections:sections footer:nil])) return nil;
     _note = [UILabel new];
-    _note.text = note;
+    _note.text = SGL(note);
     _note.font = SGSubtitleFont();
     _note.textColor = SGGrey();
     _note.numberOfLines = 0;
@@ -184,7 +185,7 @@ static UIButtonConfiguration *chipConfiguration(NSString *title, NSString *symbo
     _card.layer.cornerCurve = kCACornerCurveContinuous;
     _card.clipsToBounds = YES;
     _card.isAccessibilityElement = YES;
-    _card.accessibilityLabel = @"Preview of the lyrics";
+    _card.accessibilityLabel = SGL(@"Preview of the lyrics");
     _preview = [[SGRKaraokeView alloc] initWithSampleLines:SGRLyricsSampleLines() length:SGRLyricsSampleLength()];
     _preview.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     [_card addSubview:_preview];
@@ -226,7 +227,7 @@ static UIButtonConfiguration *chipConfiguration(NSString *title, NSString *symbo
     adjust.attributedTitle = nil;
     adjust.contentInsets = NSDirectionalEdgeInsetsZero;
     _adjust.configuration = adjust;
-    _adjust.accessibilityLabel = @"Adjust";
+    _adjust.accessibilityLabel = SGL(@"Adjust");
     _adjust.accessibilityValue = chosen < 0 ? @"Custom" : names[(NSUInteger)chosen];
     _adjust.accessibilityHint = @"Opens the sliders";
     _adjust.accessibilityTraits = UIAccessibilityTraitButton | (chosen < 0 ? UIAccessibilityTraitSelected : 0);

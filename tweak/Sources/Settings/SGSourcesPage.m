@@ -2,6 +2,7 @@
 #import "SGPage.h"
 #import "SGPageStyle.h"
 #import "SGSourcesPage.h"
+#import "SGLocalize.h"
 
 @implementation SGSource
 + (instancetype)sourceWithKey:(NSString *)key name:(NSString *)name detail:(NSString *)detail {
@@ -55,7 +56,7 @@ typedef NS_ENUM(NSInteger, SGSourcesSection) {
     [self read];
     self.tableView.editing = YES;
     self.tableView.allowsSelectionDuringEditing = YES;
-    _footer = SGNote(self.note);
+    _footer = SGNote(SGL(self.note));
     self.tableView.tableFooterView = _footer;
 }
 
@@ -82,8 +83,8 @@ typedef NS_ENUM(NSInteger, SGSourcesSection) {
 }
 
 - (UIView *)tableView:(UITableView *)table viewForHeaderInSection:(NSInteger)section {
-    if (section == SGSourcesSectionOn) return SGSectionHeader(table, _on.count ? @"Asked in this order" : @"None on");
-    return _off.count ? SGSectionHeader(table, @"Off") : nil;
+    if (section == SGSourcesSectionOn) return SGSectionHeader(table, SGL(_on.count ? @"Asked in this order" : @"None on"));
+    return _off.count ? SGSectionHeader(table, SGL(@"Off")) : nil;
 }
 
 - (CGFloat)tableView:(UITableView *)table heightForHeaderInSection:(NSInteger)section {
@@ -99,8 +100,9 @@ typedef NS_ENUM(NSInteger, SGSourcesSection) {
     SGSource *provider = [self sourceFor:[self keysIn:path.section][(NSUInteger)path.row]];
     BOOL on = path.section == SGSourcesSectionOn;
     // The asked ones are numbered, so the order reads as an order rather than a list.
-    NSString *title = on ? [NSString stringWithFormat:@"%ld. %@", (long)path.row + 1, provider.name] : provider.name;
-    SGFillCell(cell, title, provider.detail, on ? nil : SGGrey(), on ? @"checkmark.circle.fill" : @"circle");
+    NSString *name = SGL(provider.name);
+    NSString *title = on ? [NSString stringWithFormat:@"%ld. %@", (long)path.row + 1, name] : name;
+    SGFillCell(cell, title, SGL(provider.detail), on ? nil : SGGrey(), on ? @"checkmark.circle.fill" : @"circle");
     cell.selectionStyle = UITableViewCellSelectionStyleDefault;
     return cell;
 }
@@ -160,7 +162,7 @@ typedef NS_ENUM(NSInteger, SGSourcesSection) {
 UIViewController *SGSourcesPageMake(NSString *title, NSString *note, NSArray<SGSource *> *all,
                                     NSArray<NSString *> *(^order)(void), void (^setOrder)(NSArray<NSString *> *keys)) {
     SGSourcesPage *page = [[SGSourcesPage alloc] initWithStyle:UITableViewStyleInsetGrouped];
-    page.title = title;
+    page.title = SGL(title);
     page.note = note;
     page.all = all;
     page.order = order;

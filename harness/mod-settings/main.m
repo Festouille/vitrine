@@ -6,8 +6,8 @@
 //     THEOS=$HOME/theos ./build.sh && xcrun simctl install <udid> build/ModSettingsHarness.app
 //     xcrun simctl launch <udid> com.vitrine.modsettingsharness [setup...] [action...]
 //
-// Setup: redesign (Redesigned UI stored on), warning (a red environment row at the top), keep (the stored
-// look stays; otherwise it is cleared first).
+// Setup: redesign (Redesigned UI stored on), warning (a red environment row at the top), lang=fr/es/tr/device,
+// keep (the stored look and language stay; otherwise they are cleared first).
 // Actions: toggle=<section>.<row> (that row's switch flipped the way a tap does), cancel (the alert that
 // switch brings up closed with Later), bottom (scrolled to the end), dump (the rows of each section and
 // what each reads beside its chevron, to the log), gated (a page of a switch, ten rows, a headed and noted
@@ -21,6 +21,7 @@
 #import "App/About/About.h"
 #import "App/SettingsPresets.h"
 #import "Core/SGCore.h"
+#import "Settings/SGLocalize.h"
 #import "Settings/SGPage.h"
 #import "Settings/SGModPage.h"
 #import "Settings/SGPageStyle.h"
@@ -86,11 +87,19 @@ static UIViewController *gatedPage(void) {
     if (![args containsObject:@"keep"]) {
         SGSetEnabled(SGKeyRedesign, NO);
         SGSetEnabled(SGKeyRedesignUntested, NO);
+        SGSetEnabled(SGKeySettingsTranslate, NO);
+        SGSetInt(SGKeySettingsLanguage, SGSettingsLanguageDevice);
     }
     NSMutableArray<NSString *> *actions = [NSMutableArray array];
     for (NSString *arg in [args subarrayWithRange:NSMakeRange(1, args.count - 1)]) {
         if ([arg isEqualToString:@"redesign"]) SGSetEnabled(SGKeyRedesign, YES);
         else if ([arg isEqualToString:@"warning"]) SGHarnessWarning = YES;
+        else if ([arg hasPrefix:@"lang="]) {
+            NSUInteger language = [@[@"device", @"fr", @"es", @"tr"] indexOfObject:[arg substringFromIndex:5]];
+            NSAssert(language != NSNotFound, @"Unknown harness language");
+            SGSetEnabled(SGKeySettingsTranslate, YES);
+            SGSetInt(SGKeySettingsLanguage, (NSInteger)language);
+        }
         else if (![arg isEqualToString:@"keep"]) [actions addObject:arg];
     }
 
@@ -151,7 +160,7 @@ static UIViewController *gatedPage(void) {
     } else if ([verb isEqualToString:@"search-gate"]) {
         SGSetEnabled(@"spotifyglass.harness.searchGate", value.boolValue);
     } else if ([verb isEqualToString:@"search"]) {
-        [self tapTitle:@"Search Mod Settings"];
+        [self tapTitle:SGL(@"Search Mod Settings")];
     } else if ([verb isEqualToString:@"query"]) {
         UISearchBar *bar = (UISearchBar *)table.tableHeaderView;
         NSAssert([bar isKindOfClass:UISearchBar.class], @"Missing settings search field");
@@ -161,6 +170,18 @@ static UIViewController *gatedPage(void) {
     } else if ([verb isEqualToString:@"search-count"]) {
         NSAssert([table numberOfRowsInSection:0] == value.integerValue, @"Unexpected number of settings search results");
         NSLog(@"[harness] gated settings search matched %@ rows as expected", value);
+    } else if ([verb isEqualToString:@"localized"]) {
+        NSAssert([SGL(@"Appearance") isEqualToString:value], @"Unexpected settings translation");
+        NSAssert(SGL(nil) == nil && [SGL(@"") isEqualToString:@""], @"Missing text did not stay empty");
+        NSAssert([SGL(@"A string without a translation") isEqualToString:@"A string without a translation"],
+                 @"Unknown text did not fall back to English");
+        NSInteger language = SGInt(SGKeySettingsLanguage, SGSettingsLanguageDevice);
+        if (SGFlag(SGKeySettingsTranslate, NO)) {
+            SGSetInt(SGKeySettingsLanguage, -1);
+            NSAssert([SGL(@"Appearance") isEqualToString:@"Appearance"], @"Invalid language did not fall back to English");
+            SGSetInt(SGKeySettingsLanguage, language);
+        }
+        NSLog(@"[harness] localization and fallback checks passed: %@", value);
     } else if ([verb isEqualToString:@"jumped"]) {
         NSAssert([self.nav.topViewController.title isEqualToString:@"Gradient"], @"Search did not open the owning page");
         NSAssert([[self.nav.viewControllers[self.nav.viewControllers.count - 2] title] isEqualToString:@"Home & Library"],

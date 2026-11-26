@@ -24,6 +24,7 @@
 // Threading: main thread only.
 #import "Core/SGCore.h"
 #import "Settings/SGModPage.h"
+#import "Settings/SGLocalize.h"
 #import "Settings/SGPageStyle.h"
 #import "Redesigned/Kit/SGRKit.h"
 #import "Redesigned/Kit/SGRFluid.h"
@@ -149,7 +150,7 @@ static NSArray<NSString *> *backgroundNotes(void) {
 - (void)reloadTrack {
     SPTPlayerState *state = SGPlayerState();
     SGShownTrack *shown = SGShownTrackNow();
-    _title.text = shown.title ?: @"Not Playing";
+    _title.text = shown.title ?: SGL(@"Not Playing");
     _artist.text = shown.artist ?: @"";
     _position = shown.current && state.duration > 0 ? MIN(1, MAX(0, state.position / state.duration)) : 0;
     // The clip covers the field, and the hills move over it, which then holds still, as in the player.
@@ -202,7 +203,7 @@ static NSArray<NSString *> *backgroundNotes(void) {
         if (self->_visualiser) [self insertSubview:self->_visualiser aboveSubview:self->_field];
         self->_field.motionHeld = SGPlayerState().isPaused || self->_motion != nil || self->_visualiser != nil;
     };
-    self.accessibilityValue = [SGRPlayerBackgroundNames()[(NSUInteger)kind] stringByAppendingString:@" background"];
+    self.accessibilityValue = [NSString stringWithFormat:SGL(@"%@ background"), SGL(SGRPlayerBackgroundNames()[(NSUInteger)kind])];
     if (animated && self.window) {
         // A crossfade, which Reduce Motion keeps: nothing moves.
         [UIView transitionWithView:self duration:SGRCrossfade options:UIViewAnimationOptionTransitionCrossDissolve | UIViewAnimationOptionAllowAnimatedContent
@@ -265,7 +266,7 @@ static NSArray<NSString *> *backgroundNotes(void) {
 }
 
 - (void)showNote {
-    _note.text = backgroundNotes()[(NSUInteger)SGRPlayerBackground()];
+    _note.text = SGL(backgroundNotes()[(NSUInteger)SGRPlayerBackground()]);
     [self.view setNeedsLayout];
 }
 
@@ -288,7 +289,7 @@ static NSArray<NSString *> *backgroundNotes(void) {
     measure.font = _note.font;
     measure.numberOfLines = 0;
     for (NSString *text in backgroundNotes()) {
-        measure.text = text;
+        measure.text = SGL(text);
         room = MAX(room, ceil([measure sizeThatFits:CGSizeMake(noteWidth, CGFLOAT_MAX)].height));
     }
     CGFloat noteHeight = ceil([_note sizeThatFits:CGSizeMake(noteWidth, CGFLOAT_MAX)].height);
@@ -335,9 +336,11 @@ SGModRow *SGRLyricsHideRow(void) {
 
 UIViewController *SGRPlayerSettingsPage(NSArray *more) {
     SGRPlayerShowcase *showcase = [[SGRPlayerShowcase alloc] initWithFrame:CGRectMake(0, 0, 320, kCardMinHeight)];
-    UISegmentedControl *backgrounds = [[UISegmentedControl alloc] initWithItems:SGRPlayerBackgroundNames()];
+    NSMutableArray<NSString *> *names = [NSMutableArray array];
+    for (NSString *name in SGRPlayerBackgroundNames()) [names addObject:SGL(name)];
+    UISegmentedControl *backgrounds = [[UISegmentedControl alloc] initWithItems:names];
     backgrounds.selectedSegmentIndex = SGRPlayerBackground();
-    backgrounds.accessibilityLabel = @"Background";
+    backgrounds.accessibilityLabel = SGL(@"Background");
     backgrounds.apportionsSegmentWidthsByContent = YES;
 
     SGModRow *lowData = SGOptionRow(@"Download in Low Data Mode", @"Up to about 7 MB a song", SGKeyMotionLowData);

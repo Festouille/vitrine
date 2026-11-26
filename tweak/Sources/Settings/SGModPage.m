@@ -1,5 +1,6 @@
 #import <CoreText/SFNTLayoutTypes.h>
 #import "SGModPage.h"
+#import "SGLocalize.h"
 #import "SGPageStyle.h"
 #import "SGGlowSwitch.h"
 #import "Core/SGCore.h"
@@ -113,13 +114,13 @@ SGModRow *SGPageRow(NSString *title, UIViewController *(^page)(void)) {
 - (instancetype)initWithTitle:(NSString *)title key:(NSString *)key choices:(NSArray<NSString *> *)choices notes:(NSArray<NSString *> *)notes
                        footer:(NSString *)footer fallback:(NSInteger)fallback chosen:(void (^)(NSInteger index))chosen {
     if (!(self = [super initWithStyle:UITableViewStyleInsetGrouped])) return nil;
-    self.title = title;
+    self.title = SGL(title);
     _key = key;
     _choices = choices;
     _notes = notes;
     _fallback = fallback;
     _chosen = chosen;
-    _footer = footer ? SGNote(footer) : nil;
+    _footer = footer ? SGNote(SGL(footer)) : nil;
     return self;
 }
 
@@ -154,7 +155,7 @@ SGModRow *SGPageRow(NSString *title, UIViewController *(^page)(void)) {
 - (UITableViewCell *)tableView:(UITableView *)table cellForRowAtIndexPath:(NSIndexPath *)path {
     UITableViewCell *cell = SGDequeueCell(table, @"choice");
     NSUInteger index = (NSUInteger)path.row;
-    SGFillCell(cell, _choices[index], index < _notes.count ? _notes[index] : nil, nil, nil);
+    SGFillCell(cell, SGL(_choices[index]), index < _notes.count ? SGL(_notes[index]) : nil, nil, nil);
     cell.selectionStyle = UITableViewCellSelectionStyleDefault;
     if (path.row == SGInt(_key, _fallback)) {
         UIImageView *tick = SGSymbolView(@"checkmark", 13, UIImageSymbolWeightSemibold, 16);
@@ -261,7 +262,7 @@ UIColor *SGColorRGB(NSInteger rgb) {
 
 void SGPickColor(NSString *title, NSInteger initial, void (^picked)(NSInteger rgb)) {
     UIColorPickerViewController *picker = [UIColorPickerViewController new];
-    picker.navigationItem.title = title;
+    picker.navigationItem.title = SGL(title);
     picker.supportsAlpha = NO;
     picker.selectedColor = SGColorRGB(initial);
     SGColorSheet *sheet = [SGColorSheet new];
@@ -325,8 +326,8 @@ static const CGFloat kValueMaxWidth = 170;
 // At the accessibility sizes a row's value goes under its title (stackedValue), and the accessories that
 // would carry it beside the title show none.
 static NSString *stackedValue(SGModRow *row) {
-    NSString *value = row.value() ?: @"";
-    return row.subtitle.length ? [NSString stringWithFormat:@"%@\n%@", row.subtitle, value] : value;
+    NSString *value = SGL(row.value()) ?: @"";
+    return row.subtitle.length ? [NSString stringWithFormat:@"%@\n%@", SGL(row.subtitle), value] : value;
 }
 
 static UIView *valueAndChevron(NSString *text) {
@@ -354,7 +355,7 @@ static UIView *valueView(SGModRow *row) {
     UILabel *label = [UILabel new];
     label.font = SGTitleFont();
     label.textColor = SGGrey();
-    label.text = row.value();
+    label.text = SGL(row.value());
     [label sizeToFit];
     if (!row.swatch) return label;
     CGFloat side = 16, height = MAX(side, label.bounds.size.height);
@@ -455,7 +456,7 @@ static const CGFloat kSliderTop = 12, kSliderGap = 6, kSliderHeight = 28, kSlide
 
 // The text is as tall as Dynamic Type makes it at the cell's width, less its 16pt sides.
 + (CGFloat)heightFor:(SGModRow *)row width:(CGFloat)width {
-    return kSliderTop + SGSliderTextHeight(row.title, row.subtitle, width - 32) + kSliderGap + kSliderHeight + kSliderBottom;
+    return kSliderTop + SGSliderTextHeight(SGL(row.title), SGL(row.subtitle), width - 32) + kSliderGap + kSliderHeight + kSliderBottom;
 }
 
 - (instancetype)initWithStyle:(UITableViewCellStyle)style reuseIdentifier:(NSString *)identifier {
@@ -488,8 +489,8 @@ static const CGFloat kSliderTop = 12, kSliderGap = 6, kSliderHeight = 28, kSlide
     _title.font = SGTitleFont();
     _subtitle.font = SGSubtitleFont();
     _value.font = tabular(SGTitleFont());
-    _title.text = row.title;
-    _subtitle.text = row.subtitle;
+    _title.text = SGL(row.title);
+    _subtitle.text = SGL(row.subtitle);
     _subtitle.hidden = !row.subtitle;
     _slider.minimumTrackTintColor = SGGreen();
     _slider.minimumValue = (float)row.minimum;
@@ -497,8 +498,8 @@ static const CGFloat kSliderTop = 12, kSliderGap = 6, kSliderHeight = 28, kSlide
     _slider.spokenStep = (float)(count > 0 && count <= 40 ? row.step : snapped(row, row.minimum + (row.maximum - row.minimum) / 20) - row.minimum);
     _shown = snapped(row, row.number());
     _slider.value = (float)_shown;
-    _slider.accessibilityLabel = row.title;
-    _slider.accessibilityHint = row.subtitle;
+    _slider.accessibilityLabel = SGL(row.title);
+    _slider.accessibilityHint = SGL(row.subtitle);
     [self showValue];
 }
 
@@ -567,14 +568,14 @@ static UIImage *colorDotImage(UIColor *fill, CGFloat side) {
     CGFloat contentWidth = width - 32;
     CGFloat titleW = row.swatch ? (contentWidth - kColorDotSize - 8.0) : contentWidth;
     CGFloat titleH = SGAccessibilityTextSize()
-        ? ceil([row.title boundingRectWithSize:CGSizeMake(MAX(1, titleW), CGFLOAT_MAX)
+        ? ceil([SGL(row.title) boundingRectWithSize:CGSizeMake(MAX(1, titleW), CGFLOAT_MAX)
                                        options:NSStringDrawingUsesLineFragmentOrigin
                                     attributes:@{NSFontAttributeName: SGTitleFont()}
                                        context:nil].size.height)
         : ceil(SGTitleFont().lineHeight);
     CGFloat subH = 0;
     if (row.subtitle.length > 0) {
-        subH = kSegmentSubGap + SGSliderTextHeight(@"", row.subtitle, contentWidth);
+        subH = kSegmentSubGap + SGSliderTextHeight(@"", SGL(row.subtitle), contentWidth);
     }
     return kSegmentTop + titleH + subH + kSegmentGap + kSegmentHeight + kSegmentBottom;
 }
@@ -616,13 +617,13 @@ static UIImage *colorDotImage(UIColor *fill, CGFloat side) {
     _colorButton.userInteractionEnabled = YES;
     _title.font = SGTitleFont();
     _subtitle.font = SGSubtitleFont();
-    _title.text = row.title;
-    _subtitle.text = row.subtitle;
+    _title.text = SGL(row.title);
+    _subtitle.text = SGL(row.subtitle);
     _subtitle.hidden = (row.subtitle.length == 0);
 
     [_segmentedControl removeAllSegments];
     for (NSUInteger i = 0; i < row.segments.count; i++) {
-        [_segmentedControl insertSegmentWithTitle:row.segments[i] atIndex:i animated:NO];
+        [_segmentedControl insertSegmentWithTitle:SGL(row.segments[i]) atIndex:i animated:NO];
     }
     NSInteger sel = row.segmentIndex ? row.segmentIndex() : 0;
     if (sel >= 0 && sel < (NSInteger)row.segments.count) {
@@ -631,8 +632,8 @@ static UIImage *colorDotImage(UIColor *fill, CGFloat side) {
         _segmentedControl.selectedSegmentIndex = UISegmentedControlNoSegment;
     }
 
-    _segmentedControl.accessibilityLabel = row.title;
-    _segmentedControl.accessibilityHint = row.subtitle;
+    _segmentedControl.accessibilityLabel = SGL(row.title);
+    _segmentedControl.accessibilityHint = SGL(row.subtitle);
 
     _title.numberOfLines = SGAccessibilityTextSize() ? 0 : 1;
     _subtitle.numberOfLines = 0;
@@ -640,7 +641,7 @@ static UIImage *colorDotImage(UIColor *fill, CGFloat side) {
     if (row.swatch) {
         _colorButton.hidden = NO;
         [_colorButton setBackgroundImage:colorDotImage(row.swatch(), kColorDotSize) forState:UIControlStateNormal];
-        _colorButton.accessibilityLabel = [NSString stringWithFormat:@"%@ color", row.title];
+        _colorButton.accessibilityLabel = [NSString stringWithFormat:SGL(@"%@ color"), SGL(row.title)];
     } else {
         _colorButton.hidden = YES;
     }
@@ -728,7 +729,7 @@ static NSArray<UIView *> *controlsIn(UITableViewCell *cell) {
 static void showWaiting(UITableViewCell *cell, BOOL waiting, NSString *switchTitle) {
     cell.contentView.alpha = waiting ? kWaitingAlpha : 1;
     cell.accessoryView.alpha = waiting ? kWaitingAlpha : 1;
-    cell.accessibilityHint = waiting ? [NSString stringWithFormat:@"Turn on %@ first.", switchTitle] : nil;
+    cell.accessibilityHint = waiting ? [NSString stringWithFormat:SGL(@"Turn on %@ first."), SGL(switchTitle)] : nil;
     if (!waiting) return;
     for (UIControl *control in controlsIn(cell)) {
         control.enabled = NO;
@@ -751,11 +752,11 @@ static void showWaiting(UITableViewCell *cell, BOOL waiting, NSString *switchTit
 
 - (instancetype)initWithTitle:(NSString *)title intro:(NSString *)intro sections:(NSArray<SGModSection *> *)sections footer:(NSString *)footer {
     if (!(self = [super initWithStyle:UITableViewStyleInsetGrouped])) return nil;
-    self.title = title;
+    self.title = SGL(title);
     _sections = sections;
     _shown = [self rowsToShow];
-    _intro = intro ? SGNote(intro) : nil;
-    _footer = footer ? SGNote(footer) : nil;
+    _intro = intro ? SGNote(SGL(intro)) : nil;
+    _footer = footer ? SGNote(SGL(footer)) : nil;
     // Any row with a value, a test of when it shows, a number or a menu keeps a ticker running: a page row's
     // value can move while the page shows (a download's percentage beside the chevron), a row can come or go
     // by itself (a download that finished brings its Remove row), and a Reset row can move a slider.
@@ -998,7 +999,7 @@ static void showWaiting(UITableViewCell *cell, BOOL waiting, NSString *switchTit
         SGModRow *row = [self rowAt:path];
         if ([cell isKindOfClass:SGModSliderCell.class]) [(SGModSliderCell *)cell readNumber];
         UIButton *menu = (UIButton *)cell.accessoryView;
-        if (row.menu && [menu isKindOfClass:UIButton.class] && ![menu.accessibilityValue isEqualToString:row.value()] && !menu.isTracking) {
+        if (row.menu && [menu isKindOfClass:UIButton.class] && ![menu.accessibilityValue isEqualToString:SGL(row.value())] && !menu.isTracking) {
             cell.accessoryView = [self menuButtonFor:row];
         }
     }
@@ -1065,7 +1066,7 @@ static void showWaiting(UITableViewCell *cell, BOOL waiting, NSString *switchTit
         }
         if (row.page && row.value) {
             // valueAndChevron is sized to its text, so a new text gets a new one.
-            NSString *text = row.value();
+            NSString *text = SGL(row.value());
             UILabel *shown = (UILabel *)cell.accessoryView.subviews.firstObject;
             if (![shown isKindOfClass:UILabel.class] || [shown.text isEqualToString:text]) continue;
             cell.accessoryView = valueAndChevron(text);
@@ -1073,12 +1074,12 @@ static void showWaiting(UITableViewCell *cell, BOOL waiting, NSString *switchTit
         }
         if (row.swatch) {
             UILabel *shown = (UILabel *)cell.accessoryView.subviews.lastObject;
-            if ([shown isKindOfClass:UILabel.class] && ![shown.text isEqualToString:row.value()]) cell.accessoryView = valueView(row);
+            if ([shown isKindOfClass:UILabel.class] && ![shown.text isEqualToString:SGL(row.value())]) cell.accessoryView = valueView(row);
             continue;
         }
         UILabel *label = (UILabel *)cell.accessoryView;
         if (!row.value || row.page || ![label isKindOfClass:UILabel.class]) continue;
-        label.text = row.value();
+        label.text = SGL(row.value());
         [label sizeToFit];
         [cell setNeedsLayout];
     }
@@ -1111,7 +1112,7 @@ static void showWaiting(UITableViewCell *cell, BOOL waiting, NSString *switchTit
 
 - (UIView *)tableView:(UITableView *)table viewForHeaderInSection:(NSInteger)section {
     NSString *title = _sections[(NSUInteger)section].title;
-    return title && ![self isEmpty:section] ? SGSectionHeader(table, title) : nil;
+    return title && ![self isEmpty:section] ? SGSectionHeader(table, SGL(title)) : nil;
 }
 
 - (CGFloat)tableView:(UITableView *)table heightForHeaderInSection:(NSInteger)section {
@@ -1121,12 +1122,12 @@ static void showWaiting(UITableViewCell *cell, BOOL waiting, NSString *switchTit
 
 - (UIView *)tableView:(UITableView *)table viewForFooterInSection:(NSInteger)section {
     NSString *footer = _sections[(NSUInteger)section].footer;
-    return footer && ![self isEmpty:section] ? SGSectionFooter(table, footer) : nil;
+    return footer && ![self isEmpty:section] ? SGSectionFooter(table, SGL(footer)) : nil;
 }
 
 - (CGFloat)tableView:(UITableView *)table heightForFooterInSection:(NSInteger)section {
     NSString *footer = _sections[(NSUInteger)section].footer;
-    return footer && ![self isEmpty:section] ? SGSectionFooterHeight(table, footer) : CGFLOAT_MIN;
+    return footer && ![self isEmpty:section] ? SGSectionFooterHeight(table, SGL(footer)) : CGFLOAT_MIN;
 }
 
 - (UITableViewCell *)tableView:(UITableView *)table cellForRowAtIndexPath:(NSIndexPath *)path {
@@ -1147,7 +1148,7 @@ static void showWaiting(UITableViewCell *cell, BOOL waiting, NSString *switchTit
     }
     // A checked row's cells set their own accessory and traits, which no other row resets.
     UITableViewCell *cell = SGDequeueCell(table, row.checked ? @"checked" : @"row");
-    SGFillCell(cell, row.title, row.subtitle, row.color, row.symbol);
+    SGFillCell(cell, SGL(row.title), SGL(row.subtitle), row.color, row.symbol);
     UIListContentConfiguration *content = (UIListContentConfiguration *)cell.contentConfiguration;
     if (SGAccessibilityTextSize() && row.value) content.secondaryText = stackedValue(row);
     if (row.color) content.secondaryTextProperties.color = row.color;
@@ -1168,7 +1169,7 @@ static void showWaiting(UITableViewCell *cell, BOOL waiting, NSString *switchTit
         if (row.glows) {
             SGGlowSwitch *glow = [SGGlowSwitch new];
             glow.on = on;
-            glow.accessibilityLabel = row.title;
+            glow.accessibilityLabel = SGL(row.title);
             toggle = glow;
         } else {
             UISwitch *plain = [UISwitch new];
@@ -1183,7 +1184,7 @@ static void showWaiting(UITableViewCell *cell, BOOL waiting, NSString *switchTit
         cell.accessoryView = row.info ? [self infoButtonBeside:toggle] : toggle;
         cell.selectionStyle = locked ? UITableViewCellSelectionStyleDefault : UITableViewCellSelectionStyleNone;
     } else if (row.page) {
-        UIView *link = row.value && !SGAccessibilityTextSize() ? valueAndChevron(row.value()) : SGChevronView();
+        UIView *link = row.value && !SGAccessibilityTextSize() ? valueAndChevron(SGL(row.value())) : SGChevronView();
         cell.accessoryView = row.info ? [self infoButtonBeside:link] : link;
         cell.selectionStyle = UITableViewCellSelectionStyleDefault;
     } else if (row.menu) {
@@ -1235,7 +1236,7 @@ static void showWaiting(UITableViewCell *cell, BOOL waiting, NSString *switchTit
     NSMutableArray<UIAction *> *items = [NSMutableArray array];
     __weak typeof(self) weakSelf = self;
     [row.menu enumerateObjectsUsingBlock:^(NSString *name, NSUInteger i, BOOL *stop) {
-        UIAction *item = [UIAction actionWithTitle:name image:nil identifier:nil handler:^(UIAction *action) {
+        UIAction *item = [UIAction actionWithTitle:SGL(name) image:nil identifier:nil handler:^(UIAction *action) {
             if (row.chosen) row.chosen((NSInteger)i);
             [weakSelf.tableView reloadData];
         }];
@@ -1243,7 +1244,7 @@ static void showWaiting(UITableViewCell *cell, BOOL waiting, NSString *switchTit
         [items addObject:item];
     }];
     UIButtonConfiguration *look = [UIButtonConfiguration plainButtonConfiguration];
-    NSString *shown = SGAccessibilityTextSize() ? nil : current;   // under the title instead
+    NSString *shown = SGAccessibilityTextSize() ? nil : SGL(current);   // under the title instead
     look.attributedTitle = shown ? [[NSAttributedString alloc] initWithString:shown attributes:@{NSFontAttributeName: SGTitleFont()}] : nil;
     look.image = [UIImage systemImageNamed:@"chevron.up.chevron.down" withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:11 weight:UIImageSymbolWeightSemibold]];
     look.imagePlacement = NSDirectionalRectEdgeTrailing;
@@ -1253,8 +1254,8 @@ static void showWaiting(UITableViewCell *cell, BOOL waiting, NSString *switchTit
     UIButton *button = [UIButton buttonWithConfiguration:look primaryAction:nil];
     button.menu = [UIMenu menuWithChildren:items];
     button.showsMenuAsPrimaryAction = YES;
-    button.accessibilityLabel = row.title;
-    button.accessibilityValue = current;
+    button.accessibilityLabel = SGL(row.title);
+    button.accessibilityValue = SGL(current);
     [button sizeToFit];
     return button;
 }
@@ -1266,7 +1267,7 @@ static void showWaiting(UITableViewCell *cell, BOOL waiting, NSString *switchTit
     UIImageSymbolConfiguration *symbol = [UIImageSymbolConfiguration configurationWithPointSize:17 weight:UIImageSymbolWeightRegular];
     [info setImage:[UIImage systemImageNamed:@"info.circle" withConfiguration:symbol] forState:UIControlStateNormal];
     info.tintColor = SGGrey();
-    info.accessibilityLabel = @"About this setting";
+    info.accessibilityLabel = SGL(@"About this setting");
     [info addTarget:self action:@selector(infoTapped:) forControlEvents:UIControlEventTouchUpInside];
     [toggle sizeToFit];
     CGFloat side = 30, gap = 8, height = MAX(side, toggle.bounds.size.height);
@@ -1282,7 +1283,7 @@ static void showWaiting(UITableViewCell *cell, BOOL waiting, NSString *switchTit
     NSIndexPath *path = [self pathOf:button];
     if (!path) return;
     SGModRow *row = [self rowAt:path];
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:row.title message:row.info preferredStyle:UIAlertControllerStyleAlert];
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:SGL(row.title) message:SGL(row.info) preferredStyle:UIAlertControllerStyleAlert];
     [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleCancel handler:nil]];
     [self presentViewController:alert animated:YES completion:nil];
 }
@@ -1326,32 +1327,33 @@ static const NSTimeInterval kGlassSwitchSettle = 0.95;
     void (^reload)(void) = ^{
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(wait * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{ [self reloadWhenIdle]; });
     };
-    BOOL moved = [self showRowsThen:row.changed ? reload : nil];
+    BOOL refresh = row.changed || [row.key isEqualToString:SGKeySettingsTranslate];
+    BOOL moved = [self showRowsThen:refresh ? reload : nil];
     // The rows waiting on this switch stay where they are and fade to their new state.
     NSMutableArray<NSIndexPath *> *waiting = [NSMutableArray array];
     for (NSIndexPath *visible in self.tableView.indexPathsForVisibleRows) {
         if ([self row:[self rowAt:visible] waitsOnKey:row.key]) [waiting addObject:visible];
     }
     if (waiting.count) [self.tableView reloadRowsAtIndexPaths:waiting withRowAnimation:UITableViewRowAnimationFade];
-    if (row.changed && !moved) reload();
+    if (refresh && !moved) reload();
     if (on && row.warning) [self warn:row];
 }
 
 // A locked row will not move, and nothing on it says why.
 - (void)explainLock {
     UIAlertController *alert = [UIAlertController
-        alertControllerWithTitle:@"Overridden by another setting"
-                         message:@"Another switch is forcing this flag, so the row shows what it forces instead of taking a value of its own."
+        alertControllerWithTitle:SGL(@"Overridden by another setting")
+                         message:SGL(@"Another switch is forcing this flag, so the row shows what it forces instead of taking a value of its own.")
                   preferredStyle:UIAlertControllerStyleAlert];
     [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleCancel handler:nil]];
     [self presentViewController:alert animated:YES completion:nil];
 }
 
 - (void)warn:(SGModRow *)row {
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:[row.title stringByAppendingString:@" is unstable"]
-                                                                  message:row.warning
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:[NSString stringWithFormat:SGL(@"%@ is unstable"), SGL(row.title)]
+                                                                  message:SGL(row.warning)
                                                            preferredStyle:UIAlertControllerStyleAlert];
-    if (SGRepoURL) [alert addAction:[UIAlertAction actionWithTitle:@"Open GitHub" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+    if (SGRepoURL) [alert addAction:[UIAlertAction actionWithTitle:SGL(@"Open GitHub") style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
         SGOpenURL(SGRepoURL);
     }]];
     [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleCancel handler:nil]];
