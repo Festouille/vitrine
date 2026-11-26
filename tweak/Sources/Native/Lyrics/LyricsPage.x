@@ -16,6 +16,8 @@
 #import "Native/Player/NowPlaying.h"
 #import "Native/Appearance/Repaint.h"
 #import "Shared/LyricsSources/LyricsSources.h"
+#import "Shared/Lyrics/Lyrics.h"
+#import "Shared/Lyrics/LineActions.h"
 #import <objc/runtime.h>
 
 static char kPageGlassKey;
@@ -65,6 +67,120 @@ static UIView *clearAncestors(UIView *view) {
     glass.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     // Full bleed, so the shape is spelled out: a fresh pane does not promise square corners.
     SGShapeGlass(glass, 0, NO);
+}
+%end
+
+#pragma mark - line actions
+
+static NSString *lineText(UIView *view) {
+    if ([view isKindOfClass:UILabel.class]) {
+        UILabel *label = (UILabel *)view;
+        return label.text ?: label.attributedText.string;
+    }
+    return view.isAccessibilityElement ? view.accessibilityLabel : nil;
+}
+
+static UIView *lineAt(UIView *view, CGPoint point, NSSet<NSString *> *texts) {
+    if (view.hidden || view.alpha <= 0.01 || !CGRectContainsPoint(view.bounds, point) ||
+        [view isKindOfClass:UIControl.class]) return nil;
+    for (UIView *child in view.subviews.reverseObjectEnumerator) {
+        UIView *line = lineAt(child, [view convertPoint:point toView:child], texts);
+        if (line) return line;
+    }
+    NSString *text = lineText(view);
+    return text && [texts containsObject:text] ? view : nil;
+}
+
+static void visibleLines(UIView *view, UIView *host, NSSet<NSString *> *texts, NSMutableArray<UIView *> *found) {
+    if (view.hidden || view.alpha <= 0.01 || [view isKindOfClass:UIControl.class] ||
+        !CGRectIntersectsRect(host.bounds, [view convertRect:view.bounds toView:host])) return;
+    NSUInteger count = found.count;
+    for (UIView *child in view.subviews) visibleLines(child, host, texts, found);
+    NSString *text = lineText(view);
+    if (found.count == count && text && [texts containsObject:text]) [found addObject:view];
+}
+
+static NSUInteger lineIndex(UIView *line, UIView *host, NSArray<NSString *> *texts, NSSet<NSString *> *known) {
+    NSString *text = lineText(line);
+    NSUInteger first = [texts indexOfObject:text];
+    if (first == NSNotFound || [texts indexOfObject:text inRange:NSMakeRange(first + 1, texts.count - first - 1)] == NSNotFound) return first;
+    NSMutableArray<UIView *> *visible = [NSMutableArray array];
+    visibleLines(host, host, known, visible);
+    [visible sortUsingComparator:^NSComparisonResult(UIView *a, UIView *b) {
+        CGFloat ay = CGRectGetMidY([a convertRect:a.bounds toView:host]);
+        CGFloat by = CGRectGetMidY([b convertRect:b.bounds toView:host]);
+        return ay < by ? NSOrderedAscending : ay > by ? NSOrderedDescending : NSOrderedSame;
+    }];
+    NSUInteger tapped = [visible indexOfObjectIdenticalTo:line];
+    if (tapped == NSNotFound) return NSNotFound;
+    NSUInteger match = NSNotFound, best = 0;
+    for (NSUInteger i = first; i < texts.count; i++) {
+        if (![texts[i] isEqualToString:text]) continue;
+        NSUInteger score = 0;
+        for (NSUInteger j = 1; j <= MIN(i, tapped) && [texts[i-j] isEqualToString:lineText(visible[tapped-j])]; j++) score++;
+        for (NSUInteger j = 1; j < MIN(texts.count - i, visible.count - tapped) &&
+             [texts[i+j] isEqualToString:lineText(visible[tapped+j])]; j++) score++;
+        if (score > best) { match = i; best = score; }
+        else if (score == best) match = NSNotFound;
+    }
+    return match;
+}
+
+@interface SGLyricLineActions : NSObject <UIGestureRecognizerDelegate>
+@end
+
+@implementation SGLyricLineActions
+
+- (UIView *)lineFor:(UIGestureRecognizer *)gesture start:(NSInteger *)start {
+    NSArray<SGKaraokeLine *> *lines = SGKaraokePageLinesForTrack(SGKaraokePlayingTrack());
+    if (!lines.count) return nil;
+    NSArray<NSNumber *> *starts;
+    NSArray<NSString *> *texts;
+    SGLyricsPageLines(lines, &starts, &texts);
+    NSSet<NSString *> *known = [NSSet setWithArray:texts];
+    UIView *line = lineAt(gesture.view, [gesture locationInView:gesture.view], known);
+    if (!line || !start) return line;
+    if (SGKaraokeLinesTiming(lines) == SGKaraokeTimingNone) return nil;
+    NSUInteger index = lineIndex(line, gesture.view, texts, known);
+    if (index >= starts.count) return nil;
+    *start = starts[index].integerValue;
+    return line;
+}
+
+- (BOOL)gestureRecognizerShouldBegin:(UIGestureRecognizer *)gesture {
+    NSInteger start;
+    return [self lineFor:gesture start:[gesture isKindOfClass:UITapGestureRecognizer.class] ? &start : NULL] != nil;
+}
+
+- (void)tapped:(UITapGestureRecognizer *)tap {
+    NSInteger start;
+    if ([self lineFor:tap start:&start]) SGKaraokeSeek(start);
+}
+
+- (void)held:(UILongPressGestureRecognizer *)hold {
+    if (hold.state != UIGestureRecognizerStateBegan) return;
+    UIView *line = [self lineFor:hold start:NULL];
+    if (line) SGLyricsShowLineActions(lineText(line), line, nil);
+}
+
+@end
+
+static char kLineActionsKey;
+
+%hook _TtC32Lyrics_FullscreenElementPageImpl10LyricsView
+- (void)didMoveToWindow {
+    %orig;
+    UIView *host = (UIView *)self;
+    if (!host.window || objc_getAssociatedObject(host, &kLineActionsKey)) return;
+    SGLyricLineActions *actions = [SGLyricLineActions new];
+    objc_setAssociatedObject(host, &kLineActionsKey, actions, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    UITapGestureRecognizer *tap = [[UITapGestureRecognizer alloc] initWithTarget:actions action:@selector(tapped:)];
+    UILongPressGestureRecognizer *hold = [[UILongPressGestureRecognizer alloc] initWithTarget:actions action:@selector(held:)];
+    tap.delegate = actions;
+    hold.delegate = actions;
+    [tap requireGestureRecognizerToFail:hold];
+    [host addGestureRecognizer:tap];
+    [host addGestureRecognizer:hold];
 }
 %end
 
@@ -147,5 +263,5 @@ static void tapForCredit(UIView *footer) {
     if (!SGNativeUI()) return;
     %init;
     SGRequireClasses(@[@"_TtC32Lyrics_FullscreenElementPageImpl14FullscreenView", @"_TtC22Lyrics_TextElementImpl16LyricsFooterView",
-                       @"_TtC24Lyrics_TextComponentImpl16LyricsFooterView"]);
+                       @"_TtC24Lyrics_TextComponentImpl16LyricsFooterView", @"_TtC32Lyrics_FullscreenElementPageImpl10LyricsView"]);
 }

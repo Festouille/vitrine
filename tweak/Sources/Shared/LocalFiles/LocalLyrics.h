@@ -13,6 +13,12 @@
 
 // Local file URI -> the name of the file linked to it.
 #define SGKeyImportedLRCLinks @"spotifyglass.localFiles.lrcLinks"
+#define SGKeyImportedLRCOffsets @"spotifyglass.localFiles.lrcOffsets"
+
+// A signed correction in milliseconds, added to this file's cue times.
+enum { SGImportedLRCOffsetLimit = 60000 };
+NSInteger SGImportedLRCOffset(NSString *name);
+void SGSetImportedLRCOffset(NSString *name, NSInteger offset); // main thread
 
 // The source's key in the lyrics sources order, and its ask: it needs no name, since a linked file is
 // found by the track's URI. The order moves it to the top at the first import and at every link, once
@@ -34,7 +40,7 @@ NSString *SGImportedLRCLinkedTo(NSString *uri);
 // given (for a local file, nil names are read from the file's URI and the player's track). nil when no
 // file has it. Safe from any thread.
 SGLyricsResult *SGImportedLRCFor(NSString *trackID, NSString *title, NSString *artist);
-// Posted on the main thread after an import or a delete.
+// Posted on the main thread after an import, delete or timing adjustment.
 extern NSNotificationName const SGImportedLRCDidChangeNotification;
 
 // LocalLyricsPage.m

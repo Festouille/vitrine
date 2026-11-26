@@ -4,6 +4,7 @@
 // stops when the page goes. A new track while it is open brings its lines, or says it has none.
 #import "Core/SGCore.h"
 #import "Shared/Lyrics/Lyrics.h"
+#import "Shared/Lyrics/LineActions.h"
 #import "Shared/LocalFiles/LocalLyrics.h"
 #import "Shared/Player/PlayerState.h"
 #import "LocalLyrics.h"
@@ -25,6 +26,7 @@ static const CGFloat kCurrentScale = 1.06, kOtherAlpha = 0.5;
     NSString *_uri;
     NSArray<SGKaraokeLine *> *_lines;
     NSArray<UILabel *> *_labels;
+    NSUInteger _lyricsRequest;
     BOOL _timed;
     NSInteger _current;
 }
@@ -55,6 +57,7 @@ static UILabel *label(UIFontTextStyle style, UIFontWeight weight, CGFloat size, 
 
 - (void)viewDidLoad {
     [super viewDidLoad];
+    [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(importedLyricsChanged:) name:SGImportedLRCDidChangeNotification object:nil];
     UIView *view = self.view;
     view.backgroundColor = UIColor.blackColor;
 
@@ -141,6 +144,12 @@ static UILabel *label(UIFontTextStyle style, UIFontWeight weight, CGFloat size, 
 
 #pragma mark - the lines
 
+- (void)importedLyricsChanged:(NSNotification *)notification {
+    ++_lyricsRequest;
+    _uri = nil;
+    [self tick];
+}
+
 - (void)load:(SPTPlayerState *)state uri:(NSString *)uri {
     _uri = uri;
     _lines = nil;
@@ -153,10 +162,11 @@ static UILabel *label(UIFontTextStyle style, UIFontWeight weight, CGFloat size, 
     _status.text = @"Loading lyrics…";
     _status.hidden = NO;
     // The file is read off the main thread the first time; after that it is kept.
+    NSUInteger request = ++_lyricsRequest;
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
         SGLyricsResult *lyrics = SGImportedLRCFor(uri, title, artist);
         dispatch_async(dispatch_get_main_queue(), ^{
-            if ([uri isEqualToString:self->_uri]) [self show:lyrics];
+            if (request == self->_lyricsRequest) [self show:lyrics];
         });
     });
 }
@@ -175,12 +185,33 @@ static UILabel *label(UIFontTextStyle style, UIFontWeight weight, CGFloat size, 
         text.text = SGKaraokeLineText(line);
         text.textAlignment = NSTextAlignmentCenter;
         text.alpha = _timed ? kOtherAlpha : 1;
+        text.userInteractionEnabled = YES;
+        UILongPressGestureRecognizer *hold = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(held:)];
+        [text addGestureRecognizer:hold];
+        if (line.timing != SGKaraokeTimingNone) {
+            UITapGestureRecognizer *tap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(tapped:)];
+            [tap requireGestureRecognizerToFail:hold];
+            [text addGestureRecognizer:tap];
+        }
         [_stack addArrangedSubview:text];
         [labels addObject:text];
     }
     _labels = labels;
     [_stack layoutIfNeeded];
     [_scroll setContentOffset:CGPointMake(0, -_scroll.contentInset.top) animated:NO];
+}
+
+- (void)tapped:(UITapGestureRecognizer *)tap {
+    if (![_uri isEqualToString:SGURIString(SGPlayerState().track.URI)]) return;
+    NSUInteger index = [_labels indexOfObject:(UILabel *)tap.view];
+    if (index >= _lines.count) return;
+    SGKaraokeSeek(MAX(0, _lines[index].start + SGKaraokeDelayMs()));
+}
+
+- (void)held:(UILongPressGestureRecognizer *)hold {
+    if (hold.state != UIGestureRecognizerStateBegan) return;
+    UILabel *label = (UILabel *)hold.view;
+    SGLyricsShowLineActions(label.text, label, nil);
 }
 
 // Fades and scales only, a short ease out; with Reduce Motion the line is not scaled and the list jumps.

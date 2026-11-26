@@ -17,6 +17,7 @@ void SGPlayFeedback(NSInteger feedback) {}   // the name it has had since Haptic
 // required, so it shows either way, and links to two people, as SpicyLyrics.m's community syncs do.
 NSString *SGLyricsCreditFor(NSString *trackID) { return [NSUserDefaults.standardUserDefaults stringForKey:@"credit"] ?: @"the harness"; }
 NSNotificationName const SGLyricsSourceChosenNotification = @"spotifyglass.lyricsSourceChosen";
+NSNotificationName const SGKaraokeLinesInvalidatedNotification = @"spotifyglass.karaoke.linesInvalidated";
 NSString *SGLyricsLeadArtist(NSString *artist) { return artist; }
 // LyricsSources.h's, declared here: that header's SPTPlayerTrack clashes with the track stub below.
 @interface SGLyricsLink : NSObject

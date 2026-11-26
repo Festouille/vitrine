@@ -508,8 +508,10 @@ Native:
                   on either side of the cover that plays at 2x until the finger lifts (PlayerGestures.x), the list's pull
                   held off while the progress bar is scrubbed (PlayerScrub.x), the Queue & devices flags. The scrub and
                   the cover's room are checked in the simulator against harness/native-player/
-    Lyrics/       the full screen lyrics page on glass, and a tap on the lyrics' footer opening the pages a credit
-                  links to (LyricsPage.x)
+    Lyrics/       the full screen lyrics page on glass: tap a timed line to seek, hold a line to copy or share it,
+                  or tap the footer to open the pages a credit links to (LyricsPage.x). The local-file viewer has
+                  the same line actions. In Mod Settings → Lyrics → Imported LRC files, tap a file to move its
+                  timed lyrics earlier or later without editing the file.
     LocalFiles/   a lyrics button on the player's footer for a local file with an LRC file linked to it, a fifth of the
                   way in from the leading edge, which opens a page of the lines on black that follows the song
                   (LocalLyrics.h lists its files); the file's metadata says has_lyrics. Checked in the simulator
@@ -634,7 +636,8 @@ Redesigned:
                   fades a few seconds after the last touch and the lines take the whole safe area until a tap where
                   the rest was or a scroll back; set
                   to Keep the title, only the controls under the title row and the lyrics' own button fade and the
-                  lines grow down into their room): lines sung over each other lit together, the stack moving on
+                  lines grow down into their room): tap a timed line to seek, or hold a line to copy, share,
+                  or explain it when a meaning exists; lines sung over each other lit together, the stack moving on
                   once the first is sung out; an instrumental break of 7 s or more held by three dots
                   that breathe and fill over its length on a Core Animation timeline laid against the song's clock; and
                   a line's pronunciation (under the words it spells) and translation, switched on from a glass button in

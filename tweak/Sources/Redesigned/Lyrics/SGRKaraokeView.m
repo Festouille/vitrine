@@ -25,6 +25,7 @@
 #import "Redesigned/Kit/SGRGlass.h"
 #import "Redesigned/Kit/SGRTokens.h"
 #import "Shared/Lyrics/KaraokeLines.h"
+#import "Shared/Lyrics/LineActions.h"
 
 // The size of the words and the room between lines are the Lyrics page's (LyricsLook.h); the column's margins, anchor,
 // fade and blur are Shared/Lyrics/KaraokeLines.h's, which draws the lines.
@@ -179,7 +180,7 @@ typedef struct {
 - (BOOL)accessibilityActivate { return self.activate ? self.activate() : NO; }
 @end
 
-@interface SGRKaraokeView () <UIScrollViewDelegate, SGPlayerStateObserver>
+@interface SGRKaraokeView () <UIScrollViewDelegate, SGPlayerStateObserver, UIGestureRecognizerDelegate>
 @end
 
 @implementation SGRKaraokeView {
@@ -294,14 +295,19 @@ typedef struct {
     _sing.hidden = !SGSingButtonShown();
     [self addSubview:_sing];
     [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(singButtonChanged) name:SGSingButtonDidChangeNotification object:nil];
-    [self addGestureRecognizer:[[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(tapped:)]];
-    [self addGestureRecognizer:[[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(held:)]];
+    UITapGestureRecognizer *tap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(tapped:)];
+    UILongPressGestureRecognizer *hold = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(held:)];
+    hold.delegate = self;
+    [tap requireGestureRecognizerToFail:hold];
+    [self addGestureRecognizer:tap];
+    [self addGestureRecognizer:hold];
     [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(playerTransitionChanged:) name:SGPlayerTransitionNotification object:nil];
     [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(playerTransitionChanged:) name:SGPlayerTransitionEndedNotification object:nil];
     [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(restyle) name:SGRLyricsTextDidChangeNotification object:nil];
     [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(restyle) name:SGLyricsRomanisedDidChangeNotification object:nil];
     [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(translationsChanged) name:SGLyricsTranslationsDidChangeNotification object:nil];
-    [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(sourceChosen:) name:SGLyricsSourceChosenNotification object:nil];
+    [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(lyricsInvalidated:) name:SGLyricsSourceChosenNotification object:nil];
+    [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(lyricsInvalidated:) name:SGKaraokeLinesInvalidatedNotification object:nil];
     [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(lookChanged) name:SGRLyricsLookDidChangeNotification object:nil];
     // A locked phone leaves the card in its window, so the link has to be put down by the app going
     // away rather than by the view going: see scheduleLink.
@@ -398,7 +404,12 @@ typedef struct {
         return view;
     }
     if (_plain) return nil;   // a line with no time has nowhere to seek to
+    return [self lineTargetAt:point];
+}
+
+- (SGKaraokeLineView *)lineTargetAt:(CGPoint)point {
     if (_seeksAbove > 0 && (point.y > _seeksAbove || point.y < _seeksBelow)) return nil;   // the host's, where its controls were
+    CGPoint inScroll = [self convertPoint:point toView:_scroll];
     for (SGKaraokeLineView *view in _shown.allValues) {
         if (CGRectContainsPoint(CGRectInset(view.frame, -_margin, -_lineGap / 2), inScroll)) return view;
     }
@@ -430,16 +441,32 @@ typedef struct {
     [self glideTo:line.start];
 }
 
+- (SGKaraokeLineView *)holdTargetFor:(UIGestureRecognizer *)hold {
+    if (_sample) return nil;
+    CGPoint point = [hold locationInView:self];
+    if (_extrasBox && !_extrasBox.hidden && CGRectContainsPoint(_extrasBox.frame, point)) return nil;
+    if (_sing.userInteractionEnabled && [_sing pointInside:[hold locationInView:_sing] withEvent:nil]) return nil;
+    return [self lineTargetAt:point];
+}
+
+- (BOOL)gestureRecognizerShouldBegin:(UIGestureRecognizer *)gesture {
+    return [self holdTargetFor:gesture] != nil;
+}
+
 - (void)held:(UILongPressGestureRecognizer *)hold {
+    if (hold.state != UIGestureRecognizerStateBegan) return;
+    SGKaraokeLineView *view = [self holdTargetFor:hold];
+    if (!view) return;
     [self stir];
-    if (hold.state != UIGestureRecognizerStateBegan || !_meanings.count) return;
-    if (_sing.userInteractionEnabled && [_sing pointInside:[hold locationInView:_sing] withEvent:nil]) return;
-    CGPoint point = [hold locationInView:_scroll];
-    for (SGKaraokeLineView *view in _shown.allValues) {
-        if (!CGRectContainsPoint(CGRectInset(view.frame, -_margin, -_lineGap / 2), point)) continue;
-        [self explainLine:view];
-        return;
-    }
+    NSNumber *index = [_shown allKeysForObject:view].firstObject;
+    NSArray<SGLyricsMeaning *> *meanings = index ? _meanings[index] : nil;
+    NSString *text = SGKaraokeLineText(view.line);
+    void (^explain)(void) = nil;
+    if (meanings.count) explain = ^{
+        SGPlayFeedback(SGFeedbackSkip);
+        SGRShowMeanings(text, meanings);
+    };
+    SGLyricsShowLineActions(text, view, explain);
 }
 
 - (void)explainLine:(SGKaraokeLineView *)view {
@@ -998,9 +1025,8 @@ static BOOL anyUntranslated(NSArray<SGKaraokeLine *> *lines) {
     });
 }
 
-// A source picked from the player's ⋯ replaces the lines of the song playing, which the page otherwise keeps
-// through any later answer: they are dropped as on a change of track, and the next tick takes the new ones.
-- (void)sourceChosen:(NSNotification *)note {
+// An explicit source or timing change replaces even timed lines on the same track.
+- (void)lyricsInvalidated:(NSNotification *)note {
     if (_sample || ![note.object isEqual:_track]) return;
     [self dropLines];
 }

@@ -269,4 +269,7 @@ NSUInteger SGLyricsFailures(void);
 void SGLyricsKeepChosen(NSString *trackID, SGLyricsResult *result);
 // The walk's kept answer for the track: a result, NSNull for none, nil when not kept; and that put back.
 id SGLyricsKeptAnswer(NSString *trackID);
+BOOL SGLyricsAnswerUsesImportedLRC(id answer);
+NSArray<NSString *> *SGLyricsForgetImportedAnswers(void); // main thread
+void SGLyricsForgetImportedOffers(void); // main thread
 void SGLyricsRestoreKept(NSString *trackID, id kept);
