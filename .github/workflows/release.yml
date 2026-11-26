@@ -6,34 +6,57 @@ on:
   push:
     branches: [main]
 
-concurrency:
-  group: release-main
-  cancel-in-progress: true
-
 permissions:
   contents: read
 
 jobs:
   verify:
+    name: Verify release
     uses: ./.github/workflows/verify.yml
 
   release-please:
     needs: verify
     runs-on: ubuntu-latest
+    concurrency: release-main
     permissions:
+      checks: read
       contents: write
       pull-requests: write
     steps:
-      # Release Please acts on main, not the triggering SHA; skip reruns of stale commits.
-      - name: Check verified commit is still at the tip of main
-        id: head
+      - name: Verify pending release SHAs
+        id: release-gate
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # Release Please can publish earlier, untagged release PRs as well as the current commit.
+          pending="$(gh api graphql --paginate \
+            -f owner="${GITHUB_REPOSITORY%/*}" -f repo="${GITHUB_REPOSITORY#*/}" \
+            -f query='
+              query($owner: String!, $repo: String!, $endCursor: String) {
+                repository(owner: $owner, name: $repo) {
+                  pullRequests(first: 100, after: $endCursor, baseRefName: "main",
+                               states: [MERGED], labels: ["autorelease: pending"]) {
+                    nodes { mergeCommit { oid } }
+                    pageInfo { hasNextPage endCursor }
+                  }
+                }
+              }' --jq '.data.repository.pullRequests.nodes[].mergeCommit.oid // empty')"
+          for sha in $pending; do
+            # The required job in this workflow already verified the triggering SHA.
+            [ "$sha" != "$GITHUB_SHA" ] || continue
+            verified="$(gh api --method GET --paginate "repos/$GITHUB_REPOSITORY/commits/$sha/check-runs" \
+              -f check_name='Verify release / Build iOS components' -f status=completed \
+              --jq '.check_runs[] | select(.app.slug == "github-actions" and .conclusion == "success") | .id')"
+            if [ -z "$verified" ]; then
+              echo "::error::Pending release commit $sha has not passed the macOS build check"
+              exit 1
+            fi
+          done
+          # Skip stale reruns and pushes that arrived while checking release candidates.
           main_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')"
           if [ "$main_sha" = "$GITHUB_SHA" ]; then
             echo "current=true" >> "$GITHUB_OUTPUT"
           fi
 
       - uses: googleapis/release-please-action@v4
-        if: steps.head.outputs.current == 'true'
+        if: steps.release-gate.outputs.current == 'true'
