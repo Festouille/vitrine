@@ -356,7 +356,7 @@ static BOOL askLrcLib(NSString *trackID, void (^done)(SGLyricsResult *lyrics)) {
 }
 
 // Main queue only.
-void SGKaraokeRequestLyrics(NSString *trackID) {
+static void requestLyrics(NSString *trackID, BOOL allowRemote) {
     if (!trackID || sg_lyrics[trackID] || [sg_requested containsObject:trackID]) return;
     // spclient has nothing for a local file, which only the sources can name. A file of the user's own,
     // linked to it or matching its names, comes before every source.
@@ -367,7 +367,7 @@ void SGKaraokeRequestLyrics(NSString *trackID) {
         SGLyricsSetCredit(trackID, imported.provider);
         return;
     }
-    if (local && !sg_prefetchLocalLyrics) return;
+    if (!allowRemote) return;
     if (!sg_ownSources && !local) {
         requestFromSpotify(trackID);
         return;
@@ -405,6 +405,10 @@ void SGKaraokeRequestLyrics(NSString *trackID) {
         [sg_looking removeObject:trackID];
         announce(trackID);
     }
+}
+
+void SGKaraokeRequestLyrics(NSString *trackID) {
+    requestLyrics(trackID, YES);
 }
 
 id SGKaraokePlayer(void) {
@@ -592,15 +596,18 @@ static BOOL linesShown(void) {
     [NSNotificationCenter.defaultCenter addObserverForName:SGLocalFileEditsDidChangeNotification object:nil queue:nil
                                                 usingBlock:^(NSNotification *note) {
         NSString *key = SGLocalFileLyricsKey(note.object);
-        if (key && [key isEqualToString:SGKaraokePlayingTrack()]) SGKaraokeRequestLyrics(key);
+        if (key && [key isEqualToString:SGKaraokePlayingTrack()]) requestLyrics(key, sg_prefetchLocalLyrics);
     }];
     // Forget local lookups and source answers that used imported lyrics.
     [NSNotificationCenter.defaultCenter addObserverForName:SGImportedLRCDidChangeNotification object:nil queue:nil
                                                 usingBlock:^(NSNotification *note) {
         NSSet<NSString *> *imported = [NSSet setWithArray:SGLyricsForgetImportedAnswers()];
+        BOOL timingEdit = note.object != nil;
+        NSString *importedCredit = timingEdit ? SGLyricsProviderFor(SGImportedLRCKey).name : nil;
         BOOL (^refreshes)(NSString *) = ^BOOL(NSString *track) {
             if (!track || (!SGLocalFileIs(track) && ![imported containsObject:track])) return NO;
-            NSString *picked = note.object ? SGLyricsChosenSource(track) : nil;
+            if (timingEdit && ![imported containsObject:track] && ![SGLyricsCreditFor(track) isEqualToString:importedCredit]) return NO;
+            NSString *picked = timingEdit ? SGLyricsChosenSource(track) : nil;
             return !picked || [picked isEqualToString:SGImportedLRCKey];
         };
         NSMutableSet<NSString *> *tracks = [NSMutableSet setWithSet:[sg_requested setByAddingObjectsFromArray:sg_lyrics.allKeys]];
@@ -611,13 +618,14 @@ static BOOL linesShown(void) {
             [sg_requested removeObject:track];
             [sg_asking removeObject:track];
             [sg_losses removeObjectForKey:track];
-            if (note.object) {
+            if (timingEdit) {
                 [NSNotificationCenter.defaultCenter postNotificationName:SGKaraokeLinesInvalidatedNotification object:track];
             }
         }
         NSString *playing = SGKaraokePlayingTrack();
         if (!refreshes(playing)) return;
-        if (sg_prefetchLocalLyrics || [imported containsObject:playing]) SGKaraokeRequestLyrics(playing);
+        if (timingEdit) requestLyrics(playing, !SGLocalFileIs(playing) && sg_ownSources && SGLyricsEnabled());
+        else if (sg_prefetchLocalLyrics || [imported containsObject:playing]) SGKaraokeRequestLyrics(playing);
         announce(playing);
     }];
     // Spotify asks for a track's lyrics only while a page of its own shows them, so a track the player
