@@ -1,5 +1,5 @@
 // Spotify's now playing info passes through with the artist swapped for the current line, and a timer
-// sends it again each time the line changes. Spotify itself only ever sees its own dictionary back.
+// sends it again as words are revealed. Spotify itself only ever sees its own dictionary back.
 //
 // The timer runs only while the sound moves, and wakes once for the next time the line can change: the
 // next start or end of a line or word the line shown hangs on. While the lyrics or the player's track
@@ -21,8 +21,7 @@
 
 // How often to look while the line cannot be worked out yet.
 static const NSTimeInterval kTick = 0.25;
-// About what the lock screen's artist row fits before it cuts the text off.
-static const NSUInteger kMaxChars = 30;
+static const NSTimeInterval kMinimumUpdateInterval = 0.2;
 
 // Spotify may set the info from any thread; the timer reads it on the main one.
 static NSObject *sg_lock;
@@ -32,45 +31,15 @@ static NSString *sg_shownLine;
 static BOOL sg_resending;
 static dispatch_source_t sg_timer;
 static CFAbsoluteTime sg_due;
+static NSTimeInterval sg_lastUpdate;
 // SGKeyLockScreenTranslation, read at launch.
 static BOOL sg_translation;
 // The large cover's lyrics are up (Vitrine Addon): the artist stays.
 static BOOL sg_coverLyrics;
 
-static NSString *textOf(NSArray<SGKaraokeWord *> *words) {
-    SGKaraokeLine *line = [SGKaraokeLine new];
-    line.words = words;
-    return SGKaraokeLineText(line);
-}
-
-// A line longer than the artist row holds, split into even pieces rather than a full one and a stub.
-// Each piece shows from its first word's estimated start.
-static NSArray<NSArray<SGKaraokeWord *> *> *piecesOf(SGKaraokeLine *line) {
-    NSUInteger length = textOf(line.words).length;
-    NSUInteger count = MAX((length + kMaxChars - 1) / kMaxChars, 1);
-    NSUInteger target = (length + count - 1) / count;
-    NSMutableArray<NSArray<SGKaraokeWord *> *> *pieces = [NSMutableArray array];
-    NSMutableArray<SGKaraokeWord *> *piece = [NSMutableArray array];
-    NSUInteger pieceLength = 0;
-    for (SGKaraokeWord *word in line.words) {
-        NSUInteger gap = pieceLength && !word.joined ? 1 : 0;
-        NSUInteger withWord = pieceLength ? pieceLength + gap + word.text.length : word.text.length;
-        if (pieceLength && (withWord > kMaxChars || (withWord > target && pieces.count + 1 < count))) {
-            [pieces addObject:piece];
-            piece = [NSMutableArray array];
-            withWord = word.text.length;
-        }
-        [piece addObject:word];
-        pieceLength = withWord;
-    }
-    if (piece.count) [pieces addObject:piece];
-    return pieces;
-}
-
 static char kTranslatedKey;
 
-// A line's translation as a line of its own, its words' times estimated over the line's, so piecesOf splits it
-// by its own length and its pieces turn over at the line's wakes. Made once for each translation the line has.
+// A line's translation as a line of its own, its words' times estimated over the line's.
 static SGKaraokeLine *translatedLine(SGKaraokeLine *line) {
     NSString *translation = line.translation;
     if (!translation.length) return nil;
@@ -117,8 +86,7 @@ static NSString *lineFor(NSDictionary *info, double elapsed, NSTimeInterval *wai
     if (SGKaraokeLinesTiming(lines) == SGKaraokeTimingNone) return nil;
     NSInteger position = (NSInteger)(elapsed * 1000) - SGKaraokeDelayMs();
     NSInteger index = SGKaraokeLeadLine(lines, position);
-    // The pieces below turn over at the shown line's word starts.
-    NSInteger ms = SGKaraokeMsToChange(lines, position, index);
+    NSInteger ms = SGKaraokeMsToChange(lines, position, -1);
     // A ms on, past the truncation of `position` above.
     if (ms > 0) *wait = (ms + 1) / 1000.0;
     if (index < 0) return nil;
@@ -129,16 +97,9 @@ static NSString *lineFor(NSDictionary *info, double elapsed, NSTimeInterval *wai
         line = SGLyricsRomanisedLine(lines[index], SGLyricsLooksJapanese(lines));
     }
     if (!line) line = lines[index];
-    NSString *shown = nil;
-    for (NSArray<SGKaraokeWord *> *piece in piecesOf(line)) {
-        NSInteger pieceStart = piece.firstObject.start;
-        if (!shown || pieceStart <= position) {
-            shown = textOf(piece);
-        } else if (pieceStart > position && (ms <= 0 || pieceStart - position < ms)) {
-            ms = pieceStart - position;
-            *wait = (ms + 1) / 1000.0;
-        }
-    }
+    NSInteger next;
+    NSString *shown = SGLockScreenLyricText(line, position, &next);
+    if (next > position && next >= 0 && (ms <= 0 || next - position < ms)) *wait = (next - position + 1) / 1000.0;
     return shown;
 }
 
@@ -159,6 +120,7 @@ static double rateOf(NSDictionary *info) {
 }
 
 static void tick(void);
+static BOOL playingBy(NSDictionary *info);
 
 // Main thread, as everything the timer touches is. Stops the timer, or arms it to look again `wait`
 // seconds of the song's time from now; a negative wait leaves it to Spotify's next info.
@@ -197,8 +159,17 @@ static void tick(void) {
     double elapsed = elapsedAt(info, reportedAt, now);
     NSTimeInterval wait;
     NSString *line = lineFor(info, elapsed, &wait);
-    lookIn(wait, info);
-    if (line == sg_shownLine || [line isEqualToString:sg_shownLine]) return;
+    BOOL playing = playingBy(info);
+    BOOL changed = line != sg_shownLine && ![line isEqualToString:sg_shownLine];
+    NSTimeInterval uptime = NSProcessInfo.processInfo.systemUptime;
+    NSTimeInterval untilUpdate = sg_lastUpdate + kMinimumUpdateInterval - uptime;
+    if (playing && changed && untilUpdate > 0) {
+        lookIn(untilUpdate * rateOf(info), info);
+        return;
+    }
+    lookIn(playing ? wait : -1, info);
+    if (!changed) return;
+    sg_lastUpdate = uptime;
     sg_shownLine = line;
     sg_resending = YES;
     MPNowPlayingInfoCenter.defaultCenter.nowPlayingInfo = withLine(info, line, elapsed);
