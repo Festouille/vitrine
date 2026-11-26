@@ -504,6 +504,100 @@ int main(int argc, char **argv) {
         // Manual pick on auto_pick survived the switch toggle.
         CHECK([fetch(@"auto_pick").provider isEqualToString:@"Musixmatch"] && fetch(@"auto_pick").picked);
 
+        // 11. Word-timing-only source (NetEase, no page texts) delivers immediately without holding first render,
+        //     then later source fills uncensored page texts without replacing word-timed karaokeLines.
+        SGAnswer neteaseOnly = ^SGLyricsResult *{
+            SGLyricsResult *r = wordLines(NO, NO, NO)();
+            r.starts = nil;
+            r.texts = nil;
+            return r;
+        };
+        SGLyricsSetAutoSelectWindow(0.2);
+        [sg_answers removeAllObjects];
+        sg_answers[@"netease"] = neteaseOnly;
+        sg_answers[@"lrclib"] = lines(YES);
+        [NSUserDefaults.standardUserDefaults setVolatileDomain:@{SGKeyLyricsProviders: @[@"netease", @"lrclib"],
+                                                                 SGKeyLyricsAutoSelect: @YES}
+                                                       forName:NSArgumentDomain];
+        SGPrefsChanged();
+        sg_held = @"lrclib";
+        got = fetch(@"auto_netease_first");
+        CHECK([got.provider isEqualToString:@"NetEase"] && got.wordTimed && got.karaokeLines.count && !got.texts.count);
+        CHECK(sg_release != nil);
+        sg_held = nil;
+        void (^releaseLrclib)(void) = sg_release;
+        sg_release = nil;
+        releaseLrclib();
+        pump(^BOOL { return fetch(@"auto_netease_first").texts.count > 0; });
+        NSArray *ab = @[@"a", @"b", @""];
+        SGLyricsResult *mergedNetease = fetch(@"auto_netease_first");
+        CHECK([mergedNetease.provider isEqualToString:@"NetEase"] && mergedNetease.wordTimed);
+        CHECK([mergedNetease.pageProvider isEqualToString:@"LRCLIB"] && [mergedNetease.texts isEqualToArray:ab]);
+
+        // 12. NetEase upgrading LRCLIB keeps LRCLIB's uncensored page texts intact.
+        [sg_answers removeAllObjects];
+        sg_answers[@"lrclib"] = lines(YES);
+        sg_answers[@"netease"] = neteaseOnly;
+        [NSUserDefaults.standardUserDefaults setVolatileDomain:@{SGKeyLyricsProviders: @[@"lrclib", @"netease"],
+                                                                 SGKeyLyricsAutoSelect: @YES}
+                                                       forName:NSArgumentDomain];
+        SGPrefsChanged();
+        [chosenNotes removeAllObjects];
+        got = fetch(@"auto_keep_uncensored");
+        CHECK([got.provider isEqualToString:@"LRCLIB"] && [got.texts isEqualToArray:ab]);
+        pump(^BOOL { return [chosenNotes containsObject:@"auto_keep_uncensored"]; });
+        SGLyricsResult *keptUncensored = fetch(@"auto_keep_uncensored");
+        CHECK([keptUncensored.provider isEqualToString:@"NetEase"] && keptUncensored.wordTimed);
+        CHECK([keptUncensored.pageProvider isEqualToString:@"LRCLIB"] && [keptUncensored.texts isEqualToArray:ab]);
+
+        // 13. Cache eviction (>40 tracks) during a batch does NOT discard pending in-window upgrades.
+        SGLyricsSetAutoSelectWindow(0.3);
+        [sg_answers removeAllObjects];
+        sg_answers[@"lrclib"] = lines(YES);
+        sg_answers[@"netease"] = wordLines(NO, NO, NO);
+        [NSUserDefaults.standardUserDefaults setVolatileDomain:@{SGKeyLyricsProviders: @[@"lrclib", @"netease"],
+                                                                 SGKeyLyricsAutoSelect: @YES}
+                                                       forName:NSArgumentDomain];
+        SGPrefsChanged();
+        sg_held = @"netease";
+        __block SGLyricsResult *evictedGot = nil;
+        __block BOOL evictedDone = NO;
+        SGLyricsFetchSettled(@"auto_evict_target", ^(SGLyricsResult *result) { evictedGot = result; evictedDone = YES; });
+        pump(^BOOL { return sg_release != nil; });
+        void (^releaseEvicted)(void) = sg_release;
+        sg_release = nil;
+        sg_held = nil;
+        // Fill cache past kKeptTracks (40) to evict auto_evict_target while its upgrade is pending.
+        for (int i = 0; i < 45; i++) {
+            fetch([NSString stringWithFormat:@"auto_evict_fill_%d", i]);
+        }
+        releaseEvicted();
+        pump(^BOOL { return evictedDone; });
+        CHECK([evictedGot.provider isEqualToString:@"NetEase"] && evictedGot.wordTimed);
+
+        // 14. Changing language/romanization preferences invalidates non-picked cached answers under auto-select.
+        SGLyricsSetAutoSelectWindow(0.2);
+        [sg_answers removeAllObjects];
+        sg_answers[@"musixmatch"] = wordLines(NO, NO, NO);
+        sg_answers[@"binilyrics"] = wordLines(YES, YES, YES);
+        [NSUserDefaults.standardUserDefaults setVolatileDomain:@{SGKeyLyricsProviders: @[@"musixmatch", @"binilyrics"],
+                                                                 SGKeyLyricsAutoSelect: @YES}
+                                                       forName:NSArgumentDomain];
+        SGPrefsChanged();
+        got = fetch(@"auto_lang_change");
+        CHECK([got.provider isEqualToString:@"Musixmatch"]);
+        // Now enable romanization -> cache invalidates and re-fetch upgrades to BiniLyrics!
+        [NSUserDefaults.standardUserDefaults setVolatileDomain:@{SGKeyLyricsProviders: @[@"musixmatch", @"binilyrics"],
+                                                                 SGKeyLyricsAutoSelect: @YES,
+                                                                 SGKeyLyricsRomanised: @YES}
+                                                       forName:NSArgumentDomain];
+        SGPrefsChanged();
+        [chosenNotes removeAllObjects];
+        got = fetch(@"auto_lang_change");
+        CHECK([got.provider isEqualToString:@"Musixmatch"]);
+        pump(^BOOL { return [chosenNotes containsObject:@"auto_lang_change"]; });
+        CHECK([fetch(@"auto_lang_change").provider isEqualToString:@"BiniLyrics"]);
+
         [NSNotificationCenter.defaultCenter removeObserver:observer];
         SGLyricsSetAutoSelectWindow(2.5);
 
