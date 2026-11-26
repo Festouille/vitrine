@@ -852,6 +852,20 @@ static void logLandscape(NSString *step, NSString *want) {
         [self playTrack:@"spotify:track:harnessB" image:imageURI(@"bbbb")];
     });
     after(2.5, ^{ [self check:@"2 artwork pending, old cover cleared" want:@"none"]; });
+    after(2.6, ^{
+        SGRPlayerToggleLyrics();
+        UIView *overlay = firstOfClass(self->_host, @"SGRPlayerLyricsOverlay");
+        UIImageView *cover = [overlay valueForKey:@"cover"];
+        [self expect:SGRPlayerLyricsAvailable() && SGRPlayerLyricsOpen() && cover.image && !SGRNowPlayingArtwork(NULL, NULL)
+                step:@"lyrics open before artwork arrives" detail:@"the thumbnail has a placeholder"];
+    });
+    after(4, ^{
+        UIView *overlay = firstOfClass(self->_host, @"SGRPlayerLyricsOverlay");
+        UIImageView *cover = [overlay valueForKey:@"cover"];
+        [self expect:SGRPlayerLyricsOpen() && [colorName(cover.image) isEqualToString:@"green"]
+                step:@"artwork arrives with lyrics open" detail:@"the thumbnail shows the new track's cover"];
+        if (SGRPlayerLyricsOpen()) SGRPlayerToggleLyrics();
+    });
     after(5.5, ^{ [self showOnScreen:green]; });
     after(7, ^{ [self check:@"2 album switch, the screens late" want:@"green"]; });
 
