@@ -16,6 +16,7 @@ xcrun -sdk iphonesimulator clang -target arm64-apple-ios17.0-simulator -fobjc-ar
     "$(dirname "$0")/main.m" "$(dirname "$0")/../scene.m" "$(dirname "$0")/stubs.m" "$(dirname "$0")/repeat.m" \
     "$OUT"/gen/*.m "$SRC"/App/Pages.m "$SRC"/App/About/Signing.m "$SRC"/Shared/AnimatedArtwork/AnimatedArtworkSettings.m "$SRC"/Shared/Player/HoldSpeed.m \
     "$SRC"/Shared/AdBlock/AdBlockSettings.m "$SRC"/Shared/Privacy/PrivacySettings.m "$SRC"/Shared/Lyrics/LyricsSettings.m \
+    "$SRC"/Shared/CarPlay/CarPlaySettings.m \
     "$SRC"/Native/Player/PlayerSettings.m \
     "$SRC"/Native/Appearance/AppearanceSettings.m "$SRC"/Redesigned/Kit/SGRAppearanceSettings.m "$SRC"/Shared/Fonts/FontImport.m \
     "$(dirname "$0")/../appearance-page/stubs.m" \
