@@ -139,6 +139,20 @@ static UILabel *track(UIView *list, CGFloat y, NSString *title, NSString *artist
     return subtitle;
 }
 
+static void checkSameSizeReuse(UILabel *subtitle, NSString *artist, NSString *count, BOOL on) {
+    UIView *view = subtitle.superview;
+    while (view && ![view isKindOfClass:UICollectionViewCell.class]) view = view.superview;
+    UICollectionViewCell *cell = (UICollectionViewCell *)view;
+    NSCAssert(cell, @"fixture subtitle has no cell");
+    [cell layoutIfNeeded];
+    CGSize size = cell.bounds.size;
+    [cell prepareForReuse];
+    NSCAssert([subtitle.text isEqualToString:artist], @"reuse did not restore the artist subtitle");
+    [cell layoutIfNeeded];
+    NSCAssert(CGSizeEqualToSize(size, cell.bounds.size) && [subtitle.text containsString:count] == on,
+              @"same-size reuse did not restore the cached count: %@", subtitle.text);
+}
+
 @interface SGStreamFixtureApp : UIResponder <UIApplicationDelegate>
 @property (nonatomic, strong) UIWindow *window;
 @property (nonatomic, strong) NSArray *factories;
@@ -172,6 +186,8 @@ static UILabel *track(UIView *list, CGFloat y, NSString *title, NSString *artist
         NSCAssert([album.text containsString:first] == on && [duplicate.text containsString:first] == on &&
                   [playlist.text containsString:second] == on && [missing.text isEqualToString:@"The Satellites"],
                   @"unexpected row subtitles: %@ / %@ / %@ / %@", album.text, missing.text, playlist.text, duplicate.text);
+        checkSameSizeReuse(album, @"The Satellites", first, on);
+        checkSameSizeReuse(playlist, @"Low Tide", second, on);
         NSCAssert(requests.count == (on ? 3 : 0) && (!on || requests[albumTrack].intValue == 1),
                   @"requests should be deduplicated and disabled when off: %@", requests);
         NSString *path = [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/result.txt"];

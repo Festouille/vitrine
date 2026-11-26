@@ -63,6 +63,7 @@ static void updateSubtitle(UIView *cell, BOOL album) {
 - (void)prepareForReuse {
     clearSubtitle((UIView *)self);
     %orig;
+    [(UIView *)self setNeedsLayout];
 }
 %end
 
@@ -74,6 +75,7 @@ static void updateSubtitle(UIView *cell, BOOL album) {
 - (void)prepareForReuse {
     clearSubtitle((UIView *)self);
     %orig;
+    [(UIView *)self setNeedsLayout];
 }
 %end
 
