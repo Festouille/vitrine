@@ -211,7 +211,9 @@ static int boundSocket(int family, double timeout, in_port_t *port) {
 static void checkGate(void) {
     SGConnectRealSendto = failingSendto;
     SGConnectRealSendmsg = failingSendmsg;
-    Packet q = query();
+    Packet q;
+    header(&q, 0, 0, 1, 0, 0, 0);
+    question(&q, "_SPOTIFY-CONNECT|_TCP|LOCAL");
     struct sockaddr_in group = {.sin_len = sizeof group, .sin_family = AF_INET, .sin_port = htons(5353), .sin_addr.s_addr = inet_addr("224.0.0.251")};
     struct sockaddr_in6 group6 = {.sin6_len = sizeof group6, .sin6_family = AF_INET6, .sin6_port = htons(5353)};
     inet_pton(AF_INET6, "ff02::fb", &group6.sin6_addr);
