@@ -45,7 +45,7 @@ SGModSection *SGDefaultPlaylistSection(void) {
         [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
         [SGTopController() presentViewController:alert animated:YES completion:nil];
     });
-    picker.visible = ^BOOL { return sg_active && SGFlag(SGKeyDefaultPlaylist, NO); };
+    picker.visible = ^BOOL { return sg_active; };
     return SGNotedSection(@"Saving tracks", @[toggle, picker],
         @"After restarting, choose a music playlist in Spotify’s picker. Deselect Liked Songs there to save to your playlist only.");
 }

@@ -95,6 +95,14 @@ BOOL SGOpenSpotifyURI(NSURL *uri) {
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)options {
     NSArray *args = NSProcessInfo.processInfo.arguments;
     BOOL enabled = [args containsObject:@"enabled"];
+    BOOL changeSetting = [args containsObject:@"toggle"];
+    if (enabled && changeSetting) {
+        NSUserDefaults *defaults = NSUserDefaults.standardUserDefaults;
+        NSMutableDictionary *arguments = [[defaults volatileDomainForName:NSArgumentDomain] mutableCopy];
+        [arguments removeObjectForKey:SGKeyDefaultPlaylist];
+        [defaults setVolatileDomain:arguments forName:NSArgumentDomain];
+        SGSetEnabled(SGKeyDefaultPlaylist, YES);
+    }
     SGModSection *section = SGDefaultPlaylistSection();
     NSCAssert(section && !section.rows[0].defaultOn, @"option defaults off");
     NSCAssert(section.rows[1].visible() == enabled, @"picker appears only in enabled launch");
@@ -106,15 +114,17 @@ BOOL SGOpenSpotifyURI(NSURL *uri) {
     self.window.rootViewController = self.nav;
     [self.window makeKeyAndVisible];
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-        if ([args containsObject:@"toggle"]) {
+        if (changeSetting) {
             UITableViewCell *cell = [settings.tableView cellForRowAtIndexPath:[NSIndexPath indexPathForRow:0 inSection:0]];
             UISwitch *toggle = (UISwitch *)cell.accessoryView;
-            NSCAssert([toggle isKindOfClass:UISwitch.class] && !toggle.isOn, @"stock switch is present and off");
-            toggle.on = YES;
+            NSCAssert([toggle isKindOfClass:UISwitch.class] && toggle.isOn == enabled, @"switch reflects the launch setting");
+            toggle.on = !enabled;
             [toggle sendActionsForControlEvents:UIControlEventValueChanged];
-            NSCAssert(SGFlag(SGKeyDefaultPlaylist, NO) && !section.rows[1].visible(), @"stored switch waits for restart");
+            NSCAssert(SGFlag(SGKeyDefaultPlaylist, NO) == !enabled && section.rows[1].visible() == enabled,
+                      @"stored switch waits for restart and picker follows the launch setting");
             SGSetEnabled(SGKeyDefaultPlaylist, NO);
-            NSLog(@"[harness] settings switch toggled; picker waits for restart");
+            NSLog(@"[harness] settings switch turned %@; picker stays %@ until restart",
+                  enabled ? @"off" : @"on", enabled ? @"visible" : @"hidden");
             return;
         }
         if ([args containsObject:@"settings"]) {
