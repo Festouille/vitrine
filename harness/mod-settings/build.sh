@@ -17,12 +17,14 @@ xcrun -sdk iphonesimulator clang -target arm64-apple-ios17.0-simulator -fobjc-ar
     "$OUT"/gen/*.m "$SRC"/App/Pages.m "$SRC"/App/About/Signing.m "$SRC"/Shared/AnimatedArtwork/AnimatedArtworkSettings.m "$SRC"/Shared/Player/HoldSpeed.m \
     "$SRC"/Shared/AdBlock/AdBlockSettings.m "$SRC"/Shared/Privacy/PrivacySettings.m "$SRC"/Shared/Lyrics/LyricsSettings.m \
     "$SRC"/Native/Player/PlayerSettings.m \
+    "$SRC"/Native/Appearance/AppearanceSettings.m "$SRC"/Redesigned/Kit/SGRAppearanceSettings.m "$SRC"/Shared/Fonts/FontImport.m \
+    "$(dirname "$0")/../appearance-page/stubs.m" \
     "$SRC"/Redesigned/Lyrics/LyricsText.m "$SRC"/Redesigned/Lyrics/LyricsTextSettings.m \
     "$SRC"/App/SettingsSearch.m "$SRC"/App/SettingsPresets.m \
     "$SRC"/Settings/SGLocalize.m "$SRC"/Settings/SGStrings_fr.m "$SRC"/Settings/SGStrings_es.m "$SRC"/Settings/SGStrings_tr.m \
     "$SRC"/Settings/SGPage.m "$SRC"/Settings/SGPageStyle.m "$SRC"/Settings/SGModPage.m "$SRC"/Settings/SGGlowSwitch.m \
     "$SRC"/Core/SGLog.m "$SRC"/Core/SGPrefs.m "$SRC"/Core/SGViewTree.m "$SRC"/Core/SGGlass.m "$SRC"/Core/SGLegacyGlass.m "$SRC"/Core/SGGlassTouch.m "$SRC"/Core/SGFlagForce.m "$SRC"/Core/SGUIMode.m \
-    -framework UIKit -framework QuartzCore -framework CoreGraphics -framework Foundation -framework Speech \
+    -framework UIKit -framework QuartzCore -framework CoreGraphics -framework Foundation -framework Speech -framework CoreText -framework UniformTypeIdentifiers \
     -o "$OUT/ModSettingsHarness.app/ModSettingsHarness"
 
 cat > "$OUT/ModSettingsHarness.app/Info.plist" <<'PLIST'
@@ -34,7 +36,6 @@ cat > "$OUT/ModSettingsHarness.app/Info.plist" <<'PLIST'
 <key>CFBundleName</key><string>ModSettingsHarness</string>
 <key>CFBundleVersion</key><string>1</string>
 <key>CFBundleShortVersionString</key><string>1.0</string>
-<key>UIUserInterfaceStyle</key><string>Dark</string>
 <key>UILaunchScreen</key><dict/>
 <key>UIApplicationSceneManifest</key><dict>
   <key>UIApplicationSupportsMultipleScenes</key><false/>

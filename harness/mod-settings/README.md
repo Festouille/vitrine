@@ -20,6 +20,11 @@ To check localized search and English fallbacks, launch with
 `lang=fr localized=Apparence search "query=Traduire les réglages du mod" search-count=1`. Use `localized=Appearance` with
 no language override to check the default, or launch with `redesign lang=fr dump` for the redesigned root.
 
+Run `sh ./theme-test.sh <booted-udid> <output-directory>` after building. It starts with the experiment off in
+each look, toggles it on, changes iOS's appearance while System is selected, and checks that fixed Light ignores
+iOS Dark. It also checks the overview, an untouched subpage, relaunch persistence, and the switch back off.
+It writes Appearance screenshots and console logs to the output directory.
+
 `lang=fr search "query=player switch to video" "search-result=Passer à la vidéo"` checks that an English
 page and row query still finds the translated row.
 
