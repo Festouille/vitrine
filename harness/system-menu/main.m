@@ -177,6 +177,7 @@ void SGMotionAlbumCover(NSString *artist, NSString *album, SGMotionShape shape, 
 
 @interface SGLoopMockState : NSObject
 @property (nonatomic, strong) SGLoopMockTrack *track;
+@property (nonatomic, copy) NSString *playbackId;
 @property (nonatomic) double position, positionAsOfTimestamp, duration;
 @property (nonatomic) BOOL isPlaying, isPaused, isLoading;
 @end
@@ -680,10 +681,11 @@ static NSArray<NSString *> *quickTitles(void) {
         else if (is(@"canvas-still")) sg_canvasState.track.metadata = @{@"canvas.type": @"IMAGE", @"canvas.url": @"https://example.com/still.jpg"};
         else if (!is(@"canvas-service")) sg_canvasState.track.metadata = @{@"canvas.type": @"VIDEO", @"canvas.url": @"https://canvaz.scdn.co/test.mp4"};
     }
-    if (is(@"abloop") || is(@"abloop-view") || is(@"abloop-off")) {
+    if (is(@"abloop") || is(@"abloop-view") || is(@"abloop-off") || is(@"abloop-duplicate")) {
         sg_loopState = [SGLoopMockState new];
         sg_loopState.track = [SGLoopMockTrack new];
         sg_loopState.track.URI = @"spotify:track:first";
+        sg_loopState.playbackId = @"first-playback";
         sg_loopState.position = 12;
         sg_loopState.duration = 180;
         sg_loopState.isPlaying = YES;
@@ -1053,7 +1055,7 @@ static NSArray<NSString *> *quickTitles(void) {
         finish();
         return;
     }
-    if (is(@"abloop") || is(@"abloop-view")) {
+    if (is(@"abloop") || is(@"abloop-view") || is(@"abloop-duplicate")) {
         check(menuShows(@"A–B Loop"), @"the enabled A–B Loop is in Now Playing");
         pick(@"A–B Loop");
         waitFor(^BOOL { return menuShows(@"Set Start (A)"); }, 3, ^{
@@ -1074,6 +1076,20 @@ static NSArray<NSString *> *quickTitles(void) {
                     sg_loopState.position = 31;
                     after(0.15, ^{
                         check(sg_seekCount == 2 && sg_seekTarget == 12, @"the loop rearms after playback returns to Start");
+                        if (is(@"abloop-duplicate")) {
+                            sg_loopState.playbackId = @"another-playback";
+                            [sg_loopObserver playerStateDidReport:(id)sg_loopState];
+                            sg_loopState.position = 12;
+                            after(0.15, ^{
+                                sg_loopState.position = 31;
+                                after(0.15, ^{
+                                    check([SGABLoopMenu().subtitle isEqualToString:@"Off"] && sg_seekCount == 2,
+                                          @"the same track URI in a new playback clears the loop");
+                                    finish();
+                                });
+                            });
+                            return;
+                        }
                         sg_loopState.track.URI = @"spotify:track:second";
                         [sg_loopObserver playerStateDidChange:(id)sg_loopState];
                         sg_loopState.track.URI = @"spotify:track:first";
@@ -1131,7 +1147,7 @@ __attribute__((constructor(101))) static void sgr_harnessDefaults(void) {
     if (is(@"sleeptimer")) [defaults setBool:YES forKey:@"spotifyglass.redesign.player.sleepTimer"];
     else [defaults removeObjectForKey:@"spotifyglass.redesign.player.sleepTimer"];
     [defaults setBool:[scenario() hasPrefix:@"canvas"] && !is(@"canvas-off") forKey:SGKeySaveCanvas];
-    [defaults setBool:is(@"abloop") || is(@"abloop-view") forKey:SGKeyABLoop];
+    [defaults setBool:is(@"abloop") || is(@"abloop-view") || is(@"abloop-duplicate") forKey:SGKeyABLoop];
     sg_elements = [NSMutableDictionary dictionary];
     Method make = class_getClassMethod(UIAction.class, @selector(actionWithTitle:image:identifier:handler:));
     sg_actionWithTitle = method_setImplementation(make, (IMP)recordAction);

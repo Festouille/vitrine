@@ -4,8 +4,22 @@
 
 static const double kMinimumLoop = 1.0;
 
+@interface SPTPlayerState (SGABLoopPlayback)
+@property (nonatomic, readonly) id playbackId;
+@end
+
+static id playbackID(SPTPlayerState *state) {
+    return [state respondsToSelector:@selector(playbackId)] ? state.playbackId : nil;
+}
+
+static BOOL matchesPlayback(SPTPlayerState *state, NSString *uri, id identifier) {
+    id current = playbackID(state);
+    return [uri isEqualToString:SGURIString(state.track.URI)] && (!identifier || !current || [identifier isEqual:current]);
+}
+
 @interface SGABLoop : NSObject <SGPlayerStateObserver>
 @property (nonatomic, copy) NSString *uri;
+@property (nonatomic, strong) id playbackIdentifier;
 @property (nonatomic) double start;
 @property (nonatomic) double end;
 @property (nonatomic) BOOL seeking;
@@ -16,6 +30,7 @@ static const double kMinimumLoop = 1.0;
 
 - (void)clear {
     self.uri = nil;
+    self.playbackIdentifier = nil;
     self.seeking = NO;
     self.end = 0;
     [self.timer invalidate];
@@ -23,12 +38,18 @@ static const double kMinimumLoop = 1.0;
 }
 
 - (void)playerStateDidChange:(SPTPlayerState *)state {
-    if (self.uri && ![self.uri isEqualToString:SGURIString(state.track.URI)]) [self clear];
+    [self playerStateDidReport:state];
+}
+
+- (void)playerStateDidReport:(SPTPlayerState *)state {
+    if (!self.uri) return;
+    if (!matchesPlayback(state, self.uri, self.playbackIdentifier)) [self clear];
+    else if (!self.playbackIdentifier) self.playbackIdentifier = playbackID(state);
 }
 
 - (void)tick:(NSTimer *)timer {
     SPTPlayerState *state = SGPlayerState();
-    if (!SGFlag(SGKeyABLoop, NO) || ![self.uri isEqualToString:SGURIString(state.track.URI)]) {
+    if (!SGFlag(SGKeyABLoop, NO) || !matchesPlayback(state, self.uri, self.playbackIdentifier)) {
         [self clear];
         return;
     }
@@ -45,19 +66,20 @@ static const double kMinimumLoop = 1.0;
     }
 }
 
-- (void)mark:(NSString *)uri end:(BOOL)end {
+- (void)mark:(NSString *)uri playback:(id)identifier end:(BOOL)end {
     SPTPlayerState *state = SGPlayerState();
-    if (!SGFlag(SGKeyABLoop, NO) || ![uri isEqualToString:SGURIString(state.track.URI)]) return;
+    if (!SGFlag(SGKeyABLoop, NO) || !matchesPlayback(state, uri, identifier)) return;
     double position = state.isPaused ? state.positionAsOfTimestamp : state.position;
     if (!isfinite(position) || !isfinite(state.duration) || position < 0 || position >= state.duration) return;
     if (!end) {
         if (state.duration - position <= kMinimumLoop) return;
         [self clear];
         self.uri = uri;
+        self.playbackIdentifier = playbackID(state);
         self.start = position;
         return;
     }
-    if (![self.uri isEqualToString:uri] || position - self.start < kMinimumLoop) return;
+    if (!matchesPlayback(state, self.uri, self.playbackIdentifier) || position - self.start < kMinimumLoop) return;
     self.end = position;
     [self.timer invalidate];
     self.timer = [NSTimer timerWithTimeInterval:0.05 target:self selector:@selector(tick:) userInfo:nil repeats:YES];
@@ -84,19 +106,20 @@ UIMenu *SGABLoopMenu(void) {
         loop = [SGABLoop new];
         SGAddPlayerStateObserver(loop);
     }
-    BOOL hasStart = [loop.uri isEqualToString:uri];
+    id identifier = playbackID(state);
+    BOOL hasStart = matchesPlayback(state, loop.uri, loop.playbackIdentifier);
     UIAction *start = [UIAction actionWithTitle:@"Set Start (A)" image:nil identifier:nil handler:^(UIAction *action) {
-        [loop mark:uri end:NO];
+        [loop mark:uri playback:identifier end:NO];
     }];
     UIAction *end = [UIAction actionWithTitle:@"Set End (B)" image:nil identifier:nil handler:^(UIAction *action) {
-        [loop mark:uri end:YES];
+        [loop mark:uri playback:identifier end:YES];
     }];
     if (!hasStart || (state.isPaused ? state.positionAsOfTimestamp : state.position) - loop.start < kMinimumLoop)
         end.attributes = UIMenuElementAttributesDisabled;
     NSMutableArray<UIMenuElement *> *actions = [NSMutableArray arrayWithArray:@[start, end]];
     if (hasStart) {
         [actions addObject:[UIAction actionWithTitle:@"Clear Loop" image:nil identifier:nil handler:^(UIAction *action) {
-            if ([loop.uri isEqualToString:uri]) [loop clear];
+            if ([loop.uri isEqualToString:uri] && matchesPlayback(SGPlayerState(), uri, identifier)) [loop clear];
         }]];
     }
     UIMenu *menu = [UIMenu menuWithTitle:@"A–B Loop" image:[UIImage systemImageNamed:@"repeat"] identifier:nil options:0 children:actions];
