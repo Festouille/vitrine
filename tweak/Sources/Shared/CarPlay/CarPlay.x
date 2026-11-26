@@ -415,14 +415,19 @@ static NSArray<CPListSection *> *buildControlsSections(void) {
 
     // Karaoke / Vocals toggle (only when supported on this device)
     if (SGSingCurrentState() != SGSingStateUnavailable) {
-        BOOL singOn = SGSingOn();
+        BOOL modelReady = (SGSingModelCurrentState() == SGSingModelReady);
+        BOOL singOn = modelReady && SGSingOn();
+        NSString *detail = modelReady ? (singOn ? SGL(@"On") : SGL(@"Off")) : SGL(@"Download model on iPhone");
         CPListItem *singItem = [[CPListItem alloc] initWithText:SGL(@"Karaoke Vocals")
-                                                     detailText:(singOn ? SGL(@"On") : SGL(@"Off"))
+                                                     detailText:detail
                                                           image:carPlaySymbolImage(singOn ? @"mic.fill" : @"mic", 20)];
+        singItem.enabled = modelReady;
         singItem.playing = singOn;
         singItem.playingIndicatorLocation = CPListItemPlayingIndicatorLocationTrailing;
         singItem.handler = ^(id<CPSelectableListItem> selectedItem, dispatch_block_t completionBlock) {
-            SGSetSingOn(!SGSingOn());
+            if (SGSingModelCurrentState() == SGSingModelReady) {
+                SGSetSingOn(!SGSingOn());
+            }
             completionBlock();
             refreshControlsTemplate();
         };

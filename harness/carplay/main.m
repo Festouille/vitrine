@@ -170,6 +170,7 @@ void SGSetSleepTimer(SGSleepTimerMode mode, NSTimeInterval seconds) {
 }
 
 SGSingState SGSingCurrentState(void) { return gSingOn ? SGSingStateSinging : SGSingStateOff; }
+SGSingModelState SGSingModelCurrentState(void) { return SGSingModelReady; }
 BOOL SGSingOn(void) { return gSingOn; }
 void SGSetSingOn(BOOL on) { gSingOn = on; }
 
