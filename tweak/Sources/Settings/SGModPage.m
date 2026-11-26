@@ -114,13 +114,13 @@ SGModRow *SGPageRow(NSString *title, UIViewController *(^page)(void)) {
 - (instancetype)initWithTitle:(NSString *)title key:(NSString *)key choices:(NSArray<NSString *> *)choices notes:(NSArray<NSString *> *)notes
                        footer:(NSString *)footer fallback:(NSInteger)fallback chosen:(void (^)(NSInteger index))chosen {
     if (!(self = [super initWithStyle:UITableViewStyleInsetGrouped])) return nil;
-    self.title = SGL(title);
+    self.title = title;
     _key = key;
     _choices = choices;
     _notes = notes;
     _fallback = fallback;
     _chosen = chosen;
-    _footer = footer ? SGNote(SGL(footer)) : nil;
+    _footer = footer ? SGNote(footer) : nil;
     return self;
 }
 
@@ -155,7 +155,7 @@ SGModRow *SGPageRow(NSString *title, UIViewController *(^page)(void)) {
 - (UITableViewCell *)tableView:(UITableView *)table cellForRowAtIndexPath:(NSIndexPath *)path {
     UITableViewCell *cell = SGDequeueCell(table, @"choice");
     NSUInteger index = (NSUInteger)path.row;
-    SGFillCell(cell, SGL(_choices[index]), index < _notes.count ? SGL(_notes[index]) : nil, nil, nil);
+    SGFillCell(cell, _choices[index], index < _notes.count ? _notes[index] : nil, nil, nil);
     cell.selectionStyle = UITableViewCellSelectionStyleDefault;
     if (path.row == SGInt(_key, _fallback)) {
         UIImageView *tick = SGSymbolView(@"checkmark", 13, UIImageSymbolWeightSemibold, 16);
@@ -752,11 +752,11 @@ static void showWaiting(UITableViewCell *cell, BOOL waiting, NSString *switchTit
 
 - (instancetype)initWithTitle:(NSString *)title intro:(NSString *)intro sections:(NSArray<SGModSection *> *)sections footer:(NSString *)footer {
     if (!(self = [super initWithStyle:UITableViewStyleInsetGrouped])) return nil;
-    self.title = SGL(title);
+    self.title = title;
     _sections = sections;
     _shown = [self rowsToShow];
-    _intro = intro ? SGNote(SGL(intro)) : nil;
-    _footer = footer ? SGNote(SGL(footer)) : nil;
+    _intro = intro ? SGNote(intro) : nil;
+    _footer = footer ? SGNote(footer) : nil;
     // Any row with a value, a test of when it shows, a number or a menu keeps a ticker running: a page row's
     // value can move while the page shows (a download's percentage beside the chevron), a row can come or go
     // by itself (a download that finished brings its Remove row), and a Reset row can move a slider.
@@ -1112,7 +1112,7 @@ static void showWaiting(UITableViewCell *cell, BOOL waiting, NSString *switchTit
 
 - (UIView *)tableView:(UITableView *)table viewForHeaderInSection:(NSInteger)section {
     NSString *title = _sections[(NSUInteger)section].title;
-    return title && ![self isEmpty:section] ? SGSectionHeader(table, SGL(title)) : nil;
+    return title && ![self isEmpty:section] ? SGSectionHeader(table, title) : nil;
 }
 
 - (CGFloat)tableView:(UITableView *)table heightForHeaderInSection:(NSInteger)section {
@@ -1122,12 +1122,12 @@ static void showWaiting(UITableViewCell *cell, BOOL waiting, NSString *switchTit
 
 - (UIView *)tableView:(UITableView *)table viewForFooterInSection:(NSInteger)section {
     NSString *footer = _sections[(NSUInteger)section].footer;
-    return footer && ![self isEmpty:section] ? SGSectionFooter(table, SGL(footer)) : nil;
+    return footer && ![self isEmpty:section] ? SGSectionFooter(table, footer) : nil;
 }
 
 - (CGFloat)tableView:(UITableView *)table heightForFooterInSection:(NSInteger)section {
     NSString *footer = _sections[(NSUInteger)section].footer;
-    return footer && ![self isEmpty:section] ? SGSectionFooterHeight(table, SGL(footer)) : CGFLOAT_MIN;
+    return footer && ![self isEmpty:section] ? SGSectionFooterHeight(table, footer) : CGFLOAT_MIN;
 }
 
 - (UITableViewCell *)tableView:(UITableView *)table cellForRowAtIndexPath:(NSIndexPath *)path {
@@ -1148,7 +1148,7 @@ static void showWaiting(UITableViewCell *cell, BOOL waiting, NSString *switchTit
     }
     // A checked row's cells set their own accessory and traits, which no other row resets.
     UITableViewCell *cell = SGDequeueCell(table, row.checked ? @"checked" : @"row");
-    SGFillCell(cell, SGL(row.title), SGL(row.subtitle), row.color, row.symbol);
+    SGFillCell(cell, row.title, row.subtitle, row.color, row.symbol);
     UIListContentConfiguration *content = (UIListContentConfiguration *)cell.contentConfiguration;
     if (SGAccessibilityTextSize() && row.value) content.secondaryText = stackedValue(row);
     if (row.color) content.secondaryTextProperties.color = row.color;

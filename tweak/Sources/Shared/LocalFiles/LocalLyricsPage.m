@@ -2,6 +2,7 @@
 // for current track…, which links the file to the local file playing, and Import LRC…, matched by title
 // and artist. Both open Files and copy the file in.
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
+#import "Settings/SGLocalize.h"
 #import "Core/SGCore.h"
 #import "Settings/SGPage.h"
 #import "Settings/SGPageStyle.h"
@@ -114,7 +115,7 @@ static NSString *playingLocalFile(void) {
     }
     NSString *name = _files[(NSUInteger)path.row];
     NSInteger offset = SGImportedLRCOffset(name);
-    NSString *detail = offset ? [NSString stringWithFormat:@"Timing offset: %+ld ms", (long)offset] : @"Timing offset: 0 ms";
+    NSString *detail = offset ? [NSString stringWithFormat:SGL(@"Timing offset: %+ld ms"), (long)offset] : SGL(@"Timing offset: 0 ms");
     SGFillCell(cell, name, detail, nil, nil);
     return cell;
 }
@@ -199,8 +200,8 @@ static NSString *playingLocalFile(void) {
     [self reloadFiles];
     if (_linkTo) {
         NSString *title = SGLocalFileInfo(_linkTo)[@"title"];
-        showAlert(self, @"Lyrics linked", [NSString stringWithFormat:@"%@ now gives the lyrics for %@.", name,
-                                                                     title ? [NSString stringWithFormat:@"\"%@\"", title] : @"this local file"]);
+        showAlert(self, @"Lyrics linked", [NSString stringWithFormat:SGL(@"%@ now gives the lyrics for %@."), name,
+                                                                     title ? [NSString stringWithFormat:@"\"%@\"", title] : SGL(@"this local file")]);
     }
 }
 

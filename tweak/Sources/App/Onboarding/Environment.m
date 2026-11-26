@@ -49,8 +49,8 @@ static SGProblem version(void) {
     NSArray<NSString *> *likely = SGSpotifyLikelyWorksVersions;
     NSString *also = !likely.count ? @""
         : [NSString stringWithFormat:@", and %@ likely %@ too", joined(likely, @"and"), likely.count == 1 ? @"works" : @"work"];
-    return @[[NSString stringWithFormat:@"Spotify %@ is not the version Vitrine is made for", SGSpotifyVersion()],
-             [NSString stringWithFormat:@"Vitrine is made for Spotify %@%@. On another version some of its changes find nothing to change, and some screens can look wrong or crash. Inject Vitrine into Spotify %@.",
+    return @[[NSString stringWithFormat:SGL(@"Spotify %@ is not the version Vitrine is made for"), SGSpotifyVersion()],
+             [NSString stringWithFormat:SGL(@"Vitrine is made for Spotify %@%@. On another version some of its changes find nothing to change, and some screens can look wrong or crash. Inject Vitrine into Spotify %@."),
                  joined(SGSpotifySupportedVersions, @"and"), also,
                  joined([SGSpotifySupportedVersions arrayByAddingObjectsFromArray:likely], @"or")]];
 }
@@ -63,10 +63,10 @@ static NSArray<NSString *> *missingAppChanges(void) {
     NSMutableArray<NSString *> *missing = [NSMutableArray array];
     id compatibility = [NSBundle.mainBundle objectForInfoDictionaryKey:@"UIDesignRequiresCompatibility"];
     if (SGRedesignAvailable() && SGRedesignedUIStored() && [compatibility isKindOfClass:NSNumber.class] && [compatibility boolValue])
-        [missing addObject:@"the tab bar stays Spotify's own, without its glass"];
-    if (!SGLiveActivityAllowedByInstall()) [missing addObject:@"the Live Activity is missing"];
+        [missing addObject:SGL(@"the tab bar stays Spotify's own, without its glass")];
+    if (!SGLiveActivityAllowedByInstall()) [missing addObject:SGL(@"the Live Activity is missing")];
     if (!SGMusicHapticsListedByInstall())
-        [missing addObject:@"iOS does not list Spotify for Music Haptics, which stops vibrations in the background"];
+        [missing addObject:SGL(@"iOS does not list Spotify for Music Haptics, which stops vibrations in the background")];
     return missing;
 }
 
@@ -76,19 +76,19 @@ static BOOL withoutAppChanges(void) {
 
 static SGProblem appChanges(void) {
     return @[@"Installed without Vitrine's app changes",
-             [NSString stringWithFormat:@"Some of what Vitrine does needs changes to the app that only its IPA build makes. Without them, %@. Build the IPA with Vitrine instead of injecting its .deb.",
+             [NSString stringWithFormat:SGL(@"Some of what Vitrine does needs changes to the app that only its IPA build makes. Without them, %@. Build the IPA with Vitrine instead of injecting its .deb."),
                  joined(missingAppChanges(), @"and")]];
 }
 
 static SGProblem fellBack(void) {
     return @[@"The redesign did not start",
-             [NSString stringWithFormat:@"Spotify did not get going with the redesign on iOS %@, so it is back in Legacy and Redesigned UI is off. Mod Settings can turn it on again.",
+             [NSString stringWithFormat:SGL(@"Spotify did not get going with the redesign on iOS %@, so it is back in Legacy and Redesigned UI is off. Mod Settings can turn it on again."),
                  UIDevice.currentDevice.systemVersion]];
 }
 
 // One problem is the alert's title and message; several are a paragraph each under a count.
 static void tell(NSArray<SGProblem> *list) {
-    NSString *title = list.count == 1 ? list[0][0] : [NSString stringWithFormat:@"%lu things to know", (unsigned long)list.count];
+    NSString *title = list.count == 1 ? list[0][0] : [NSString stringWithFormat:SGL(@"%lu things to know"), (unsigned long)list.count];
     NSMutableArray<NSString *> *paragraphs = [NSMutableArray array];
     for (SGProblem problem in list) {
         [paragraphs addObject:list.count == 1 ? problem[1] : [NSString stringWithFormat:@"%@.\n%@", problem[0], problem[1]]];
@@ -131,7 +131,7 @@ static void offerCleanup(void) {
     NSArray<NSURL *> *leftovers = chromaLeftovers();
     if (!leftovers.count) return;
     NSString *size = sizeOf(leftovers);
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:[NSString stringWithFormat:@"Chroma left %@ on this iPhone", size]
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:[NSString stringWithFormat:SGL(@"Chroma left %@ on this iPhone"), size]
                                                                   message:@"Its Karaoke voice model and its saved lock screen videos are still in Spotify's storage, and Vitrine uses neither. Your listening history and audio effects stay."
                                                            preferredStyle:UIAlertControllerStyleAlert];
     [alert addAction:[UIAlertAction actionWithTitle:@"Delete" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *action) {

@@ -4,12 +4,30 @@
 // Launch arguments (NSUserDefaults' argument domain):
 //   -preset N   stores preset N before the page opens (0 Apple Music, 1 Large, 2 Compact, 3 Calm, 4 Vivid)
 //   -sheet S    opens the sliders' sheet S seconds in, as a tap on its button would
+//   -spotifyglass.settingsTranslate YES -spotifyglass.settingsLanguage 1   previews the page in French
 //   -check 1    asserts the page's behavior (see runChecks), prints PASS and FAIL lines and quits with the
 //               number of failures
 #import <UIKit/UIKit.h>
+#import "Core/SGCore.h"
 #import "Settings/SGModPage.h"
+#import "Settings/SGPage.h"
+#import "Redesigned/Kit/SGRRepaint.h"
 #import "Redesigned/Lyrics/LyricsLook.h"
 #import "Redesigned/Lyrics/SGRKaraokeView.h"
+#import "Shared/LyricsTranslation/LyricsTranslation.h"
+#import "Shared/Player/PlayerState.h"
+#import "Shared/Sing/Sing.h"
+
+__weak UIView *sgr_sheetChromeRoot;
+void SGRWatchSheetPaint(UIView *root) {}
+void SGDressPageBar(UIViewController *page) {}
+void SGPlacePageBar(UIViewController *page) {}
+void SGUndressPageBar(UIViewController *page) {}
+void SGOpenModSettings(UIView *from) {}
+BOOL SGKaraokeInAnotherLanguage(NSArray<SGKaraokeLine *> *lines, NSString *language) { return NO; }
+NSString *SGLyricsErrorTitle(NSString *error) { return error; }
+SPTPlayerState *SGPlayerState(void) { return nil; }
+BOOL SGSingButtonShown(void) { return NO; }
 
 static int sg_failures;
 

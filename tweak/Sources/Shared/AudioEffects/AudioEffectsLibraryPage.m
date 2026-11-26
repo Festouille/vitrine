@@ -2,6 +2,7 @@
 // ticked, and the GraphicEQ text to paste or edit. Each shows the effect's error, if its last change did
 // not take, in a red card at the top, looked at again once a second while the page is open.
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
+#import "Settings/SGLocalize.h"
 #import "Core/SGCore.h"
 #import "Settings/SGPage.h"
 #import "Settings/SGPageStyle.h"
@@ -184,7 +185,7 @@ static UITableViewCell *tiledCell(UITableView *table, NSString *title, NSString 
 - (UITableViewCell *)tableView:(UITableView *)table cellForRowAtIndexPath:(NSIndexPath *)path {
     if (path.section == 0) return [self errorCellIn:table];
     if (path.section == 2) {
-        NSString *subtitle = [NSString stringWithFormat:@"A %@ file from Files", extensionList(_kind)];
+        NSString *subtitle = [NSString stringWithFormat:SGL(@"A %@ file from Files"), extensionList(_kind)];
         return tiledCell(table, @"Import file…", subtitle, @"square.and.arrow.down", nil);
     }
     UITableViewCell *cell = SGDequeueCell(table, @"file");
@@ -257,7 +258,7 @@ static UITableViewCell *tiledCell(UITableView *table, NSString *title, NSString 
     NSURL *url = urls.firstObject;
     if (!url) return;
     if (![SGDSPFileExtensions(_kind) containsObject:url.pathExtension.lowercaseString]) {
-        showAlert(self, @"Not a file this effect takes", [NSString stringWithFormat:@"Pick a %@ file.", extensionList(_kind)]);
+        showAlert(self, @"Not a file this effect takes", [NSString stringWithFormat:SGL(@"Pick a %@ file."), extensionList(_kind)]);
         return;
     }
     NSError *error = nil;

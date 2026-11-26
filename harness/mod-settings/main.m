@@ -167,6 +167,9 @@ static UIViewController *gatedPage(void) {
         [bar.delegate searchBar:bar textDidChange:value];
     } else if ([verb isEqualToString:@"pick"]) {
         [self tapTitle:value];
+    } else if ([verb isEqualToString:@"page-title"]) {
+        NSAssert([self.nav.topViewController.title isEqualToString:value], @"Unexpected settings page title");
+        NSLog(@"[harness] settings page title matched %@", value);
     } else if ([verb isEqualToString:@"search-count"]) {
         NSAssert([table numberOfRowsInSection:0] == value.integerValue, @"Unexpected number of settings search results");
         NSLog(@"[harness] gated settings search matched %@ rows as expected", value);

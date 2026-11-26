@@ -23,6 +23,10 @@ no language override to check the default, or launch with `redesign lang=fr dump
 `lang=fr search "query=player switch to video" "search-result=Passer à la vidéo"` checks that an English
 page and row query still finds the translated row.
 
+Open deeper pages with `lang=fr "pick=Lecteur" "page-title=Lecteur" dump`, or substitute
+`Paroles` or `Premium, publicités et confidentialité`. Add `redesign` for the Redesigned combined-page
+rows; the dedicated Player and Lyrics page harnesses render their Redesigned previews.
+
 `search "query=home gradient" "pick=Show gradient" jumped` checks the search jump and Back path in the
 native look. `preset-check` checks the JSON allowlist, invalid values, and removal of a reverted change
 from the pending restart list.

@@ -6,6 +6,7 @@
 // the playing song even at As sung, where it otherwise rests (SGSingReadLevels), so what the card shows and what
 // its slider sets are heard at once; popped, covered or in the background, the page no longer counts.
 #import "Core/SGCore.h"
+#import "Settings/SGLocalize.h"
 #import "Settings/SGModPage.h"
 #import "Settings/SGPageStyle.h"
 #import "Sing.h"
@@ -39,7 +40,7 @@ NSString *SGSingLevelText(double level) {
     if (level < 0.999) return [NSString stringWithFormat:@"%.0f%%", level * 100];
     if (level <= 1.001) return @"As sung";
     if (level >= 1.999) return @"Vocals only";
-    return [NSString stringWithFormat:@"Backing %.0f%%", (2 - level) * 100];
+    return [NSString stringWithFormat:SGL(@"Backing %.0f%%"), (2 - level) * 100];
 }
 
 static NSString *bytes(long long count) {
@@ -61,13 +62,13 @@ static NSString *modelValue(void) {
             if (SGSingModelChecking()) return @"Checking…";
             if (SGSingModelWaitingForNetwork()) return SGSingModelOverCellular() ? @"Waiting for the network" : @"Waiting for Wi-Fi";
             return [NSString stringWithFormat:@"%.0f%%", SGSingModelProgress() * 100];
-        case SGSingModelReady: return [NSString stringWithFormat:@"Downloaded · %@", SGSingModelSizeText()];
+        case SGSingModelReady: return [NSString stringWithFormat:SGL(@"Downloaded · %@"), SGSingModelSizeText()];
         case SGSingModelMissing:
             if (SGSingModelError()) return update ? @"Update failed, try again" : @"Failed, try again";
             if (SGSingModelPausedBytes()) {
-                return [NSString stringWithFormat:@"%@ · %@ of %@", update ? @"Update paused" : @"Paused", bytes(SGSingModelPausedBytes()), SGSingModelSizeText()];
+                return [NSString stringWithFormat:SGL(@"%@ · %@ of %@"), update ? @"Update paused" : @"Paused", bytes(SGSingModelPausedBytes()), SGSingModelSizeText()];
             }
-            return [NSString stringWithFormat:update ? @"Update available · %@" : @"Download, %@", SGSingModelSizeText()];
+            return [NSString stringWithFormat:update ? SGL(@"Update available · %@") : SGL(@"Download, %@"), SGSingModelSizeText()];
     }
     return @"";
 }
@@ -80,9 +81,9 @@ static void modelTapped(UITableViewController *page) {
     switch (rowState()) {
         case SGSingModelMissing: {
             BOOL update = SGSingModelUpdateAvailable();
-            NSString *message = [NSString stringWithFormat:@"%@%@%@ from Hugging Face. It waits for Wi-Fi unless you let it use cellular. It stays on this iPhone, and no audio leaves it.",
-                                 SGSingModelError() ? [NSString stringWithFormat:@"The last try failed: %@\n\n", SGSingModelError()] : @"",
-                                 update ? @"The new voice model runs on the Neural Engine, faster and cooler, and Karaoke keeps the one it has until it is in. " : @"",
+            NSString *message = [NSString stringWithFormat:SGL(@"%@%@%@ from Hugging Face. It waits for Wi-Fi unless you let it use cellular. It stays on this iPhone, and no audio leaves it."),
+                                 SGSingModelError() ? [NSString stringWithFormat:SGL(@"The last try failed: %@\n\n"), SGSingModelError()] : @"",
+                                 update ? SGL(@"The new voice model runs on the Neural Engine, faster and cooler, and Karaoke keeps the one it has until it is in. ") : @"",
                                  SGSingModelSizeText()];
             if (untestedChip()) {
                 message = [message stringByAppendingString:SGSingChosenModel() == SGSingModelLight
@@ -96,14 +97,14 @@ static void modelTapped(UITableViewController *page) {
         }
         case SGSingModelDownloading:
             if (SGSingModelWaitingForNetwork() && !SGSingModelOverCellular()) {
-                ask(@"Download over cellular?", [NSString stringWithFormat:@"The download waits for Wi-Fi. Over cellular or a Low Data Mode network it uses up to %@ of your plan.",
+                ask(@"Download over cellular?", [NSString stringWithFormat:SGL(@"The download waits for Wi-Fi. Over cellular or a Low Data Mode network it uses up to %@ of your plan."),
                                                  SGSingModelSizeText()], @"Use cellular", NO, ^{ SGSingDownloadModelOverCellular(); });
                 break;
             }
             ask(@"Stop the download?", @"What has come in is kept, so the next download carries on from it.", @"Stop", YES, ^{ SGSingCancelModelDownload(); });
             break;
         case SGSingModelReady:
-            ask(@"Delete the voice model?", [NSString stringWithFormat:@"It frees %@. Karaoke needs it again to turn the vocals down.", SGSingModelInUseSizeText()],
+            ask(@"Delete the voice model?", [NSString stringWithFormat:SGL(@"It frees %@. Karaoke needs it again to turn the vocals down."), SGSingModelInUseSizeText()],
                 @"Delete", YES, ^{
                     SGSetSingOn(NO);
                     SGSingDeleteModel();
@@ -162,7 +163,7 @@ UIViewController *SGSpatialVoiceSettingsPage(void) {
             }, ^NSString *(double value) { return [NSString stringWithFormat:@"%.0f%%", value]; }),
             SGSliderRow(@"Back in front", nil, 5, 60, 1, ^double { return SGSingSpatialFront(); }, ^(double value) {
                 SGSetSingSpatialSound(SGSingSpatialDistance(), SGSingSpatialRoom(), value, SGSingSpatialWidth());
-            }, ^NSString *(double value) { return [NSString stringWithFormat:@"After %.0f s", value]; }),
+            }, ^NSString *(double value) { return [NSString stringWithFormat:SGL(@"After %.0f s"), value]; }),
             SGSliderRow(@"Instruments width", nil, 0, 200, 5, ^double { return SGSingSpatialWidth(); }, ^(double value) {
                 SGSetSingSpatialSound(SGSingSpatialDistance(), SGSingSpatialRoom(), SGSingSpatialFront(), value);
             }, ^NSString *(double value) { return [NSString stringWithFormat:@"%.0f%%", value]; }),
@@ -223,8 +224,8 @@ UIViewController *SGSingSettingsPage(void) {
     SGModRow *remove = SGActionRow(@"Remove voice model", nil, ^{
         BOOL partial = SGSingModelCurrentState() != SGSingModelReady;
         ask(partial ? @"Remove the paused download?" : @"Remove the voice model?",
-            partial ? [NSString stringWithFormat:@"It frees %@. A new download starts from the beginning.", bytes(SGSingModelPausedBytes())]
-                    : [NSString stringWithFormat:@"It frees %@. Karaoke needs it again to turn the vocals down.", SGSingModelInUseSizeText()],
+            partial ? [NSString stringWithFormat:SGL(@"It frees %@. A new download starts from the beginning."), bytes(SGSingModelPausedBytes())]
+                    : [NSString stringWithFormat:SGL(@"It frees %@. Karaoke needs it again to turn the vocals down."), SGSingModelInUseSizeText()],
             @"Remove", YES, ^{
                 SGSetSingOn(NO);
                 SGSingDeleteModel();
@@ -249,12 +250,12 @@ UIViewController *SGSingSettingsPage(void) {
         row.checked = ^BOOL { return SGSingChosenModel() == kind; };
         return row;
     };
-    SGModRow *full = choice(@"Best quality", @"The full model, %@: the cleanest result, for recent iPhones", SGSingModelFull);
-    SGModRow *light = choice(@"Light", @"A small model, %@, for older iPhones: more of the voice is left in, and the music dips under it",
+    SGModRow *full = choice(@"Best quality", SGL(@"The full model, %@: the cleanest result, for recent iPhones"), SGSingModelFull);
+    SGModRow *light = choice(@"Light", SGL(@"A small model, %@, for older iPhones: more of the voice is left in, and the music dips under it"),
                              SGSingModelLight);
     SGModRow *other = SGStatActionRow(@"Remove the other model", nil, ^NSString *{ return bytes(SGSingOtherModelBytes()); }, ^{
         NSString *name = SGSingChosenModel() == SGSingModelFull ? @"Light" : @"Best quality";
-        ask(@"Remove the other model?", [NSString stringWithFormat:@"%@ is not in use. Removing it frees %@, and choosing it again downloads it again.",
+        ask(@"Remove the other model?", [NSString stringWithFormat:SGL(@"%@ is not in use. Removing it frees %@, and choosing it again downloads it again."),
                                          name, bytes(SGSingOtherModelBytes())],
             @"Remove", YES, ^{
                 SGSingDeleteOtherModel();

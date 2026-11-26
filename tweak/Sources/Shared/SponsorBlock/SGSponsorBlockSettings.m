@@ -2,6 +2,7 @@
 // Ported from EeveeSpotify Reincarnated (GPL-3.0) and Spot-SponsorBlock-Extension.
 
 #import "Core/SGCore.h"
+#import "Settings/SGLocalize.h"
 #import "Settings/SGModPage.h"
 #import "Settings/SGPageStyle.h"
 #import "SGSponsorBlock.h"
@@ -142,7 +143,7 @@ NSString *SGSponsorBlockSummary(void) {
     for (size_t i = 0; i < kCategoryCount; i++) {
         if (SGSponsorBlockCategoryBehavior(kCategories[i].key) != SGSponsorBlockBehaviorOff) active++;
     }
-    return active ? [NSString stringWithFormat:@"%lu active", (unsigned long)active] : @"None";
+    return active ? [NSString stringWithFormat:SGL(@"%lu active"), (unsigned long)active] : @"None";
 }
 
 BOOL SGSponsorBlockSubSwitchEnabled(NSString *key) {

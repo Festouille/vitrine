@@ -78,7 +78,7 @@ UIImageView *SGSymbolView(NSString *name, CGFloat size, UIImageSymbolWeight weig
 // A gray note in a wrapper view, for the table header and footer.
 UIView *SGNote(NSString *text) {
     UILabel *label = [UILabel new];
-    label.text = text;
+    label.text = SGL(text);
     label.font = SGSubtitleFont();
     label.adjustsFontForContentSizeCategory = YES;
     label.textColor = SGGrey();
@@ -200,8 +200,8 @@ const CGFloat SGSectionGap = 20;
 // with an optional symbol in the leading slot.
 void SGFillCell(UITableViewCell *cell, NSString *title, NSString *subtitle, UIColor *color, NSString *symbolName) {
     UIListContentConfiguration *content = [UIListContentConfiguration subtitleCellConfiguration];
-    content.text = title;
-    content.secondaryText = subtitle;
+    content.text = SGL(title);
+    content.secondaryText = SGL(subtitle);
     content.textProperties.font = SGTitleFont();
     content.textProperties.color = color ?: UIColor.whiteColor;
     content.secondaryTextProperties.font = SGSubtitleFont();
@@ -221,7 +221,7 @@ void SGFillCell(UITableViewCell *cell, NSString *title, NSString *subtitle, UICo
 
 UIView *SGSectionHeader(UITableView *table, NSString *title) {
     UILabel *label = [UILabel new];
-    label.text = title.uppercaseString;
+    label.text = SGLUppercase(title);
     label.font = SGSubtitleFont();
     label.adjustsFontForContentSizeCategory = YES;
     label.textColor = SGGrey();
@@ -247,6 +247,7 @@ static CGFloat footerTextHeight(UITableView *table, NSString *text) {
 }
 
 UIView *SGSectionFooter(UITableView *table, NSString *text) {
+    text = SGL(text);
     UILabel *label = [UILabel new];
     label.text = text;
     label.font = SGSubtitleFont();
@@ -255,13 +256,13 @@ UIView *SGSectionFooter(UITableView *table, NSString *text) {
     label.numberOfLines = 0;
     label.frame = CGRectMake(16, kFooterTop, table.bounds.size.width - 32, footerTextHeight(table, text));
     label.autoresizingMask = UIViewAutoresizingFlexibleWidth;
-    UIView *footer = [[UIView alloc] initWithFrame:CGRectMake(0, 0, table.bounds.size.width, SGSectionFooterHeight(table, text))];
+    UIView *footer = [[UIView alloc] initWithFrame:CGRectMake(0, 0, table.bounds.size.width, kFooterTop + CGRectGetHeight(label.frame) + kFooterBottom)];
     [footer addSubview:label];
     return footer;
 }
 
 CGFloat SGSectionFooterHeight(UITableView *table, NSString *text) {
-    return kFooterTop + footerTextHeight(table, text) + kFooterBottom;
+    return kFooterTop + footerTextHeight(table, SGL(text)) + kFooterBottom;
 }
 
 UITableViewCell *SGDequeueCell(UITableView *table, NSString *identifier) {

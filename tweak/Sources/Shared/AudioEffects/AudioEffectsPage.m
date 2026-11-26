@@ -3,6 +3,7 @@
 // while it is open, none of which a page of fixed rows does. It keeps Settings/'s look all the same: the
 // cards, the 13pt titles over 11pt subtitles, the tiles, the value and the chevron, the checkmark lists.
 #import <CoreText/SFNTLayoutTypes.h>
+#import "Settings/SGLocalize.h"
 #import "Core/SGCore.h"
 #import "Settings/SGPage.h"
 #import "Settings/SGPageStyle.h"
@@ -99,7 +100,7 @@ static NSString *graphicEqSummary(void) {
         points++;
         flat &= parts[1].doubleValue == 0;
     }
-    return flat ? @"Flat" : [NSString stringWithFormat:@"%lu points", (unsigned long)points];
+    return flat ? @"Flat" : [NSString stringWithFormat:SGL(@"%lu points"), (unsigned long)points];
 }
 
 // The effects' cards. The engine runs them in an order of its own (SGDSPEngine.m).
@@ -162,7 +163,7 @@ NSString *SGDSPSummary(void) {
     NSUInteger on = 0;
     for (SGDSPEffect *e in effects()) on += e.key && SGDSPSwitch(e.key);
     if (!on) return @"On";
-    return on == 1 ? @"1 effect" : [NSString stringWithFormat:@"%lu effects", (unsigned long)on];
+    return on == 1 ? SGL(@"1 effect") : [NSString stringWithFormat:SGL(@"%lu effects"), (unsigned long)on];
 }
 
 #pragma mark - numbers

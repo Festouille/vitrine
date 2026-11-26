@@ -60,12 +60,7 @@ static void showFix(void) {
     UIViewController *top = SGTopController();
     if (!appID || !top) return;
     NSString *message = [NSString stringWithFormat:
-        @"Sign Spotify again with the bundle id set to\n\n%@\n\n"
-        @"In Feather that is the Identifier field; leave PPQ protection off, it appends a random "
-        @"string and breaks this again.\n\n"
-        @"Why: this build is installed as %@ but signed under the App ID %@. iOS opens the now "
-        @"playing card by the App ID, so it asks for an app that is not there. Nothing else in the "
-        @"mod is affected.", appID, bundleID, appID];
+        SGL(@"Sign Spotify again with the bundle id set to\n\n%@\n\nIn Feather that is the Identifier field; leave PPQ protection off, it appends a random string and breaks this again.\n\nWhy: this build is installed as %@ but signed under the App ID %@. iOS opens the now playing card by the App ID, so it asks for an app that is not there. Nothing else in the mod is affected."), appID, bundleID, appID];
     UIAlertController *sheet = [UIAlertController alertControllerWithTitle:@"The lock screen cannot open Spotify"
                                                                   message:message
                                                            preferredStyle:UIAlertControllerStyleAlert];
@@ -214,7 +209,7 @@ static BOOL expiryReminderNeedsRetry(void) {
     NSString *item = certificateFirst ? @"signing certificate" : @"provisioning profile";
     NSString *date = [NSDateFormatter localizedStringFromDate:expires dateStyle:NSDateFormatterMediumStyle
                                                      timeStyle:NSDateFormatterShortStyle];
-    NSString *message = [NSString stringWithFormat:@"Spotify’s %@ expires on %@. Re-sign and reinstall Spotify before then so it keeps opening.", item, date];
+    NSString *message = [NSString stringWithFormat:SGL(@"Spotify’s %@ expires on %@. Re-sign and reinstall Spotify before then so it keeps opening."), item, date];
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Spotify signing expires soon"
                                                                    message:message
                                                             preferredStyle:UIAlertControllerStyleAlert];

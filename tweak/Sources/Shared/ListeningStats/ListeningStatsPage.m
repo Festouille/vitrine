@@ -2,6 +2,7 @@
 // its tops, the export picked and merged in, and the log erased. Built from SGModPage's rows, so it looks
 // the same under either look.
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
+#import "Settings/SGLocalize.h"
 #import "Core/SGCore.h"
 #import "Settings/SGModPage.h"
 #import "Settings/SGPageStyle.h"
@@ -17,7 +18,7 @@ static NSString *duration(int64_t ms) {
 }
 
 static NSString *playsText(NSUInteger plays) {
-    return [NSString stringWithFormat:plays == 1 ? @"%lu play" : @"%lu plays", (unsigned long)plays];
+    return [NSString stringWithFormat:plays == 1 ? SGL(@"%lu play") : SGL(@"%lu plays"), (unsigned long)plays];
 }
 
 static void showAlert(NSString *title, NSString *message) {
@@ -101,8 +102,8 @@ static BOOL sg_importing;
             NSUInteger added = [SGListeningLog() merge:plays];
             SGLog(@"stats: %lu plays in %lu files, %lu new", (unsigned long)plays.count, (unsigned long)files, (unsigned long)added);
             [page.tableView reloadData];
-            showAlert(@"Imported", [NSString stringWithFormat:@"%@ added from %lu %@, %lu skipped as already here.", playsText(added),
-                                   (unsigned long)files, files == 1 ? @"file" : @"files", (unsigned long)(plays.count - added)]);
+            showAlert(@"Imported", [NSString stringWithFormat:SGL(@"%@ added from %lu %@, %lu skipped as already here."), playsText(added),
+                                   (unsigned long)files, files == 1 ? SGL(@"file") : SGL(@"files"), (unsigned long)(plays.count - added)]);
         });
     });
 }

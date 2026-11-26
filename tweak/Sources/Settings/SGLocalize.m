@@ -15,14 +15,31 @@ static SGSettingsLanguage deviceLanguage(void) {
     return SGSettingsLanguageDevice;
 }
 
-NSString *SGL(NSString *english) {
-    if (!english.length || !SGFlag(SGKeySettingsTranslate, NO)) return english;
+static SGSettingsLanguage settingsLanguage(void) {
+    if (!SGFlag(SGKeySettingsTranslate, NO)) return SGSettingsLanguageDevice;
     SGSettingsLanguage language = SGInt(SGKeySettingsLanguage, SGSettingsLanguageDevice);
-    if (language == SGSettingsLanguageDevice) language = deviceLanguage();
+    return language == SGSettingsLanguageDevice ? deviceLanguage() : language;
+}
+
+static NSString *translate(NSString *english, SGSettingsLanguage language) {
+    if (!english.length) return english;
     switch (language) {
         case SGSettingsLanguageFrench: return SGStringsFR()[english] ?: english;
         case SGSettingsLanguageSpanish: return SGStringsES()[english] ?: english;
         case SGSettingsLanguageTurkish: return SGStringsTR()[english] ?: english;
         default: return english;
     }
+}
+
+NSString *SGL(NSString *english) {
+    return english.length ? translate(english, settingsLanguage()) : english;
+}
+
+NSString *SGLUppercase(NSString *english) {
+    SGSettingsLanguage language = settingsLanguage();
+    NSString *text = translate(english, language);
+    if (language == SGSettingsLanguageTurkish) {
+        return [text uppercaseStringWithLocale:[NSLocale localeWithLocaleIdentifier:@"tr"]];
+    }
+    return text.uppercaseString;
 }

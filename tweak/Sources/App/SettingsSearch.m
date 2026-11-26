@@ -59,7 +59,7 @@ static BOOL containsTerms(NSString *text, NSArray<NSString *> *terms) {
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.title = SGL(@"Search Mod Settings");
+    self.title = @"Search Mod Settings";
     _bar = [[UISearchBar alloc] initWithFrame:CGRectMake(0, 0, self.tableView.bounds.size.width, 56)];
     _bar.searchBarStyle = UISearchBarStyleMinimal;
     _bar.placeholder = SGL(@"Search settings");
@@ -94,7 +94,7 @@ static BOOL containsTerms(NSString *text, NSArray<NSString *> *terms) {
         if (containsTerms(match.text, terms) || containsTerms(match.englishText, terms)) [results addObject:match];
     }
     _results = results;
-    self.tableView.tableFooterView = results.count ? nil : SGNote(SGL(hasQuery ? @"No settings found." : @"Search by setting name or page."));
+    self.tableView.tableFooterView = results.count ? nil : SGNote(hasQuery ? @"No settings found." : @"Search by setting name or page.");
     [self.tableView reloadData];
 }
 
@@ -115,7 +115,7 @@ static BOOL containsTerms(NSString *text, NSArray<NSString *> *terms) {
 - (UITableViewCell *)tableView:(UITableView *)table cellForRowAtIndexPath:(NSIndexPath *)path {
     SGSettingsMatch *match = _results[(NSUInteger)path.row];
     UITableViewCell *cell = SGDequeueCell(table, @"result");
-    SGFillCell(cell, SGL(match.row.title), match.path, nil, nil);
+    SGFillCell(cell, match.row.title, match.path, nil, nil);
     cell.accessoryView = SGChevronView();
     return cell;
 }

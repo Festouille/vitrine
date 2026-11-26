@@ -1,4 +1,5 @@
 #import "Core/SGCore.h"
+#import "Settings/SGLocalize.h"
 #import "Settings/SGModPage.h"
 #import "AdBlock.h"
 #import "Shared/Privacy/Privacy.h"
@@ -44,7 +45,7 @@ UIViewController *SGAdsSettingsPage(void) {
         [counts addObject:SGStatRow(label, ^NSString *{
             NSUInteger checked = SGAdBlockChecked(label);
             return checked == NSNotFound ? @(SGAdBlockCount(label)).stringValue
-                : [NSString stringWithFormat:@"%lu of %lu", (unsigned long)SGAdBlockCount(label), (unsigned long)checked];
+                : [NSString stringWithFormat:SGL(@"%lu of %lu"), (unsigned long)SGAdBlockCount(label), (unsigned long)checked];
         })];
     }
     [counts addObject:SGStatRow(@"Total", ^NSString *{

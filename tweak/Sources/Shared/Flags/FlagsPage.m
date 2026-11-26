@@ -1,13 +1,14 @@
 #import "Core/SGCore.h"
+#import "Settings/SGLocalize.h"
 #import "Settings/SGPage.h"
 #import "Settings/SGPageStyle.h"
 #import "Flags.h"
 
 static NSString *flagState(const SGFlagDef *flag, id value) {
-    if (value) return [NSString stringWithFormat:@"forced %@", flag->type == SGFlagBool ? ([value boolValue] ? @"on" : @"off") : value];
+    if (value) return [NSString stringWithFormat:SGL(@"forced %@"), flag->type == SGFlagBool ? ([value boolValue] ? @"on" : @"off") : value];
     switch (flag->type) {
         case SGFlagBool: return flag->value ? @"on by default" : @"off by default";
-        case SGFlagInt: return [NSString stringWithFormat:@"%ld by default, %ld to %ld", flag->value, flag->lower, flag->upper];
+        case SGFlagInt: return [NSString stringWithFormat:SGL(@"%ld by default, %ld to %ld"), flag->value, flag->lower, flag->upper];
         case SGFlagEnum: return @"text value";
         default: return @"type unknown";
     }
@@ -37,7 +38,7 @@ static NSString *flagState(const SGFlagDef *flag, id value) {
     self.tableView.separatorStyle = UITableViewCellSeparatorStyleNone;
     self.tableView.keyboardDismissMode = UIScrollViewKeyboardDismissModeOnDrag;
     _search = [UISearchBar new];
-    _search.placeholder = [NSString stringWithFormat:@"Search %lu flags", (unsigned long)SGFlagCount];
+    _search.placeholder = [NSString stringWithFormat:SGL(@"Search %lu flags"), (unsigned long)SGFlagCount];
     _search.searchBarStyle = UISearchBarStyleMinimal;
     _search.delegate = self;
     _header = SGNote(@"Auto keeps Spotify's value. Changes apply after you restart Spotify.");

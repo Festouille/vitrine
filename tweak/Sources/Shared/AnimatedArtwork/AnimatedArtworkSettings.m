@@ -1,6 +1,7 @@
 // What the lock screen fills the screen with, the lyrics' style and whether the downloads run in Low Data
 // Mode. iOS 26 and up only.
 #import "Core/SGCore.h"
+#import "Settings/SGLocalize.h"
 #import "Settings/SGModPage.h"
 #import "Settings/SGPageStyle.h"
 #import "AnimatedArtwork.h"
@@ -68,9 +69,7 @@ NSArray *SGLockScreenMotionRows(void) {
 // Below iOS 26 the section stays, with one row that says why there is nothing to pick.
 SGModRow *SGLockScreenArtworkNeedsRow(void) {
     return SGStatActionRow(@"Full-screen artwork", nil, ^NSString *{ return @"Needs iOS 26"; }, ^{
-        NSString *message = [NSString stringWithFormat:@"This iPhone has iOS %@. The lock screen takes moving artwork "
-                                                       @"from apps from iOS 26 on, so the Canvas and Apple Music's animated "
-                                                       @"covers can show there once the iPhone is updated.", UIDevice.currentDevice.systemVersion];
+        NSString *message = [NSString stringWithFormat:SGL(@"This iPhone has iOS %@. The lock screen takes moving artwork from apps from iOS 26 on, so the Canvas and Apple Music's animated covers can show there once the iPhone is updated."), UIDevice.currentDevice.systemVersion];
         UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Needs iOS 26" message:message
                                                                 preferredStyle:UIAlertControllerStyleAlert];
         [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleCancel handler:nil]];

@@ -145,8 +145,8 @@ static void preview(NSString *title, NSDictionary<NSString *, NSNumber *> *setti
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.title = SGL(@"Import preset");
-    self.tableView.tableHeaderView = SGNote(SGL(@"Paste a JSON settings object. Only supported appearance, Home and player controls can be imported."));
+    self.title = @"Import preset";
+    self.tableView.tableHeaderView = SGNote(@"Paste a JSON settings object. Only supported appearance, Home and player controls can be imported.");
     self.tableView.keyboardDismissMode = UIScrollViewKeyboardDismissModeOnDrag;
     _input = [UITextView new];
     _input.backgroundColor = SGCardBackground();
@@ -184,7 +184,7 @@ static void preview(NSString *title, NSDictionary<NSString *, NSNumber *> *setti
 - (UITableViewCell *)tableView:(UITableView *)table cellForRowAtIndexPath:(NSIndexPath *)path {
     UITableViewCell *cell = SGDequeueCell(table, path.section ? @"preview" : @"input");
     if (path.section) {
-        SGFillCell(cell, SGL(@"Preview changes"), nil, nil, nil);
+        SGFillCell(cell, @"Preview changes", nil, nil, nil);
         cell.accessoryView = SGChevronView();
     } else {
         cell.selectionStyle = UITableViewCellSelectionStyleNone;

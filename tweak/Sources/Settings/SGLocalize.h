@@ -11,3 +11,4 @@ typedef NS_ENUM(NSInteger, SGSettingsLanguage) {
 };
 
 NSString *SGL(NSString *english);
+NSString *SGLUppercase(NSString *english);

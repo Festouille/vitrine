@@ -1,6 +1,7 @@
 // The Presets and Headphones pages the Audio effects page's first card opens. Both stay open after a pick,
 // so one preset or one headphone after another can be heard before going back.
 #import "Core/SGCore.h"
+#import "Settings/SGLocalize.h"
 #import "Settings/SGPage.h"
 #import "Settings/SGPageStyle.h"
 #import "AudioEffectsPage.h"
@@ -302,7 +303,7 @@ typedef NS_ENUM(NSInteger, SGDSPHeadphoneSection) {
         [self.refreshControl endRefreshing];
         if (headphones) self->_all = headphones;
         self->_failed = error != nil;
-        self->_message = error ? [NSString stringWithFormat:@"%@. Tap to try again.", error] : nil;
+        self->_message = error ? [NSString stringWithFormat:SGL(@"%@. Tap to try again."), error] : nil;
         [self filter];
     });
 }
@@ -369,8 +370,7 @@ static BOOL headphoneInUse(void) {
 
 - (NSString *)outputFooter {
     NSString *name = SGAutoEqOutputName();
-    return [NSString stringWithFormat:@"With this on, the correction you pick is kept for %@. It comes back each time audio plays through "
-            "%@, and goes off on outputs with none remembered.", name, name];
+    return [NSString stringWithFormat:SGL(@"With this on, the correction you pick is kept for %@. It comes back each time audio plays through %@, and goes off on outputs with none remembered."), name, name];
 }
 
 - (UIView *)tableView:(UITableView *)table viewForFooterInSection:(NSInteger)section {
@@ -394,7 +394,7 @@ static NSString *correctionName(NSString *path) {
         BOOL remembered = SGAutoEqOutputRemembered(uid);
         NSString *current = correctionName(headphoneInUse() ? SGDSPString(SGKeyDSPGraphicEqHeadphone) : nil);
         SGFillCell(cell, [NSString stringWithFormat:@"Use for %@", SGAutoEqOutputName()],
-                   remembered ? [NSString stringWithFormat:@"%@ while it plays", current] : [NSString stringWithFormat:@"Remember %@ for this output", current], nil, nil);
+                   remembered ? [NSString stringWithFormat:SGL(@"%@ while it plays"), current] : [NSString stringWithFormat:SGL(@"Remember %@ for this output"), current], nil, nil);
         cell.selectionStyle = UITableViewCellSelectionStyleNone;
         UISwitch *toggle = [UISwitch new];
         toggle.onTintColor = SGGreen();
@@ -407,7 +407,7 @@ static NSString *correctionName(NSString *path) {
     if (path.section == SGDSPHeadphoneRemembered) {
         NSDictionary<NSString *, NSString *> *output = _remembered[(NSUInteger)path.row];
         BOOL now = [output[@"uid"] isEqualToString:SGAutoEqOutputUID()];
-        SGFillCell(cell, output[@"name"], now ? [NSString stringWithFormat:@"%@ · playing now", correctionName(output[@"path"])] : correctionName(output[@"path"]), nil, nil);
+        SGFillCell(cell, output[@"name"], now ? [NSString stringWithFormat:SGL(@"%@ · playing now"), correctionName(output[@"path"])] : correctionName(output[@"path"]), nil, nil);
         cell.selectionStyle = UITableViewCellSelectionStyleNone;
         cell.accessibilityTraits = UIAccessibilityTraitNone;
         cell.accessibilityHint = @"Swipe left to remove";

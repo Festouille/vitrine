@@ -1,6 +1,7 @@
 // The Gestures page: the grid over a player-shaped preview, a cell tapped to say what a double tap
 // there does, under it the split, the seek step and a reset.
 #import "Core/SGCore.h"
+#import "Settings/SGLocalize.h"
 #import "Settings/SGPage.h"
 #import "Settings/SGPageStyle.h"
 #import "Gestures.h"
@@ -201,7 +202,7 @@ static NSString *cellLabel(SGGestureAction action) {
         case 2: {
             BOOL split = path.section == 1;
             NSString *title = split ? SGGestureSplitNames()[(NSUInteger)path.row]
-                                    : [NSString stringWithFormat:@"%@ seconds", SGGestureStepChoices()[(NSUInteger)path.row]];
+                                    : [NSString stringWithFormat:SGL(@"%@ seconds"), SGGestureStepChoices()[(NSUInteger)path.row]];
             SGFillCell(cell, title, nil, nil, nil);
             cell.selectionStyle = UITableViewCellSelectionStyleDefault;
             if (path.row == (split ? SGGestureSplit() : SGGestureStepChoice())) {

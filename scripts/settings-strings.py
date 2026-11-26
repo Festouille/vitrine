@@ -11,13 +11,14 @@ from pathlib import Path
 
 
 SOURCES = Path(__file__).resolve().parents[1] / "tweak/Sources"
-LITERAL = r'@"(?:\\.|[^"\\])*"'
-LITERALS = re.compile(rf'{LITERAL}(?:\s*{LITERAL})*')
-TOKENS = re.compile(rf'{LITERAL}|//[^\n]*|/\*[\s\S]*?\*/|[^\s]')
+QUOTED = r'"(?:\\.|[^"\\])*"'
+LITERAL = rf'@{QUOTED}'
+LITERALS = re.compile(rf'{LITERAL}(?:\s*@?{QUOTED})*')
+TOKENS = re.compile(rf'@?{QUOTED}|//[^\n]*|/\*[\s\S]*?\*/|[^\s]')
 CALL = re.compile(
     r'\b(SGL|SGOfferRestart|SGPickColor|SGNote|SGFillCell|SGSection(?:Header|Footer)?|SGNotedSection|'
     r'SG(?:Action|Warning|Page|Stat|StatAction|Switch|Option|Unstable|Flag|Kill|Hide|Shown|Choice|Slider|Segment|Menu|Link)Row|'
-    r'pageRow|presetRow|SGSourcesPageMake|SGRLyricsSettingsPage)\s*\('
+    r'pageRow|presetRow|lookSlider|SGSourcesPageMake|SGRLyricsSettingsPage)\s*\('
 )
 PROPERTIES = re.compile(
     r'\b(?:SGRestartNote|SGRedesignedUIInfo|SGFakePremiumWarning|title|placeholder|info|choiceFooter|'
@@ -29,11 +30,11 @@ UNCHANGED = {
     "Apple Intelligence", "Apple Music", "AutoMix", "DJ", "Español", "Français",
     "OK", "Premium", "SongDNA", "SponsorBlock", "Spotify", "Türkçe", "Vitrine",
 }
-FORMATS = re.compile(r'%(?:\d+\$)?(?:[.0-9]*)(?:ll|l|z)?[@difuX%]')
+FORMATS = re.compile(r'%(?:\d+\$)?[-+#0]*(?:\d+|\*)?(?:\.(?:\d+|\*))?(?:ll|l|z)?[@difuXsx%]')
 
 
 def literal(match):
-    return "".join(json.loads(part[1:]) for part in re.findall(LITERAL, match))
+    return "".join(json.loads(part) for part in re.findall(QUOTED, match))
 
 
 def arguments(source, start):
@@ -54,9 +55,11 @@ def arguments(source, start):
 
 
 def call_literals(name, args):
-    if name in {"SGL", "SGOfferRestart"}:
+    if name in {"SGL", "SGOfferRestart", "SGNote"}:
         return LITERALS.findall(args[0])
-    if name in {"SGFillCell", "SGSectionHeader", "SGSectionFooter"}:
+    if name == "SGSectionHeader":
+        return LITERALS.findall(args[1])
+    if name in {"SGFillCell", "SGSectionFooter"}:
         positions = (1, 2) if name == "SGFillCell" else (1,)
     elif name == "SGNotedSection":
         positions = (0, 2)
@@ -78,7 +81,7 @@ def extract(path):
     source = path.read_text()
     source = "".join(
         " " if token.group().startswith(("//", "/*")) else token.group()
-        for token in re.finditer(rf'{LITERAL}|//[^\n]*|/\*[\s\S]*?\*/|.', source, re.DOTALL)
+        for token in re.finditer(rf'@?{QUOTED}|//[^\n]*|/\*[\s\S]*?\*/|.', source, re.DOTALL)
     )
     candidates = [next(filter(None, pair)) for pair in PROPERTIES.findall(source)]
     for match in CALL.finditer(source):
