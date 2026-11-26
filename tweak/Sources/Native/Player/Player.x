@@ -115,6 +115,7 @@ static char kMotionTintKey;
     SGMotionFollower *_follower;
     SGMotionColorSampler *_sampler;
     NSTimer *_clock;
+    CALayer *_colorLayer;
 }
 
 - (instancetype)initWithFrame:(CGRect)frame {
@@ -122,6 +123,9 @@ static char kMotionTintKey;
     self.userInteractionEnabled = NO;
     self.accessibilityElementsHidden = YES;
     self.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    _colorLayer = [CALayer layer];
+    _colorLayer.frame = self.bounds;
+    [self.layer addSublayer:_colorLayer];
     NSNotificationCenter *center = NSNotificationCenter.defaultCenter;
     for (NSNotificationName name in @[UIApplicationDidBecomeActiveNotification, UIApplicationWillResignActiveNotification,
                                       NSUserDefaultsDidChangeNotification, NSProcessInfoPowerStateDidChangeNotification,
@@ -129,6 +133,14 @@ static char kMotionTintKey;
         [center addObserver:self selector:@selector(updateSoon) name:name object:nil];
     }
     return self;
+}
+
+- (void)layoutSubviews {
+    [super layoutSubviews];
+    [CATransaction begin];
+    [CATransaction setDisableActions:YES];
+    _colorLayer.frame = self.bounds;
+    [CATransaction commit];
 }
 
 - (void)dealloc {
@@ -155,7 +167,7 @@ static char kMotionTintKey;
         UIColor *tint = [color getRed:&r green:&g blue:&b alpha:NULL]
             ? [UIColor colorWithRed:r * 0.3 green:g * 0.3 blue:b * 0.3 alpha:0.65]
             : UIColor.clearColor;
-        SGMotionBlendColor(view.layer, tint, 0.35);
+        SGMotionBlendColor(view->_colorLayer, tint, 0.35);
     }];
 }
 
@@ -165,7 +177,7 @@ static char kMotionTintKey;
         _clock = nil;
         _follower = nil;
         _sampler = nil;
-        SGMotionBlendColor(self.layer, UIColor.clearColor, 0);
+        SGMotionBlendColor(_colorLayer, UIColor.clearColor, 0);
         return;
     }
     if (_follower) return;
@@ -174,7 +186,7 @@ static char kMotionTintKey;
         SGPlayerMotionTint *view = weakSelf;
         if (!view) return NO;
         view->_sampler = nil;
-        SGMotionBlendColor(view.layer, UIColor.clearColor, 0.35);
+        SGMotionBlendColor(view->_colorLayer, UIColor.clearColor, 0.35);
         return [view wantsMotion];
     } found:^(NSString *uri, NSURL *file) {
         SGPlayerMotionTint *view = weakSelf;

@@ -175,7 +175,6 @@ static void runCoverChecks(UIWindow *window) {
 
 #pragma mark - app
 
-__weak UIView *sg_npvBackdropRoot;
 @implementation SGSponsorBlockOverlay
 + (void)attachToSlider:(UIView *)slider {}
 + (void)refreshAll {}
@@ -277,18 +276,36 @@ static void runMotionChecks(UIViewController *host, BOOL on, NSString *qualityCa
     if (qualityCase) return;
     reportTrack(@"test-clip", 2);
     void (^check)(NSString *, NSInteger) = ^(NSString *frame, NSInteger channel) {
+        UIView *stock = [[UIView alloc] initWithFrame:background.view.bounds];
+        [background.view insertSubview:stock atIndex:0];
+        stock.layer.backgroundColor = UIColor.redColor.CGColor;
+        NSCAssert(!stock.layer.backgroundColor, @"Artwork background must strip a Spotify view's repaint");
+        [stock removeFromSuperview];
         UIView *tint = background.view.subviews.lastObject;
-        CGColorRef drawn = (tint.layer.presentationLayer ?: tint.layer).backgroundColor;
-        CGFloat r = 0, g = 0, b = 0, a = 0;
-        BOOL ok = drawn && [[UIColor colorWithCGColor:drawn] getRed:&r green:&g blue:&b alpha:&a]
-            && (channel == 0 ? a < 0.01 : a > 0.6 && (channel == 1 ? r > 0.25 && b < 0.1 : b > 0.25 && r < 0.1));
-        NSLog(@"COVER READY: native %@ -- %@ (%.2f %.2f %.2f %.2f)", frame, ok ? @"PASS" : @"FAIL", r, g, b, a);
+        CALayer *colorLayer = tint.layer.sublayers.firstObject ?: tint.layer;
+        // Settle the blend even with the simulator's Slow Animations enabled.
+        [colorLayer removeAnimationForKey:@"motionColor"];
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 150 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
+            CGColorRef model = colorLayer.backgroundColor;
+            CGColorRef drawn = (colorLayer.presentationLayer ?: colorLayer).backgroundColor;
+            CGFloat r = 0, g = 0, b = 0, a = 0;
+            BOOL settled = ![colorLayer animationForKey:@"motionColor"] && (model == drawn || (model && drawn && CGColorEqualToColor(model, drawn)));
+            BOOL ok = settled && (!drawn ? channel == 0 : [[UIColor colorWithCGColor:drawn] getRed:&r green:&g blue:&b alpha:&a]
+                && (channel == 0 ? a < 0.01 : a > 0.6 && (channel == 1 ? r > 0.25 && b < 0.1 : b > 0.25 && r < 0.1)));
+            NSLog(@"COVER READY: native %@ -- %@ (%.2f %.2f %.2f %.2f)", frame, ok ? @"PASS" : @"FAIL", r, g, b, a);
+            if (channel == 1) reportTrack(@"test-clip", 7);
+        });
     };
+    if (on) dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 1500 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
+        [sg_state setValue:@YES forKey:@"isPaused"];
+    });
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 2 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
         check(on ? @"on-a" : @"off", on ? 1 : 0);
-        if (on) reportTrack(@"test-clip", 7);
     });
     if (on) {
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 3500 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
+            [sg_state setValue:@YES forKey:@"isPaused"];
+        });
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 4 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
             check(@"on-b", 2);
         });
